@@ -14,22 +14,44 @@
 #   limitations under the License.
 #
 # Author: David Moreau Simard <dmsimard@iweb.com>
-# Author: David Gurtner <david@nine.ch>
-
+# Author: David Gurtner <aldavud@crimson.ch>
+#
+# == Class: ceph::params
+#
 # these parameters need to be accessed from several locations and
 # should be considered to be constant
-
+#
+# === Parameters:
+# [*exec_timeout*] The default exec resource timeout, in seconds
+#   Optional. Defaults to 600
+#
+# [*packages*] The ceph package name
+#   Optional. Defaults to 'ceph'
+#
+# [*rgw_socket_path*] The socket path of the rados gateway
+#   Optional. Defaults to '/tmp/radosgw.sock'
+#
 class ceph::params (
+  $exec_timeout = 600,
   $packages = 'ceph', # just provide the minimum per default
+  $rgw_socket_path = '/tmp/radosgw.sock',
 ) {
 
   case $::osfamily {
     'Debian': {
-      # Nothing here yet
+      $pkg_radosgw      = 'radosgw'
+      $user_radosgw     = 'www-data'
+      $pkg_fastcgi      = 'libapache2-mod-fastcgi'
+      $pkg_nsstools     = 'libnss3-tools'
+      $service_provider = 'debian'
     }
 
     'RedHat': {
-      # Nothing here yet
+      $pkg_radosgw      = 'ceph-radosgw'
+      $user_radosgw     = 'apache'
+      $pkg_fastcgi      = 'mod_fastcgi'
+      $pkg_nsstools     = 'nss-tools'
+      $service_provider = 'redhat'
     }
 
     default: {

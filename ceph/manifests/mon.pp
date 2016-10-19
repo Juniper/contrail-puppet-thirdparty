@@ -17,10 +17,14 @@
 #
 # Author: Loic Dachary <loic@dachary.org>
 # Author: David Moreau Simard <dmsimard@iweb.com>
-# Author: David Gurtner <david@nine.ch>
+# Author: David Gurtner <aldavud@crimson.ch>
+#
+# == Define: ceph::mon
 #
 # Installs and configures MONs (ceph monitors)
-### == Parameters
+#
+# === Parameters:
+#
 # [*title*] The MON id.
 #   Mandatory. An alphanumeric string uniquely identifying the MON.
 #
@@ -47,15 +51,20 @@
 # [*keyring*] Path of the [mon.] keyring file
 #   Optional. $key and $keyring are mutually exclusive.
 #
+# [*exec_timeout*] The default exec resource timeout, in seconds
+#   Optional. Defaults to $::ceph::params::exec_timeout
+#
 define ceph::mon (
-  $package_sku,
   $ensure = present,
   $public_addr = undef,
   $cluster = undef,
   $authentication_type = 'cephx',
   $key = undef,
   $keyring  = undef,
+  $exec_timeout = $::ceph::params::exec_timeout,
   ) {
+
+    include ::stdlib
 
     # a puppet name translates into a ceph id, the meaning is different
     $id = $name
@@ -67,26 +76,26 @@ define ceph::mon (
       $cluster_name = 'ceph'
     }
 
-    if $::operatingsystem == 'Ubuntu' {
+    # if Ubuntu does not use systemd
+    if $::service_provider == 'upstart' {
       $init = 'upstart'
       Service {
         name     => "ceph-mon-${id}",
-        # workaround for bug https://projects.puppetlabs.com/issues/23187
-        provider => 'init',
+        provider => $::ceph::params::service_provider,
         start    => "start ceph-mon id=${id}",
         stop     => "stop ceph-mon id=${id}",
         status   => "status ceph-mon id=${id}",
       }
-    } elsif ($::operatingsystem == 'Debian') or ($::osfamily == 'RedHat') {
+    # Everything else that is supported by puppet-ceph should run systemd.
+    } else {
       $init = 'sysvinit'
       Service {
         name     => "ceph-mon-${id}",
+        provider => $::ceph::params::service_provider,
         start    => "service ceph start mon.${id}",
         stop     => "service ceph stop mon.${id}",
         status   => "service ceph status mon.${id}",
       }
-    } else {
-      fail("operatingsystem = ${::operatingsystem} is not supported")
     }
 
     $mon_service = "ceph-mon-${id}"
@@ -105,12 +114,26 @@ define ceph::mon (
         if $key {
           $keyring_path = "/tmp/ceph-mon-keyring-${id}"
 
-          file { $keyring_path:
-            mode        => '0444',
-            content     => "[mon.]\n\tkey = ${key}\n\tcaps mon = \"allow *\"\n",
+          Ceph_config<||> ->
+          exec { "create-keyring-${id}":
+            command => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+cat > ${keyring_path} << EOF
+[mon.]
+    key = ${key}
+    caps mon = \"allow *\"
+EOF
+
+chmod 0444 ${keyring_path}
+",
+            unless  => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data) || exit 1 # if ceph-mon fails then the mon is probably not configured yet
+test -e \$mon_data/done
+",
           }
 
-          File[$keyring_path] -> Exec[$ceph_mkfs]
+          Exec["create-keyring-${id}"] -> Exec[$ceph_mkfs]
 
         } else {
           $keyring_path = $keyring
@@ -121,51 +144,53 @@ define ceph::mon (
       }
 
       if $public_addr {
-        $public_addr_option = "--public_addr ${public_addr}"
-      }
-      if ( $package_sku =~ /13\.0/) {
-        $setuser_option = "--setuser ceph --setgroup ceph"
+        ceph_config {
+          "mon.${id}/public_addr": value => $public_addr;
+        }
       }
 
-      Ceph_Config<||> ->
+      Ceph_config<||> ->
+      # prevent automatic creation of the client.admin key by ceph-create-keys
+      exec { "ceph-mon-${cluster_name}.client.admin.keyring-${id}":
+        command => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+touch /etc/ceph/${cluster_name}.client.admin.keyring",
+        unless  => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+test -e /etc/ceph/${cluster_name}.client.admin.keyring",
+      }
+      ->
       exec { $ceph_mkfs:
         command   => "/bin/true # comment to satisfy puppet syntax requirements
 set -ex
 mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data)
 if [ ! -d \$mon_data ] ; then
   mkdir -p \$mon_data
-  chown -h ceph:ceph \$mon_data
   if ceph-mon ${cluster_option} \
-        ${setuser_option} \
-        ${public_addr_option} \
         --mkfs \
         --id ${id} \
         --keyring ${keyring_path} ; then
     touch \$mon_data/done \$mon_data/${init} \$mon_data/keyring
-    chown -h ceph:ceph \$mon_data/done \$mon_data/${init} \$mon_data/keyring
   else
     rm -fr \$mon_data
   fi
-else
-  if [ ! -f \$mon_data/done ] ; then
-    rm -fr \$mon_data
-    exit 1
-  fi
 fi
-        ",
-        logoutput => true,
-      }
-      ->
-      # prevent automatic creation of the client.admin key by ceph-create-keys
-      exec { "ceph-mon-${cluster_name}.client.admin.keyring-${id}":
-        command => "/bin/true # comment to satisfy puppet syntax requirements
+",
+        unless    => "/bin/true # comment to satisfy puppet syntax requirements
 set -ex
-touch /etc/ceph/${cluster_name}.client.admin.keyring",
-      } ->
+mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data)
+test -d  \$mon_data
+",
+        logoutput => true,
+        timeout   => $exec_timeout,
+      }->
       service { $mon_service:
         ensure => running,
       }
 
+      # if the service is running before we setup the configs, notify service
+      Ceph_config<||> ~>
+        Service[$mon_service]
 
       if $authentication_type == 'cephx' {
         if $key {
@@ -173,6 +198,10 @@ touch /etc/ceph/${cluster_name}.client.admin.keyring",
 
           exec { "rm-keyring-${id}":
             command => "/bin/rm ${keyring_path}",
+            unless  => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+test ! -e ${keyring_path}
+",
           }
         }
       }
@@ -183,12 +212,22 @@ touch /etc/ceph/${cluster_name}.client.admin.keyring",
       }
       ->
       exec { "remove-mon-${id}":
-        command   => "/bin/true  # comment to satisfy puppet syntax requirements
+        command   => "/bin/true # comment to satisfy puppet syntax requirements
 set -ex
-mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config | sed -n -e 's/mon_data = //p')
+mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data)
 rm -fr \$mon_data
 ",
+        unless    => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+which ceph-mon || exit 0 # if ceph-mon is not available we already uninstalled ceph and there is nothing to do
+mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data)
+test ! -d \$mon_data
+",
         logoutput => true,
+        timeout   => $exec_timeout,
+      } ->
+      ceph_config {
+        "mon.${id}/public_addr": ensure => absent;
       } -> Package<| tag == 'ceph' |>
     }
   }

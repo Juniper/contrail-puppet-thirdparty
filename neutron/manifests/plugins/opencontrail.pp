@@ -4,19 +4,19 @@
 #
 # [*api_server_ip*]
 #   IP address of the API Server
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*api_server_port*]
 #   Port of the API Server.
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*multi_tenancy*]
 #   Whether to enable multi-tenancy
-#   Default to undef
+#   Default to $::os_service_default
 #
 # [*contrail_extensions*]
 #   Array of OpenContrail extensions to be supported
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #   Example:
 #
 #     class {'neutron::plugins::opencontrail' :
@@ -25,35 +25,45 @@
 #
 # [*keystone_auth_url*]
 #   Url of the keystone auth server
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*keystone_admin_user*]
 #   Admin user name
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*keystone_admin_tenant_name*]
 #   Admin_tenant_name
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*keystone_admin_password*]
 #   Admin password
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*keystone_admin_token*]
 #   Admin token
-#   Defaults to undef
+#   Defaults to $::os_service_default
+#
+# [*package_ensure*]
+#   (optional) Ensure state for package.
+#   Defaults to 'present'.
+#
+# [*purge_config*]
+#   (optional) Whether to set only the specified config options
+#   in the opencontrail config.
+#   Defaults to false.
 #
 class neutron::plugins::opencontrail (
-  $api_server_ip              = undef,
-  $api_server_port            = undef,
-  $multi_tenancy              = undef,
-  $contrail_extensions        = undef,
-  $keystone_auth_url          = undef,
-  $keystone_admin_user        = undef,
-  $keystone_admin_tenant_name = undef,
-  $keystone_admin_password    = undef,
-  $keystone_admin_token       = undef,
+  $api_server_ip              = $::os_service_default,
+  $api_server_port            = $::os_service_default,
+  $multi_tenancy              = $::os_service_default,
+  $contrail_extensions        = $::os_service_default,
+  $keystone_auth_url          = $::os_service_default,
+  $keystone_admin_user        = $::os_service_default,
+  $keystone_admin_tenant_name = $::os_service_default,
+  $keystone_admin_password    = $::os_service_default,
+  $keystone_admin_token       = $::os_service_default,
   $package_ensure             = 'present',
+  $purge_config               = false,
 ) {
 
   include ::neutron::params
@@ -66,10 +76,6 @@ class neutron::plugins::opencontrail (
     tag    => 'openstack',
   }
 
-  # Although this manifest does not install opencontrail plugin package because it
-  # is not available in common distro repos, this statement forces you to
-  # have an orchestrator/wrapper manifest that does that job.
-  Package[$::neutron::params::opencontrail_plugin_package] -> Neutron_plugin_opencontrail<||>
   Neutron_plugin_opencontrail<||> ~> Service['neutron-server']
 
   ensure_resource('file', '/etc/neutron/plugins/opencontrail', {
@@ -103,6 +109,10 @@ class neutron::plugins::opencontrail (
       target  => $::neutron::params::opencontrail_config_file,
       require => Package[$::neutron::params::opencontrail_plugin_package],
     }
+  }
+
+  resources { 'neutron_plugin_opencontrail':
+    purge => $purge_config,
   }
 
   neutron_plugin_opencontrail {

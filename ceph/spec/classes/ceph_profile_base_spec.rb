@@ -13,16 +13,27 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-#  Author: David Gurtner <david@nine.ch>
+#  Author: David Gurtner <aldavud@crimson.ch>
 #
 require 'spec_helper'
 
 describe 'ceph::profile::base' do
 
   shared_examples_for 'ceph profile base' do
-    it { should contain_class('ceph::profile::params') }
-    it { should contain_class('ceph::repo') }
-    it { should contain_class('ceph') }
+    describe "with default params" do
+      it { is_expected.to contain_class('ceph::profile::params') }
+      it { is_expected.to contain_class('ceph::repo') }
+      it { is_expected.to contain_class('ceph') }
+    end
+
+    describe "with custom param manage_repo false" do
+      let :pre_condition do
+        "class { 'ceph::profile::params': manage_repo => false }"
+      end
+      it { is_expected.to contain_class('ceph::profile::params') }
+      it { is_expected.to_not contain_class('ceph::repo') }
+      it { is_expected.to contain_class('ceph') }
+    end
   end
 
   context 'on Debian' do
@@ -30,7 +41,8 @@ describe 'ceph::profile::base' do
     let :facts do
       {
         :osfamily        => 'Debian',
-        :lsbdistcodename => 'wheezy'
+        :lsbdistid       => 'Debian',
+        :lsbdistcodename => 'jessie'
       }
     end
 
@@ -42,17 +54,19 @@ describe 'ceph::profile::base' do
     let :facts do
       {
         :osfamily        => 'Debian',
-        :lsbdistcodename => 'Precise'
+        :lsbdistid       => 'Ubuntu',
+        :lsbdistcodename => 'trusty'
       }
     end
 
     it_configures 'ceph profile base'
   end
 
-  context 'on RHEL6' do
+  context 'on RHEL7' do
 
     let :facts do
-      { :osfamily => 'RedHat', }
+      { :osfamily                  => 'RedHat',
+        :operatingsystemmajrelease => '7' }
     end
 
     it_configures 'ceph profile base'

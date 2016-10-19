@@ -13,18 +13,80 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-#  Author: David Gurtner <david@nine.ch>
+#  Author: David Gurtner <aldavud@crimson.ch>
+#  Author: David Moreau Simard <dmsimard@iweb.com>
 #
 require 'spec_helper'
 
 describe 'ceph::profile::client' do
 
   shared_examples_for 'ceph profile client' do
-    it { should contain_ceph__key('client.admin').with(
-      :secret       => 'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA==',
-      :keyring_path => '/etc/ceph/ceph.client.admin.keyring',
-      :mode         => '0644')
-    }
+    context 'with the default client keys defined in common.yaml' do
+
+      it { is_expected.to contain_class('ceph::profile::base') }
+      it { is_expected.to contain_class('ceph::keys').with(
+        'args' => {
+          'client.admin' => {
+            'secret'  => 'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA==',
+            'mode'    => '0600',
+            'cap_mon' => 'allow *',
+            'cap_osd' => 'allow *',
+            'cap_mds' => 'allow *'
+          },
+          'client.bootstrap-osd' => {
+            'secret'       => 'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw==',
+            'keyring_path' => '/var/lib/ceph/bootstrap-osd/ceph.keyring',
+            'cap_mon'      => 'allow profile bootstrap-osd'
+          },
+          'client.bootstrap-mds' => {
+            'secret'       => 'AQCztJdSyNb0NBAASA2yPZPuwXeIQnDJ9O8gVw==',
+            'keyring_path' => '/var/lib/ceph/bootstrap-mds/ceph.keyring',
+            'cap_mon'      => 'allow profile bootstrap-mds'
+          },
+          'client.volumes' => {
+            'secret'  => 'AQA4MPZTOGU0ARAAXH9a0fXxVq0X25n2yPREDw==',
+            'mode'    => '0644',
+            'user'    => 'root',
+            'group'   => 'root',
+            'cap_mon' => 'allow r',
+            'cap_osd' => 'allow class-read object_prefix rbd_children, allow rwx pool=volumes'
+          }
+        }
+      )}
+    end
+
+    context 'with the specific client keys defined in client.yaml' do
+
+      before :each do
+        facts.merge!( :hostname => 'client')
+      end
+
+      it { is_expected.to contain_class('ceph::profile::base') }
+      it { is_expected.to contain_class('ceph::keys').with(
+        'args' => {
+          'client.volumes' => {
+            'secret'  => 'AQA4MPZTOGU0ARAAXH9a0fXxVq0X25n2yPREDw==',
+            'mode'    => '0644',
+            'user'    => 'root',
+            'group'   => 'root',
+            'cap_mon' => 'allow r',
+            'cap_osd' => 'allow class-read object_prefix rbd_children, allow rwx pool=volumes'
+          }
+        }
+      )}
+    end
+
+    context 'without cephx and client_keys' do
+      let :pre_condition do
+        "class { 'ceph::profile::params':
+          authentication_type => 'undef',
+          client_keys         => {}
+        }"
+      end
+
+      it { is_expected.to contain_class('ceph::profile::base') }
+      it { is_expected.to_not contain_class('ceph::keys') }
+    end
   end
 
   context 'on Debian' do
@@ -32,14 +94,13 @@ describe 'ceph::profile::client' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'wheezy',
+        :lsbdistid        => 'Debian',
+        :lsbdistcodename  => 'jessie',
         :operatingsystem  => 'Debian',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile client'
+    it_configures 'ceph profile client'
   end
 
   context 'on Ubuntu' do
@@ -47,28 +108,24 @@ describe 'ceph::profile::client' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'precise',
+        :lsbdistid        => 'Ubuntu',
+        :lsbdistcodename  => 'trusty',
         :operatingsystem  => 'Ubuntu',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile client'
+    it_configures 'ceph profile client'
   end
 
-  context 'on RHEL6' do
+  context 'on RHEL7' do
 
     let :facts do
-      {
-        :osfamily         => 'RedHat',
-        :operatingsystem  => 'RHEL6',
-      }
+      { :osfamily                  => 'RedHat',
+        :operatingsystemmajrelease => '7' }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile client'
+
+    it_configures 'ceph profile client'
   end
 end
 # Local Variables:

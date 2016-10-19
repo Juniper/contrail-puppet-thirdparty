@@ -19,9 +19,10 @@ describe 'swift::storage::server' do
       :devices         => '/srv/node',
       :owner           => 'swift',
       :group           => 'swift',
-      :incoming_chmod  => '0644',
-      :outgoing_chmod  => '0644',
-      :max_connections => '25'
+      :incoming_chmod  => 'Du=rwx,g=rx,o=rx,Fu=rw,g=r,o=r',
+      :outgoing_chmod  => 'Du=rwx,g=rx,o=rx,Fu=rw,g=r,o=r',
+      :max_connections => '25',
+      :log_requests    => true
     }
   end
 
@@ -52,13 +53,13 @@ describe 'swift::storage::server' do
       end
 
       it { is_expected.to contain_package("swift-#{t}").with_ensure('present') }
-      it { is_expected.to contain_service("swift-#{t}").with(
-        :ensure    => 'running',
-        :enable    => true,
-        :hasstatus => true
+      it { is_expected.to contain_service("swift-#{t}-server").with(
+        :ensure     => 'running',
+        :enable     => true,
+        :hasstatus  => true,
       )}
       let :fragment_file do
-        "/var/lib/puppet/concat/_etc_swift_#{t}-server_#{title}.conf/fragments/00_swift-#{t}-#{title}"
+        "/var/lib/puppet/concat/_etc_swift_#{t}-server.conf/fragments/00_swift-#{t}-#{title}"
       end
 
       describe 'when parameters are overridden' do
@@ -131,6 +132,23 @@ describe 'swift::storage::server' do
             it { is_expected.to contain_file(fragment_file).with_content(/^log_udp_port\s*=\s*514\s*$/) }
           end
         end
+
+        describe "when using swift_#{t}_config resource" do
+          let :pre_condition do
+            "
+            class { 'swift': swift_hash_suffix => 'foo' }
+            class { 'swift::storage': storage_local_net_ip => '10.0.0.1' }
+            swift_#{t}_config { 'foo/bar': value => 'foo' }
+            "
+          end
+          it { is_expected.to contain_concat("/etc/swift/#{t}-server.conf").that_comes_before("Swift_#{t}_config[foo/bar]") }
+        end
+        describe "when log_requests is turned off" do
+          let :params do req_params.merge({:log_requests => false}) end
+          it { is_expected.to contain_file(fragment_file) \
+            .with_content(/^set log_requests\s*=\s*false\s*$/)
+          }
+        end
       end
 
       describe 'with all allowed defaults' do
@@ -143,8 +161,8 @@ describe 'swift::storage::server' do
           :lock_file       => "/var/lock/#{t}.lock",
           :uid             => 'swift',
           :gid             => 'swift',
-          :incoming_chmod  => '0644',
-          :outgoing_chmod  => '0644',
+          :incoming_chmod  => 'Du=rwx,g=rx,o=rx,Fu=rw,g=r,o=r',
+          :outgoing_chmod  => 'Du=rwx,g=rx,o=rx,Fu=rw,g=r,o=r',
           :max_connections => 25,
           :read_only       => false
         )}
@@ -153,12 +171,13 @@ describe 'swift::storage::server' do
         it { is_expected.to contain_file(fragment_file).with_content(/^devices\s*=\s*\/srv\/node\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^bind_ip\s*=\s*10\.0\.0\.1\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^bind_port\s*=\s*#{title}\s*$/) }
-        it { is_expected.to contain_file(fragment_file).with_content(/^mount_check\s*=\s*false\s*$/) }
+        it { is_expected.to contain_file(fragment_file).with_content(/^mount_check\s*=\s*true\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^user\s*=\s*swift\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^set log_name\s*=\s*#{t}-server\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^set log_facility\s*=\s*LOG_LOCAL2\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^set log_level\s*=\s*INFO\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^set log_address\s*=\s*\/dev\/log\s*$/) }
+        it { is_expected.to contain_file(fragment_file).with_content(/^set log_requests\s*=\s*true\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^workers\s*=\s*1\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^concurrency\s*=\s*1\s*$/) }
         it { is_expected.to contain_file(fragment_file).with_content(/^pipeline\s*=\s*#{t}-server\s*$/) }

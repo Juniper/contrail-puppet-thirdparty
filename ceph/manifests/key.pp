@@ -19,11 +19,11 @@
 # keys into or delete keys from the cluster/keyring via ceph and ceph-authtool
 # tools.
 #
-### == Name
+# == Define: ceph::key
 #
 # The full ceph ID name, e.g. 'client.admin' or 'mon.'.
 #
-### == Parameters
+# === Parameters:
 #
 # [*secret*] Key secret.
 #   Mandatory. Can be created with ceph-authtool --gen-print-key.
@@ -112,11 +112,17 @@ define ceph::key (
     }
   }
 
+  # ceph-authtool --add-key is idempotent, will just update pre-existing keys
   exec { "ceph-key-${name}":
     command   => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
 ceph-authtool ${keyring_path} --name '${name}' --add-key '${secret}' ${caps}",
-    unless    => "/bin/true # comment to satisfy puppet syntax requirements
-sed -n 'N;\\%.*${name}.*\\n\\s*key = ${secret}%p' ${keyring_path} | grep ${name}",
+    onlyif    => "/bin/true # comment to satisfy puppet syntax requirements
+set -ex
+NEW_KEYRING=\$(mktemp)
+ceph-authtool \$NEW_KEYRING --name '${name}' --add-key '${secret}' ${caps}
+diff -N \$NEW_KEYRING ${keyring_path} | grep '<'
+rm \$NEW_KEYRING",
     require   => [ Package['ceph'], File[$keyring_path], ],
     logoutput => true,
   }
@@ -131,27 +137,20 @@ sed -n 'N;\\%.*${name}.*\\n\\s*key = ${secret}%p' ${keyring_path} | grep ${name}
       $inject_keyring_option = " --keyring '${inject_keyring}' "
     }
 
-    Ceph_Config<||> -> Exec["ceph-injectkey-${name}"]
+    Ceph_config<||> -> Exec["ceph-injectkey-${name}"]
     Ceph::Mon<||> -> Exec["ceph-injectkey-${name}"]
-
-    exec { "ceph-check-key-${name}":
-      command  => "/bin/true # comment to satisfy puppet syntax requirements
-set -ex
-ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth del ${name}",
-      unless   => "/bin/true # comment to satisfy puppet syntax requirements
-set -ex
-ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth get-key ${name} | grep ${secret}"
-    }
-
-
+    # ceph auth import is idempotent, will just update pre-existing keys
     exec { "ceph-injectkey-${name}":
       command   => "/bin/true # comment to satisfy puppet syntax requirements
 set -ex
-ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth add ${name} --in-file=${keyring_path}",
-      unless    => "/bin/true # comment to satisfy puppet syntax requirements
+ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth import -i ${keyring_path}",
+      onlyif    => "/bin/true # comment to satisfy puppet syntax requirements
 set -ex
-ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth get ${name} | grep ${secret}",
-      require   => [ Package['ceph'], Exec["ceph-key-${name}"], Exec["ceph-check-key-${name}"] ],
+OLD_KEYRING=\$(mktemp)
+ceph ${cluster_option} ${inject_id_option} ${inject_keyring_option} auth get ${name} -o \$OLD_KEYRING || true
+diff -N \$OLD_KEYRING ${keyring_path} | grep '>'
+rm \$OLD_KEYRING",
+      require   => [ Package['ceph'], Exec["ceph-key-${name}"], ],
       logoutput => true,
     }
 

@@ -9,7 +9,11 @@
 #
 # [*enabled*]
 #   (optional) Whether the nova api service will be run
-#   Defaults to false
+#   Defaults to true
+#
+# [*api_paste_config*]
+#   (optional) File name for the paste.deploy config for nova-api
+#   Defaults to 'api-paste.ini'
 #
 # [*manage_service*]
 #   (optional) Whether to start/stop the service
@@ -19,32 +23,16 @@
 #   (optional) Whether the nova api package will be installed
 #   Defaults to 'present'
 #
-# [*auth_host*]
-#   (optional) DEPRECATED. The IP of the server running keystone
-#   Defaults to '127.0.0.1'
-#
-# [*auth_port*]
-#   (optional) DEPRECATED. The port to use when authenticating against Keystone
-#   Defaults to 35357
-#
-# [*auth_protocol*]
-#   (optional) DEPRECATED. The protocol to use when authenticating against Keystone
-#   Defaults to 'http'
-#
 # [*auth_uri*]
 #   (optional) Complete public Identity API endpoint.
-#   Defaults to false
+#   Defaults to 'http://127.0.0.1:5000/'
 #
 # [*identity_uri*]
 #   (optional) Complete admin Identity API endpoint.
-#   Defaults to: false
-#
-# [*auth_admin_prefix*]
-#   (optional) DEPRECATED. Prefix to prepend at the beginning of the keystone path
-#   Defaults to false
+#   Defaults to: 'http://127.0.0.1:35357/'
 #
 # [*auth_version*]
-#   (optional) API version of the admin Identity API endpoint
+#   (optional) DEPRECATED. API version of the admin Identity API endpoint
 #   for example, use 'v3.0' for the keystone version 3.0 api
 #   Defaults to false
 #
@@ -60,17 +48,27 @@
 #   (optional) IP address for nova-api server to listen
 #   Defaults to '0.0.0.0'
 #
+# [*ec2_listen_port*]
+#   (optional) DEPRECATED. The port on which the EC2 API will listen.
+#   Defaults to port undef
+#
 # [*metadata_listen*]
 #   (optional) IP address  for metadata server to listen
 #   Defaults to '0.0.0.0'
 #
+# [*metadata_listen_port*]
+#   (optional) The port on which the metadata API will listen.
+#   Defaults to 8775
+#
 # [*enabled_apis*]
-#   (optional) A comma separated list of apis to enable
-#   Defaults to 'ec2,osapi_compute,metadata'
+#   (optional) A list of apis to enable
+#   It was a string until now but will be an array.
+#   To avoid a warning, use an array, like ['osapi_compute', metadata'] for example.
+#   Defaults to ['osapi_compute', 'metadata']
 #
 # [*keystone_ec2_url*]
-#   (optional) The keystone url where nova should send requests for ec2tokens
-#   Defaults to false
+#   (optional) DEPRECATED. The keystone url where nova should send requests for ec2tokens
+#   Defaults to undef
 #
 # [*volume_api_class*]
 #   (optional) The name of the class that nova will use to access volumes. Cinder is the only option.
@@ -85,9 +83,13 @@
 #   (optional) Number of workers for OpenStack API service
 #   Defaults to $::processorcount
 #
+# [*osapi_compute_listen_port*]
+#   (optional) The port on which the OpenStack API will listen.
+#   Defaults to port 8774
+#
 # [*ec2_workers*]
-#   (optional) Number of workers for EC2 service
-#   Defaults to $::processorcount
+#   (optional) DEPRECATED. Number of workers for EC2 service
+#   Defaults to undef
 #
 # [*metadata_workers*]
 #   (optional) Number of workers for metadata service
@@ -98,8 +100,16 @@
 #   Class instead.
 #   Defaults to undef
 #
+# [*instance_name_template*]
+#   (optional) Template string to be used to generate instance names
+#   Defaults to undef
+#
 # [*sync_db*]
 #   (optional) Run nova-manage db sync on api nodes after installing the package.
+#   Defaults to true
+#
+# [*sync_db_api*]
+#   (optional) Run nova-manage api_db sync on api nodes after installing the package.
 #   Defaults to true
 #
 # [*neutron_metadata_proxy_shared_secret*]
@@ -126,9 +136,23 @@
 #   (optional) Enable or not Nova API v3
 #   Defaults to false
 #
+# [*secure_proxy_ssl_header*]
+#   (optional) The HTTP Header that will be used to determine
+#   what the original request protocol scheme was, even if
+#   it was hidden by an SSL termination proxy.
+#   Defaults to $::os_service_default
+#
+# [*default_floating_pool*]
+#   (optional) Default pool for floating IPs
+#   Defaults to 'nova'
+#
 # [*validate*]
 #   (optional) Whether to validate the service is working after any service refreshes
 #   Defaults to false
+#
+# [*fping_path*]
+#   (optional) Full path to fping.
+#   Defaults to '/usr/sbin/fping'
 #
 # [*validation_options*]
 #   (optional) Service validation options
@@ -146,65 +170,132 @@
 #       try_sleep: 10
 #   Defaults to {}
 #
+# [*service_name*]
+#   (optional) Name of the service that will be providing the
+#   server functionality of nova-api.
+#   If the value is 'httpd', this means nova-api will be a web
+#   service, and you must use another class to configure that
+#   web service. For example, use class { 'nova::wsgi::apache'...}
+#   to make nova be a web app using apache mod_wsgi.
+#   Defaults to '$::nova::params::api_service_name'
+#
 class nova::api(
   $admin_password,
-  $enabled               = false,
-  $manage_service        = true,
-  $ensure_package        = 'present',
-  $auth_uri              = false,
-  $identity_uri          = false,
-  $auth_version          = false,
-  $admin_tenant_name     = 'services',
-  $admin_user            = 'nova',
-  $api_bind_address      = '0.0.0.0',
-  $metadata_listen       = '0.0.0.0',
-  $enabled_apis          = 'ec2,osapi_compute,metadata',
-  $keystone_ec2_url      = false,
-  $volume_api_class      = 'nova.volume.cinder.API',
-  $use_forwarded_for     = false,
-  $osapi_compute_workers = $::processorcount,
-  $ec2_workers           = $::processorcount,
-  $metadata_workers      = $::processorcount,
-  $sync_db               = true,
+  $enabled                   = true,
+  $manage_service            = true,
+  $api_paste_config          = 'api-paste.ini',
+  $ensure_package            = 'present',
+  $auth_uri                  = 'http://127.0.0.1:5000/',
+  $identity_uri              = 'http://127.0.0.1:35357/',
+  $admin_tenant_name         = 'services',
+  $admin_user                = 'nova',
+  $api_bind_address          = '0.0.0.0',
+  $osapi_compute_listen_port = 8774,
+  $metadata_listen           = '0.0.0.0',
+  $metadata_listen_port      = 8775,
+  $enabled_apis              = ['osapi_compute', 'metadata'],
+  $volume_api_class          = 'nova.volume.cinder.API',
+  $use_forwarded_for         = false,
+  $osapi_compute_workers     = $::processorcount,
+  $metadata_workers          = $::processorcount,
+  $sync_db                   = true,
+  $sync_db_api               = true,
   $neutron_metadata_proxy_shared_secret = undef,
-  $osapi_v3              = false,
-  $pci_alias             = undef,
-  $ratelimits            = undef,
-  $ratelimits_factory    =
+  $osapi_v3                  = false,
+  $default_floating_pool     = 'nova',
+  $pci_alias                 = undef,
+  $ratelimits                = undef,
+  $ratelimits_factory        =
     'nova.api.openstack.compute.limits:RateLimitingMiddleware.factory',
-  $validate              = false,
-  $validation_options    = {},
-  $package_sku           = '',
+  $validate                  = false,
+  $validation_options        = {},
+  $instance_name_template    = undef,
+  $fping_path                = '/usr/sbin/fping',
+  $service_name              = $::nova::params::api_service_name,
+  $secure_proxy_ssl_header   = $::os_service_default,
   # DEPRECATED PARAMETER
-  $auth_protocol         = 'http',
-  $auth_port             = 35357,
-  $auth_host             = '127.0.0.1',
-  $auth_admin_prefix     = false,
-  $conductor_workers     = undef,
-) {
+  $conductor_workers         = undef,
+  $ec2_listen_port           = undef,
+  $ec2_workers               = undef,
+  $keystone_ec2_url          = undef,
+  $auth_version              = false,
+) inherits nova::params {
 
+  include ::nova::deps
   include ::nova::db
-  include ::nova::params
   include ::nova::policy
-  require ::keystone::python
   include ::cinder::client
 
-  Package<| title == 'nova-api' |> -> Nova_paste_api_ini<| |>
-
-  Package<| title == 'nova-common' |> -> Class['nova::api']
-  Package<| title == 'nova-common' |> -> Class['nova::policy']
-
-  Nova_paste_api_ini<| |> ~> Exec['post-nova_config']
-
-  Nova_paste_api_ini<| |> ~> Service['nova-api']
-  Class['nova::policy'] ~> Service['nova-api']
+  if $ec2_listen_port or $ec2_workers or $keystone_ec2_url {
+    warning('ec2_listen_port, ec2_workers and keystone_ec2_url are deprecated and have no effect. Deploy openstack/ec2-api instead.')
+  }
 
   if $conductor_workers {
     warning('The conductor_workers parameter is deprecated and has no effect. Use workers parameter of nova::conductor class instead.')
   }
 
+  if $instance_name_template {
+    nova_config {
+      'DEFAULT/instance_name_template': value => $instance_name_template;
+    }
+  } else {
+    nova_config{
+      'DEFAULT/instance_name_template': ensure => absent;
+    }
+  }
+
+  # In N release, enabled_apis should be an array by default
+  if is_array($enabled_apis) {
+    # let's transform the array in a string
+    # ['osapi_compute', 'metadata'] would become 'osapi_compute,metadata'
+    $enabled_apis_string = join($enabled_apis, ',')
+  } else {
+    # But for Mitaka cycle, we maintain backward compatibility:
+    # when running wsgi, we need to know what to exactly enable or not.
+    # since enabled_apis is not an array, so we need to grep services
+    # so we can detect what is actually activated for eventlet or not.
+    $enabled_apis_string = $enabled_apis
+    warning('In N cycle, enabled_apis will have to be an array of APIs to enable.')
+  }
+
+  # metadata can't be run in wsgi so we have to enable it in eventlet anyway.
+  if ('metadata' in $enabled_apis and $service_name == 'httpd') {
+    $enable_metadata = true
+  } else {
+    $enable_metadata = false
+  }
+
+  # sanitize service_name and prepare DEFAULT/enabled_apis parameter
+  if $service_name == $::nova::params::api_service_name {
+    # if running evenlet, we use the original puppet parameter
+    # so people can enable custom service names and we keep backward compatibility.
+    $enabled_apis_real = $enabled_apis_string
+    $service_enabled   = $enabled
+  } elsif $service_name == 'httpd' {
+    # when running wsgi, we want to enable metadata in eventlet if part of enabled_apis
+    if $enable_metadata {
+      $enabled_apis_real = 'metadata'
+      $service_enabled   = $enabled
+    } else {
+      # otherwise, set it to undef
+      $enabled_apis_real = undef
+      # if running wsgi for compute, and metadata disabled
+      # we don't need to enable nova-api service.
+      $service_enabled   = false
+    }
+    policy_rcd { 'nova-api':
+      ensure   => present,
+      set_code => '101',
+      before   => Package['nova-api'],
+    }
+    # make sure we start apache before nova-api to avoid binding issues
+    Service[$service_name] -> Service['nova-api']
+  } else {
+    fail('Invalid service_name. Either nova-api/openstack-nova-api for running as a standalone service, or httpd for being run by a httpd server')
+  }
+
   nova::generic_service { 'api':
-    enabled        => $enabled,
+    enabled        => $service_enabled,
     manage_service => $manage_service,
     ensure_package => $ensure_package,
     package_name   => $::nova::params::api_package_name,
@@ -213,18 +304,22 @@ class nova::api(
   }
 
   nova_config {
-    'DEFAULT/enabled_apis':          value => $enabled_apis;
-    'DEFAULT/volume_api_class':      value => $volume_api_class;
-    'DEFAULT/ec2_listen':            value => $api_bind_address;
-    'DEFAULT/osapi_compute_listen':  value => $api_bind_address;
-    'DEFAULT/metadata_listen':       value => $metadata_listen;
-    'DEFAULT/osapi_volume_listen':   value => $api_bind_address;
-    'DEFAULT/osapi_compute_workers': value => $osapi_compute_workers;
-    'DEFAULT/ec2_workers':           value => $ec2_workers;
-    'DEFAULT/metadata_workers':      value => $metadata_workers;
-    'DEFAULT/use_forwarded_for':     value => $use_forwarded_for;
-    'osapi_v3/enabled':              value => $osapi_v3;
-    'neutron/service_metadata_proxy': value => true;
+    'DEFAULT/api_paste_config':          value => $api_paste_config;
+    'DEFAULT/enabled_apis':              value => $enabled_apis_real;
+    'DEFAULT/volume_api_class':          value => $volume_api_class;
+    'DEFAULT/osapi_compute_listen':      value => $api_bind_address;
+    'DEFAULT/metadata_listen':           value => $metadata_listen;
+    'DEFAULT/metadata_listen_port':      value => $metadata_listen_port;
+    'DEFAULT/osapi_compute_listen_port': value => $osapi_compute_listen_port;
+    'DEFAULT/osapi_volume_listen':       value => $api_bind_address;
+    'DEFAULT/osapi_compute_workers':     value => $osapi_compute_workers;
+    'DEFAULT/metadata_workers':          value => $metadata_workers;
+    'DEFAULT/use_forwarded_for':         value => $use_forwarded_for;
+    'DEFAULT/default_floating_pool':     value => $default_floating_pool;
+    'DEFAULT/fping_path':                value => $fping_path;
+    'DEFAULT/secure_proxy_ssl_header':   value => $secure_proxy_ssl_header;
+    'osapi_v3/enabled':                  value => $osapi_v3;
+    'neutron/service_metadata_proxy':    value => true;
   }
 
   #if ($neutron_metadata_proxy_shared_secret){
@@ -240,102 +335,19 @@ class nova::api(
     #}
   #}
 
-  if $auth_uri {
-    $auth_uri_real = $auth_uri
-  } else {
-    $auth_uri_real = "${auth_protocol}://${auth_host}:5000/"
-  }
-  nova_config { 'keystone_authtoken/auth_uri': value => $auth_uri_real; }
-
-  if $identity_uri {
-    nova_config { 'keystone_authtoken/identity_uri': value => $identity_uri; }
-  } else {
-    nova_config { 'keystone_authtoken/identity_uri': ensure => absent; }
-  }
-
   if $auth_version {
-    nova_config { 'keystone_authtoken/auth_version': value => $auth_version; }
-  } else {
-    nova_config { 'keystone_authtoken/auth_version': ensure => absent; }
+    warning('auth_version parameter is deprecated and has no effect during Mitaka and will be dropped during N cycle.')
   }
 
-  # if both auth_uri and identity_uri are set we skip these deprecated settings entirely
-  if !$auth_uri or !$identity_uri {
-
-    if $auth_host {
-      warning('The auth_host parameter is deprecated. Please use auth_uri and identity_uri instead.')
-      nova_config { 'keystone_authtoken/auth_host': value => $auth_host; }
-    } else {
-      nova_config { 'keystone_authtoken/auth_host': ensure => absent; }
-    }
-
-    if $auth_port {
-      warning('The auth_port parameter is deprecated. Please use auth_uri and identity_uri instead.')
-      nova_config { 'keystone_authtoken/auth_port': value => $auth_port; }
-    } else {
-      nova_config { 'keystone_authtoken/auth_port': ensure => absent; }
-    }
-
-    if $auth_protocol {
-      warning('The auth_protocol parameter is deprecated. Please use auth_uri and identity_uri instead.')
-      nova_config { 'keystone_authtoken/auth_protocol': value => $auth_protocol; }
-    } else {
-      nova_config { 'keystone_authtoken/auth_protocol': ensure => absent; }
-    }
-
-    if $auth_admin_prefix {
-      warning('The auth_admin_prefix  parameter is deprecated. Please use auth_uri and identity_uri instead.')
-      validate_re($auth_admin_prefix, '^(/.+[^/])?$')
-      nova_config {
-        'keystone_authtoken/auth_admin_prefix': value => $auth_admin_prefix;
-      }
-    } else {
-      nova_config { 'keystone_authtoken/auth_admin_prefix': ensure => absent; }
-    }
-
-  } else {
-    nova_config {
-      'keystone_authtoken/auth_host': ensure => absent;
-      'keystone_authtoken/auth_port': ensure => absent;
-      'keystone_authtoken/auth_protocol': ensure => absent;
-      'keystone_authtoken/auth_admin_prefix': ensure => absent;
-    }
+  nova_config {
+    'keystone_authtoken/auth_uri'    : value => $auth_uri;
+    'keystone_authtoken/identity_uri': value => $identity_uri;
   }
 
   nova_config {
     'keystone_authtoken/admin_tenant_name': value => $admin_tenant_name;
     'keystone_authtoken/admin_user':        value => $admin_user;
     'keystone_authtoken/admin_password':    value => $admin_password, secret => true;
-  }
-
-  if $keystone_ec2_url {
-    nova_config {
-      'DEFAULT/keystone_ec2_url': value => $keystone_ec2_url;
-    }
-  } else {
-    nova_config {
-      'DEFAULT/keystone_ec2_url': ensure => absent;
-    }
-  }
-
-  if 'occiapi' in $enabled_apis {
-    if !defined(Package['python-pip']) {
-      package { 'python-pip':
-        ensure => latest,
-      }
-    }
-    if !defined(Package['pyssf']) {
-      package { 'pyssf':
-        ensure   => latest,
-        provider => pip,
-        require  => Package['python-pip']
-      }
-    }
-    package { 'openstackocci':
-      ensure   => latest,
-      provider => 'pip',
-      require  => Package['python-pip'],
-    }
   }
 
   if ($ratelimits != undef) {
@@ -348,26 +360,10 @@ class nova::api(
   # Added arg and if statement prevents this from being run
   # where db is not active i.e. the compute
   if $sync_db {
-    Package<| title == $::nova::params::api_package_name |>    ~> Exec['nova-db-sync']
-    Package<| title == $::nova::params::common_package_name |> ~> Exec['nova-db-sync']
-
-    if ( $package_sku =~ /13\.0/) {
-      Package<| title == $::nova::params::api_package_name |>  ~> Exec['nova-api-db-sync']
-      Package<| title == $::nova::params::common_package_name |> ~> Exec['nova-api-db-sync']
-    }
-
-    exec { 'nova-db-sync':
-      command     => '/usr/bin/nova-manage db sync',
-      refreshonly => true,
-      subscribe   => Exec['post-nova_config'],
-    }
-    if ( $package_sku =~ /13\.0/) {
-      exec { 'nova-api-db-sync':
-        command     => '/usr/bin/nova-manage api_db sync',
-        refreshonly => true,
-        subscribe   => Exec['post-nova_config'],
-      }
-    }
+    include ::nova::db::sync
+  }
+  if $sync_db_api {
+    include ::nova::db::sync_api
   }
 
   # Remove auth configuration from api-paste.ini
@@ -391,7 +387,7 @@ class nova::api(
   if $validate {
     $defaults = {
       'nova-api' => {
-        'command'  => "nova --os-auth-url ${auth_uri_real} --os-tenant-name ${admin_tenant_name} --os-username ${admin_user} --os-password ${admin_password} flavor-list",
+        'command'  => "nova --os-auth-url ${auth_uri} --os-tenant-name ${admin_tenant_name} --os-username ${admin_user} --os-password ${admin_password} flavor-list",
       }
     }
     $validation_options_hash = merge ($defaults, $validation_options)

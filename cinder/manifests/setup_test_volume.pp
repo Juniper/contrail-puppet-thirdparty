@@ -23,13 +23,7 @@ class cinder::setup_test_volume(
 ) {
 
   package { 'lvm2':
-    ensure => present,
-  } ~>
-
-  file { $volume_path:
-    ensure  => directory,
-    owner   => 'cinder',
-    group   => 'cinder',
+    ensure  => present,
     require => Package['cinder'],
   } ~>
 
@@ -39,8 +33,13 @@ class cinder::setup_test_volume(
     unless  => "stat ${volume_path}/${volume_name}",
   } ~>
 
+  file { "${volume_path}/${volume_name}":
+    mode => '0640',
+  } ~>
+
   exec { "losetup ${loopback_device} ${volume_path}/${volume_name}":
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    unless      => "losetup ${loopback_device}",
     refreshonly => true,
   } ~>
 
@@ -52,6 +51,7 @@ class cinder::setup_test_volume(
 
   exec { "vgcreate ${volume_name} ${loopback_device}":
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    unless      => "vgdisplay | grep ${volume_name}",
     refreshonly => true,
   }
 

@@ -14,14 +14,14 @@ Puppet::Type.type(:nova_aggregate).provide(
 
   def self.instances
     nova_aggregate_resources_ids().collect do |el|
-      attrs = nova_aggregate_resources_attr(el['Id'])
+      attrs = nova_aggregate_resources_attr(el['Name'])
       new(
           :ensure => :present,
           :name => attrs['Name'],
           :id => attrs['Id'],
           :availability_zone => attrs['Availability Zone'],
           :metadata => attrs['Metadata'],
-          :hosts => attrs['Hosts']
+          :hosts => attrs['Hosts'].sort
           )
     end
   end
@@ -61,7 +61,8 @@ Puppet::Type.type(:nova_aggregate).provide(
     result = auth_nova("aggregate-create", resource[:name], extras)
 
     #get Id by Name
-    id = self.class.nova_aggregate_resources_get_name_by_id(resource[:name])
+    #force a refresh of the aggregate list on creation
+    id = self.class.nova_aggregate_resources_get_name_by_id(resource[:name], true)
 
     @property_hash = {
       :ensure => :present,
@@ -73,7 +74,7 @@ Puppet::Type.type(:nova_aggregate).provide(
     #add metadata
     if not @resource[:metadata].nil? and not @resource[:metadata].empty?
       @resource[:metadata].each do |key, value|
-        set_metadata_helper(id, key, value)
+        set_metadata_helper(resource[:name], key, value)
       end
       @property_hash[:metadata] = resource[:metadata]
     end
@@ -81,27 +82,41 @@ Puppet::Type.type(:nova_aggregate).provide(
     #add hosts - This throws an error if the host is already attached to another aggregate!
     if not @resource[:hosts].nil? and not @resource[:hosts].empty?
       @resource[:hosts].each do |host|
-        auth_nova("aggregate-add-host", id, "#{host}")
+        # make sure the host exists in nova, or nova will fail the call
+        # this solves weird ordering issues with a compute node that's
+        # not 100% up being added to the host aggregate
+        if is_host_in_nova?(host)
+          auth_nova("aggregate-add-host", resource[:name], "#{host}")
+        else
+          warning("Cannot add #{host} to host aggregate, it's not available yet in nova host-list")
+        end
       end
       @property_hash[:hosts] = resource[:hosts]
     end
   end
 
+  def is_host_in_nova?(host)
+    return host==self.class.nova_get_host_by_name_and_type(host, "compute")
+  end
+
   def hosts=(val)
     #get current hosts
-    id = self.class.nova_aggregate_resources_get_name_by_id(name)
-    attrs = self.class.nova_aggregate_resources_attr(id)
+    attrs = self.class.nova_aggregate_resources_attr(name)
     #remove all hosts which are not in new value list
     attrs['Hosts'].each do |h|
       if not val.include? h
-        auth_nova("aggregate-remove-host", id, "#{h}")
+        auth_nova("aggregate-remove-host", name, "#{h}")
       end
     end
 
     #add hosts from the value list
     val.each do |h|
       if not attrs['Hosts'].include? h
-        auth_nova("aggregate-add-host", id, "#{h}")
+        if is_host_in_nova?(h)
+          auth_nova("aggregate-add-host", name, "#{h}")
+        else
+          warning("Cannot add #{h} to host aggregate, it's not available yet in nova host-list")
+        end
       end
     end
   end
@@ -112,8 +127,7 @@ Puppet::Type.type(:nova_aggregate).provide(
 
   def metadata
     #get current metadata
-    id = self.class.nova_aggregate_resources_get_name_by_id(name)
-    attrs = self.class.nova_aggregate_resources_attr(id)
+    attrs = self.class.nova_aggregate_resources_attr(name)
     #just ignore the availability_zone. that's handled directly by nova
     attrs['Metadata'].delete('availability_zone')
     return attrs['Metadata']
@@ -121,8 +135,7 @@ Puppet::Type.type(:nova_aggregate).provide(
 
   def metadata=(val)
     #get current metadata
-    id = self.class.nova_aggregate_resources_get_name_by_id(name)
-    attrs = self.class.nova_aggregate_resources_attr(id)
+    attrs = self.class.nova_aggregate_resources_attr(name)
     #get keys which are in current metadata but not in val. Make sure it has data first!
     if attrs['Metadata'].length > 0
       obsolete_keys = attrs['Metadata'].keys - val.keys
@@ -131,7 +144,7 @@ Puppet::Type.type(:nova_aggregate).provide(
     if obsolete_keys
       obsolete_keys.each do |key|
         if not key.include? 'availability_zone'
-          auth_nova("aggregate-set-metadata", id, "#{key}")
+          auth_nova("aggregate-set-metadata", name, "#{key}")
         end
       end
       #handle keys (with obsolete keys)
@@ -144,14 +157,13 @@ Puppet::Type.type(:nova_aggregate).provide(
     new_keys.each do |key|
       if val[key] != attrs['Metadata'][key.to_s]
         value = val[key]
-        set_metadata_helper(id, key, value)
+        set_metadata_helper(name, key, value)
       end
     end
   end
 
   def availability_zone=(val)
-    id = self.class.nova_aggregate_resources_get_name_by_id(name)
-    auth_nova("aggregate-set-metadata", id, "availability_zone=#{val}")
+    auth_nova("aggregate-set-metadata", name, "availability_zone=#{val}")
   end
 
 end

@@ -39,6 +39,14 @@
 #   (optional) Whether to create the S3 endpoint.
 #   Defaults to true
 #
+# [*configure_user*]
+#   (Optional) Whether to create the service user.
+#   Defaults to 'true'.
+#
+# [*configure_user_role*]
+#   (Optional) Whether to configure the admin role for the service user.
+#   Defaults to 'true'.
+#
 # [*service_name*]
 #   (optional) Name of the service.
 #   Defaults to the value of auth_name, but must differ from the value
@@ -48,6 +56,14 @@
 #   (optional) Name of the s3 service.
 #   Defaults to the value of auth_name_s3, but must differ from the value
 #   of service_name.
+#
+# [*service_description*]
+#   (optional) Description for keystone service.
+#   Defaults to 'Openstack Object-Store Service'.
+#
+# [*service_description_s3*]
+#   (optional) Description for keystone s3 service.
+#   Defaults to 'Openstack S3 Service'.
 #
 # [*public_url*]
 #   (optional) The endpoint's public url. (Defaults to 'http://127.0.0.1:8080/v1/AUTH_%(tenant_id)s')
@@ -143,8 +159,12 @@ class swift::keystone::auth(
   $operator_roles         = ['admin', 'SwiftOperator'],
   $service_name           = undef,
   $service_name_s3        = undef,
+  $service_description    = 'Openstack Object-Store Service',
+  $service_description_s3 = 'Openstack S3 Service',
   $configure_endpoint     = true,
   $configure_s3_endpoint  = true,
+  $configure_user         = true,
+  $configure_user_role    = true,
   $public_url             = 'http://127.0.0.1:8080/v1/AUTH_%(tenant_id)s',
   $admin_url              = 'http://127.0.0.1:8080',
   $internal_url           = 'http://127.0.0.1:8080/v1/AUTH_%(tenant_id)s',
@@ -262,11 +282,22 @@ class swift::keystone::auth(
       fail('cinder::keystone::auth parameters service_name and service_name_s3 must be different.')
   }
 
+  # Establish that keystone auth and endpoints are properly setup before
+  # managing any type of swift related service.
+  if $configure_endpoint {
+    Keystone_endpoint["${region}/${real_service_name}::object-store"] -> Swift::Service<||>
+  }
+  if $configure_s3_endpoint {
+    Keystone_endpoint["${region}/${real_service_name_s3}::s3"] -> Swift::Service<||>
+  }
+
   keystone::resource::service_identity { 'swift':
     configure_endpoint  => $configure_endpoint,
+    configure_user      => $configure_user,
+    configure_user_role => $configure_user_role,
     service_name        => $real_service_name,
     service_type        => 'object-store',
-    service_description => 'Openstack Object-Store Service',
+    service_description => $service_description,
     region              => $region,
     auth_name           => $auth_name,
     password            => $password,
@@ -284,7 +315,7 @@ class swift::keystone::auth(
     configure_service   => $configure_s3_endpoint,
     service_name        => $real_service_name_s3,
     service_type        => 's3',
-    service_description => 'Openstack S3 Service',
+    service_description => $service_description_s3,
     region              => $region,
     public_url          => $public_url_s3_real,
     admin_url           => $admin_url_s3_real,
@@ -297,6 +328,8 @@ class swift::keystone::auth(
   }
 
   # Backward compatibility
-  Keystone_user[$auth_name] -> Keystone_user_role["${auth_name}@${tenant}"]
+  if $configure_user {
+    Keystone_user[$auth_name] -> Keystone_user_role["${auth_name}@${tenant}"]
+  }
 
 }

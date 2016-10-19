@@ -15,7 +15,7 @@
 #   limitations under the License.
 #
 # Author: Loic Dachary <loic@dachary.org>
-# Author: David Gurtner <david@nine.ch>
+# Author: David Gurtner <aldavud@crimson.ch>
 #
 require 'spec_helper'
 
@@ -41,8 +41,8 @@ describe 'ceph::mons' do
     end
 
     it {
-      should contain_service('ceph-mon-A').with('ensure' => "running")
-      should contain_service('ceph-mon-B').with('ensure' => "running")
+      is_expected.to contain_service('ceph-mon-A').with('ensure' => "running")
+      is_expected.to contain_service('ceph-mon-B').with('ensure' => "running")
     }
   end
 
@@ -68,11 +68,11 @@ describe 'ceph::mons' do
     it_configures 'ceph mons'
   end
 
-  describe 'RedHat' do
+  describe 'RHEL7' do
     let :facts do
       {
-        :osfamily => 'RedHat',
-        :operatingsystem => 'RedHat',
+        :osfamily                  => 'RedHat',
+        :operatingsystemmajrelease => '7',
       }
     end
 

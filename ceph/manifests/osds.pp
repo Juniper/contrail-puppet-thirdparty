@@ -13,10 +13,20 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-# Author: David Gurtner <aldavud>
+# Author: David Gurtner <aldavud@crimson.ch>
+#
+# == Class: ceph::osds
 #
 # Class wrapper for the benefit of scenario_node_terminus
 #
-class ceph::osds($args, $defaults = {}) {
+# === Parameters:
+#
+# [*args*] A Ceph osds config hash
+#   Optional.
+#
+# [*defaults*] A config hash
+#   Optional. Defaults to a empty hash
+#
+class ceph::osds($args = {}, $defaults = {}) {
   create_resources(ceph::osd, $args, $defaults)
 }

@@ -6,7 +6,7 @@
 #
 # [*enabled*]
 #   (optional) Whether or not to enable the nova cert service
-#   Defaults to false
+#   Defaults to true
 #
 # [*manage_service*]
 #   (optional) Whether to start/stop the service
@@ -17,11 +17,12 @@
 #   Defaults to 'present'
 #
 class nova::cert(
-  $enabled        = false,
+  $enabled        = true,
   $manage_service = true,
   $ensure_package = 'present'
 ) {
 
+  include ::nova::deps
   include ::nova::params
 
   nova::generic_service { 'cert':

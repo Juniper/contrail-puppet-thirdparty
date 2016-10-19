@@ -21,6 +21,10 @@
 #
 # == Parameters:
 #
+# [*ensure*]
+#   Ensure parameter for the types used in resource.
+#   string; optional: default to 'present'
+#
 # [*password*]
 #   Password to create for the service user;
 #   string; required
@@ -104,6 +108,7 @@
 #   Defaults to undef
 #
 define keystone::resource::service_identity(
+  $ensure                = 'present',
   $admin_url             = false,
   $internal_url          = false,
   $password              = false,
@@ -125,6 +130,11 @@ define keystone::resource::service_identity(
   $project_domain        = undef,
   $default_domain        = undef,
 ) {
+
+  include ::keystone::deps
+
+  validate_re($ensure, ['^present$', '^absent$'], 'Valid values for ensure parameter are present or absent')
+
   if $service_name == undef {
     $service_name_real = $auth_name
   } else {
@@ -143,42 +153,64 @@ define keystone::resource::service_identity(
       # no way to know if the $user_domain is the same domain passed as the
       # $default_domain parameter to class keystone.
       ensure_resource('keystone_domain', $user_domain_real, {
-        'ensure'  => 'present',
+        'ensure'  => $ensure,
         'enabled' => true,
       })
     }
     ensure_resource('keystone_user', $auth_name, {
-      'ensure'                => 'present',
+      'ensure'                => $ensure,
       'enabled'               => true,
       'password'              => $password,
       'email'                 => $email,
-      'tenant'                => $tenant,
-      'ignore_default_tenant' => $ignore_default_tenant,
       'domain'                => $user_domain_real,
     })
+    if ! $password {
+      warning("No password had been set for ${auth_name} user.")
+    }
   }
 
   if $configure_user_role {
     ensure_resource('keystone_user_role', "${auth_name}@${tenant}", {
-      'ensure' => 'present',
+      'ensure' => $ensure,
       'roles'  => $roles,
     })
   }
 
   if $configure_service {
-    ensure_resource('keystone_service', $service_name_real, {
-      'ensure'      => 'present',
-      'type'        => $service_type,
-      'description' => $service_description,
-    })
+    if $service_type {
+      ensure_resource('keystone_service', "${service_name_real}::${service_type}", {
+        'ensure'      => $ensure,
+        'description' => $service_description,
+      })
+    } else {
+      fail ('When configuring a service, you need to set the service_type parameter.')
+    }
   }
 
   if $configure_endpoint {
-    ensure_resource('keystone_endpoint', "${region}/${service_name_real}", {
-      'ensure'       => 'present',
-      'public_url'   => $public_url,
-      'admin_url'    => $admin_url,
-      'internal_url' => $internal_url,
-    })
+    if $service_type {
+      if $public_url and $admin_url and $internal_url {
+        ensure_resource('keystone_endpoint', "${region}/${service_name_real}::${service_type}", {
+          'ensure'       => $ensure,
+          'public_url'   => $public_url,
+          'admin_url'    => $admin_url,
+          'internal_url' => $internal_url,
+        })
+      } else {
+        fail ('When configuring an endpoint, you need to set the _url parameters.')
+      }
+    } else {
+      if $public_url and $admin_url and $internal_url {
+        ensure_resource('keystone_endpoint', "${region}/${service_name_real}", {
+          'ensure'       => $ensure,
+          'public_url'   => $public_url,
+          'admin_url'    => $admin_url,
+          'internal_url' => $internal_url,
+        })
+      } else {
+        fail ('When configuring an endpoint, you need to set the _url parameters.')
+      }
+      warning('Defining a endpoint without the type is supported in Liberty and will be dropped in Mitaka. See https://bugs.launchpad.net/puppet-keystone/+bug/1506996')
+    }
   }
 }

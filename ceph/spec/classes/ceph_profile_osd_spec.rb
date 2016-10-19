@@ -13,7 +13,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-#  Author: David Gurtner <david@nine.ch>
+#  Author: David Gurtner <aldavud@crimson.ch>
 #
 require 'spec_helper'
 
@@ -26,12 +26,9 @@ describe 'ceph::profile::osd' do
         facts.merge!( :hostname => 'osd')
       end
 
-      it { should contain_ceph__key('client.bootstrap-osd').with(
-        :keyring_path     => '/var/lib/ceph/bootstrap-osd/ceph.keyring',
-        :secret           => 'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw==')
-      }
-      it { should contain_ceph__osd('/dev/sdc').with(:journal => '/dev/sdb1') }
-      it { should contain_ceph__osd('/dev/sdd').with(:journal => '/dev/sdb2') }
+      it { is_expected.to contain_class('ceph::profile::client') }
+      it { is_expected.to contain_ceph__osd('/dev/sdc').with(:journal => '/dev/sdb') }
+      it { is_expected.to contain_ceph__osd('/dev/sdd').with(:journal => '/dev/sdb') }
     end
 
     context 'with the host specific first.yaml' do
@@ -40,11 +37,8 @@ describe 'ceph::profile::osd' do
         facts.merge!( :hostname => 'first')
       end
 
-      it { should contain_ceph__key('client.bootstrap-osd').with(
-        :keyring_path     => '/var/lib/ceph/bootstrap-osd/ceph.keyring',
-        :secret           => 'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw==')
-      }
-      it { should contain_ceph__osd('/dev/sdb').with( :journal => '/tmp/journal') }
+      it { is_expected.to contain_class('ceph::profile::client') }
+      it { is_expected.to contain_ceph__osd('/dev/sdb').with( :journal => '/srv/journal') }
     end
   end
 
@@ -53,14 +47,13 @@ describe 'ceph::profile::osd' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'wheezy',
+        :lsbdistid        => 'Debian',
+        :lsbdistcodename  => 'jessie',
         :operatingsystem  => 'Debian',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile osd'
+    it_configures 'ceph profile osd'
   end
 
   describe 'on Ubuntu' do
@@ -68,28 +61,23 @@ describe 'ceph::profile::osd' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'precise',
+        :lsbdistid        => 'Ubuntu',
+        :lsbdistcodename  => 'trusty',
         :operatingsystem  => 'Ubuntu',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile osd'
+    it_configures 'ceph profile osd'
   end
 
-  describe 'on RedHat' do
+  describe 'on RHEL7' do
 
     let :facts do
-      {
-        :osfamily         => 'RedHat',
-        :operatingsystem  => 'RHEL6',
-      }
+      { :osfamily                  => 'RedHat',
+        :operatingsystemmajrelease => '7' }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile osd'
+    it_configures 'ceph profile osd'
   end
 end
 # Local Variables:

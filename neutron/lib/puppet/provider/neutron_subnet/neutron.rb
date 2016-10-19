@@ -1,3 +1,4 @@
+require 'json'
 require File.join(File.dirname(__FILE__), '..','..','..',
                   'puppet/provider/neutron')
 
@@ -11,16 +12,23 @@ Puppet::Type.type(:neutron_subnet).provide(
     Assumes that the neutron service is configured on the same host.
   EOT
 
-  commands :neutron => 'neutron'
-
   mk_resource_methods
 
   def self.neutron_type
     'subnet'
   end
 
+  def self.do_not_manage
+    @do_not_manage
+  end
+
+  def self.do_not_manage=(value)
+    @do_not_manage = value
+  end
+
   def self.instances
-    list_neutron_resources(neutron_type).collect do |id|
+    self.do_not_manage = true
+    list = list_neutron_resources(neutron_type).collect do |id|
       attrs = get_neutron_resource_attrs(neutron_type, id)
       new(
         :ensure                    => :present,
@@ -28,6 +36,8 @@ Puppet::Type.type(:neutron_subnet).provide(
         :id                        => attrs['id'],
         :cidr                      => attrs['cidr'],
         :ip_version                => attrs['ip_version'],
+        :ipv6_ra_mode              => attrs['ipv6_ra_mode'],
+        :ipv6_address_mode         => attrs['ipv6_address_mode'],
         :gateway_ip                => parse_gateway_ip(attrs['gateway_ip']),
         :allocation_pools          => parse_allocation_pool(attrs['allocation_pools']),
         :host_routes               => parse_host_routes(attrs['host_routes']),
@@ -37,6 +47,8 @@ Puppet::Type.type(:neutron_subnet).provide(
         :tenant_id                 => attrs['tenant_id']
       )
     end
+    self.do_not_manage = false
+    list
   end
 
   def self.prefetch(resources)
@@ -57,9 +69,9 @@ Puppet::Type.type(:neutron_subnet).provide(
     allocation_pools = []
     return [] if values.empty?
     for value in Array(values)
-      matchdata = /\{\s*"start"\s*:\s*"(.*)"\s*,\s*"end"\s*:\s*"(.*)"\s*\}/.match(value.gsub(/\\"/,'"'))
-      start_ip = matchdata[1]
-      end_ip = matchdata[2]
+      allocation_pool = JSON.parse(value.gsub(/\\"/,'"'))
+      start_ip = allocation_pool['start']
+      end_ip = allocation_pool['end']
       allocation_pools << "start=#{start_ip},end=#{end_ip}"
     end
     return allocation_pools
@@ -69,9 +81,9 @@ Puppet::Type.type(:neutron_subnet).provide(
     host_routes = []
     return [] if values.empty?
     for value in Array(values)
-      matchdata = /\{\s*"nexthop"\s*:\s*"(.*)"\s*,\s*"destination"\s*:\s*"(.*)"\s*\}/.match(value.gsub(/\\"/,'"'))
-      nexthop = matchdata[1]
-      destination = matchdata[2]
+      host_route = JSON.parse(value.gsub(/\\"/,'"'))
+      nexthop = host_route['nexthop']
+      destination = host_route['destination']
       host_routes << "nexthop=#{nexthop},destination=#{destination}"
     end
     return host_routes
@@ -87,10 +99,22 @@ Puppet::Type.type(:neutron_subnet).provide(
   end
 
   def create
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
+
     opts = ["--name=#{@resource[:name]}"]
 
     if @resource[:ip_version]
       opts << "--ip-version=#{@resource[:ip_version]}"
+    end
+
+    if @resource[:ipv6_ra_mode]
+      opts << "--ipv6-ra-mode=#{@resource[:ipv6_ra_mode]}"
+    end
+
+    if @resource[:ipv6_address_mode]
+      opts << "--ipv6-address-mode=#{@resource[:ipv6_address_mode]}"
     end
 
     if @resource[:gateway_ip]
@@ -142,33 +166,37 @@ Puppet::Type.type(:neutron_subnet).provide(
     results = auth_neutron('subnet-create', '--format=shell',
                            opts, resource[:cidr])
 
-    if results =~ /Created a new subnet:/
-      attrs = self.class.parse_creation_output(results)
-      @property_hash = {
-        :ensure                    => :present,
-        :name                      => resource[:name],
-        :id                        => attrs['id'],
-        :cidr                      => attrs['cidr'],
-        :ip_version                => attrs['ip_version'],
-        :gateway_ip                => self.class.parse_gateway_ip(attrs['gateway_ip']),
-        :allocation_pools          => self.class.parse_allocation_pool(attrs['allocation_pools']),
-        :host_routes               => self.class.parse_host_routes(attrs['host_routes']),
-        :dns_nameservers           => self.class.parse_dns_nameservers(attrs['dns_nameservers']),
-        :enable_dhcp               => attrs['enable_dhcp'],
-        :network_id                => attrs['network_id'],
-        :tenant_id                 => attrs['tenant_id'],
-      }
-    else
-      fail("did not get expected message on subnet creation, got #{results}")
-    end
+    attrs = self.class.parse_creation_output(results)
+    @property_hash = {
+      :ensure                    => :present,
+      :name                      => resource[:name],
+      :id                        => attrs['id'],
+      :cidr                      => attrs['cidr'],
+      :ip_version                => attrs['ip_version'],
+      :ipv6_ra_mode              => attrs['ipv6_ra_mode'],
+      :ipv6_address_mode         => attrs['ipv6_address_mode'],
+      :gateway_ip                => self.class.parse_gateway_ip(attrs['gateway_ip']),
+      :allocation_pools          => self.class.parse_allocation_pool(attrs['allocation_pools']),
+      :host_routes               => self.class.parse_host_routes(attrs['host_routes']),
+      :dns_nameservers           => self.class.parse_dns_nameservers(attrs['dns_nameservers']),
+      :enable_dhcp               => attrs['enable_dhcp'],
+      :network_id                => attrs['network_id'],
+      :tenant_id                 => attrs['tenant_id'],
+    }
   end
 
   def destroy
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
     auth_neutron('subnet-delete', name)
     @property_hash[:ensure] = :absent
   end
 
   def gateway_ip=(value)
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
     if value == ''
       auth_neutron('subnet-update', '--no-gateway', name)
     else
@@ -177,6 +205,9 @@ Puppet::Type.type(:neutron_subnet).provide(
   end
 
   def enable_dhcp=(value)
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
     if value == 'False'
       auth_neutron('subnet-update', "--disable-dhcp", name)
     else
@@ -184,7 +215,23 @@ Puppet::Type.type(:neutron_subnet).provide(
     end
   end
 
+  def allocation_pools=(values)
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
+    unless values.empty?
+      opts = ["#{name}", "--allocation-pool"]
+      for value in values
+        opts << value
+      end
+      auth_neutron('subnet-update', opts)
+    end
+  end
+
   def dns_nameservers=(values)
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
     unless values.empty?
       opts = ["#{name}", "--dns-nameservers", "list=true"]
       for value in values
@@ -195,6 +242,9 @@ Puppet::Type.type(:neutron_subnet).provide(
   end
 
   def host_routes=(values)
+    if self.class.do_not_manage
+      fail("Not managing Neutron_subnet[#{@resource[:name]}] due to earlier Neutron API failures.")
+    end
     unless values.empty?
       opts = ["#{name}", "--host-routes", "type=dict", "list=true"]
       for value in values
@@ -207,8 +257,9 @@ Puppet::Type.type(:neutron_subnet).provide(
   [
    :cidr,
    :ip_version,
+   :ipv6_ra_mode,
+   :ipv6_address_mode,
    :network_id,
-   :allocation_pools,
    :tenant_id,
   ].each do |attr|
      define_method(attr.to_s + "=") do |value|

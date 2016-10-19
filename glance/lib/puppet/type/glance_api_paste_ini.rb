@@ -40,4 +40,17 @@ Puppet::Type.newtype(:glance_api_paste_ini) do
     defaultto false
   end
 
+  newparam(:ensure_absent_val) do
+    desc 'A value that is specified as the value property will behave as if ensure => absent was specified'
+    defaultto('<SERVICE DEFAULT>')
+  end
+
+  autorequire(:package) do
+    if Facter.value(:osfamily) == 'Debian'
+      'glance-api'
+    elsif Facter.value(:osfamily) == 'RedHat'
+      'openstack-glance'
+    end
+  end
+
 end

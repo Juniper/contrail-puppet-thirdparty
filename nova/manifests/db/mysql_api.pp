@@ -41,6 +41,8 @@ class nova::db::mysql_api(
   $allowed_hosts = undef,
 ) {
 
+  include ::nova::deps
+
   ::openstacklib::db::mysql { 'nova_api':
     user          => $user,
     password_hash => mysql_password($password),
@@ -51,5 +53,7 @@ class nova::db::mysql_api(
     allowed_hosts => $allowed_hosts,
   }
 
-  ::Openstacklib::Db::Mysql['nova_api'] ~> Exec<| title == 'nova-api-db-sync' |>
+  Anchor['nova::db::begin']
+  ~> Class['nova::db::mysql_api']
+  ~> Anchor['nova::db::end']
 }

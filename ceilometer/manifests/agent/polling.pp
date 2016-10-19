@@ -1,35 +1,37 @@
+# == Class: ceilometer::agent::polling
+#
 # Installs/configures the ceilometer polling agent
 #
-# == Parameters
-#  [*enabled*]
-#    (optional) Should the service be enabled.
-#    Defaults to true.
+# === Parameters:
 #
-#  [*manage_service*]
-#    (optional)  Whether the service should be managed by Puppet.
-#    Defaults to true.
+# [*enabled*]
+#   (Optional) Should the service be enabled.
+#   Defaults to true.
 #
-#  [*package_ensure*]
-#    (optional) ensure state for package.
-#    Defaults to 'present'
+# [*manage_service*]
+#   (Optional)  Whether the service should be managed by Puppet.
+#   Defaults to true.
 #
-#  [*central_namespace*]
-#    (optional) Use central namespace for polling agent.
-#    Defaults to true.
+# [*package_ensure*]
+#   (Optional) ensure state for package.
+#   Defaults to 'present'
 #
-#  [*compute_namespace*]
-#    (optional) Use compute namespace for polling agent.
-#    Defaults to true.
+# [*central_namespace*]
+#   (Optional) Use central namespace for polling agent.
+#   Defaults to true.
 #
-#  [*ipmi_namespace*]
-#    (optional) Use ipmi namespace for polling agent.
-#    Defaults to true.
+# [*compute_namespace*]
+#   (Optional) Use compute namespace for polling agent.
+#   Defaults to true.
 #
-#  [*coordination_url*]
-#    (optional) The url to use for distributed group membership coordination.
-#    Defaults to undef.
+# [*ipmi_namespace*]
+#   (Optional) Use ipmi namespace for polling agent.
+#   Defaults to true.
 #
-
+# [*coordination_url*]
+#   (Optional) The url to use for distributed group membership coordination.
+#   Defaults to undef.
+#
 class ceilometer::agent::polling (
   $manage_service    = true,
   $enabled           = true,
@@ -57,30 +59,6 @@ class ceilometer::agent::polling (
       }
     }
 
-    #NOTE(dprince): This is using a custom (inline) file_line provider
-    # until this lands upstream:
-    # https://github.com/puppetlabs/puppetlabs-stdlib/pull/174
-    Nova_config<| |> {
-      before +> File_line_after[
-        'nova-notification-driver-common',
-        'nova-notification-driver-ceilometer'
-      ],
-    }
-
-    file_line_after {
-      'nova-notification-driver-common':
-        line   =>
-          'notification_driver=nova.openstack.common.notifier.rpc_notifier',
-        path   => '/etc/nova/nova.conf',
-        after  => '^\s*\[DEFAULT\]',
-        notify => Service['nova-compute'];
-      'nova-notification-driver-ceilometer':
-        line   => 'notification_driver=ceilometer.compute.nova_notifier',
-        path   => '/etc/nova/nova.conf',
-        after  => '^\s*\[DEFAULT\]',
-        notify => Service['nova-compute'];
-    }
-
     $compute_namespace_name = 'compute'
 
     Package <| title == 'nova-common' |> -> Package['ceilometer-common']
@@ -104,7 +82,7 @@ class ceilometer::agent::polling (
   package { 'ceilometer-polling':
     ensure => $package_ensure,
     name   => $::ceilometer::params::agent_polling_package_name,
-    tag    => 'openstack',
+    tag    => ['openstack', 'ceilometer-package'],
   }
 
   if $namespaces_real {
@@ -123,6 +101,7 @@ class ceilometer::agent::polling (
     enable     => $enabled,
     hasstatus  => true,
     hasrestart => true,
+    tag        => 'ceilometer-service',
   }
 
   if $coordination_url {

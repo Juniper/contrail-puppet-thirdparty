@@ -1,33 +1,36 @@
+# == Class: ceilometer::db::mysql
+#
 # The ceilometer::db::mysql class creates a MySQL database for ceilometer.
 # It must be used on the MySQL server
 #
-# == Parameters
+# === Parameters:
 #
-#  [*password*]
-#    password to connect to the database. Mandatory.
+# [*password*]
+#   (Required) password to connect to the database.
 #
-#  [*dbname*]
-#    name of the database. Optional. Defaults to ceilometer.
+# [*dbname*]
+#   (Optional) name of the database.
+#   Defaults to ceilometer.
 #
-#  [*user*]
-#    user to connect to the database. Optional. Defaults to ceilometer.
+# [*user*]
+#   (Optional) user to connect to the database.
+#   Defaults to ceilometer.
 #
-#  [*host*]
-#    the default source host user is allowed to connect from.
-#    Optional. Defaults to 'localhost'
+# [*host*]
+#   (Optional) the default source host user is allowed to connect from.
+#   Defaults to '127.0.0.1'.
 #
-#  [*allowed_hosts*]
-#    other hosts the user is allowd to connect from.
-#    Optional. Defaults to undef.
+# [*allowed_hosts*]
+#   (Optional) other hosts the user is allowd to connect from.
+#   Defaults to undef.
 #
-#  [*charset*]
-#    the database charset. Optional. Defaults to 'utf8'
+# [*charset*]
+#   (Optional) the database charset.
+#   Defaults to 'utf8'.
 #
-#  [*collate*]
-#    the database collation. Optional. Defaults to 'utf8_general_ci'
-#
-#  [*mysql_module*]
-#    (optional) Deprecated. Does nothing.
+# [*collate*]
+#   (Optional) the database collation.
+#   Defaults to 'utf8_general_ci'.
 #
 class ceilometer::db::mysql(
   $password      = false,
@@ -37,12 +40,7 @@ class ceilometer::db::mysql(
   $allowed_hosts = undef,
   $charset       = 'utf8',
   $collate       = 'utf8_general_ci',
-  $mysql_module  = undef,
 ) {
-
-  if $mysql_module {
-    warning('The mysql_module parameter is deprecated. The latest 2.x mysql module will be used.')
-  }
 
   validate_string($password)
 

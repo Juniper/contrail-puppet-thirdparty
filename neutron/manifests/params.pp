@@ -22,26 +22,33 @@ class neutron::params {
     $linuxbridge_agent_package  = false
     $linuxbridge_agent_service  = 'neutron-linuxbridge-agent'
     $linuxbridge_server_package = 'openstack-neutron-linuxbridge'
-    $linuxbridge_config_file    = '/etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini'
 
     $sriov_nic_agent_service = 'neutron-sriov-nic-agent'
     $sriov_nic_agent_package = 'openstack-neutron-sriov-nic-agent'
 
-    $cisco_server_package  = 'openstack-neutron-cisco'
-    $cisco_config_file     = '/etc/neutron/plugins/cisco/cisco_plugins.ini'
-    $cisco_ml2_config_file = '/etc/neutron/plugins/ml2/ml2_conf_cisco.ini'
+    $bigswitch_lldp_package  = 'openstack-neutron-bigswitch-lldp'
+    $bigswitch_agent_package = 'openstack-neutron-bigswitch-agent'
+    $bigswitch_lldp_service  = 'neutron-bsn-lldp'
+    $bigswitch_agent_service = 'neutron-bsn-agent'
+
+    $cisco_server_package                   = 'openstack-neutron-cisco'
+    $cisco_config_file                      = '/etc/neutron/plugins/cisco/cisco_plugins.ini'
+    # Add templated Cisco Nexus ML2 config to confdir
+    $cisco_ml2_mech_cisco_nexus_config_file = '/etc/neutron/conf.d/neutron-server/ml2_mech_cisco_nexus.conf'
 
     $opencontrail_plugin_package = 'neutron-plugin-contrail'
     $opencontrail_config_file    = '/etc/neutron/plugins/opencontrail/ContrailPlugin.ini'
 
-    $midonet_server_package = 'python-neutron-plugin-midonet'
+    $midonet_server_package = 'python-networking-midonet'
     $midonet_config_file    = '/etc/neutron/plugins/midonet/midonet.ini'
 
-    $plumgrid_plugin_package    = 'openstack-neutron-plumgrid'
+    $plumgrid_plugin_package    = 'networking-plumgrid'
     $plumgrid_pythonlib_package = 'plumgrid-pythonlib'
     $plumgrid_config_file       = '/etc/neutron/plugins/plumgrid/plumgrid.ini'
 
     $nvp_server_package = 'openstack-neutron-nicira'
+
+    $nuage_config_file    = '/etc/neutron/plugins/nuage/plugin.ini'
 
     $dhcp_agent_package = false
     $dhcp_agent_service = 'neutron-dhcp-agent'
@@ -51,18 +58,22 @@ class neutron::params {
     $lbaas_agent_package = 'openstack-neutron-lbaas'
     $lbaas_agent_service = 'neutron-lbaas-agent'
 
+    $lbaasv2_agent_package = false
+    $lbaasv2_agent_service = 'neutron-lbaasv2-agent'
+
     $haproxy_package   = 'haproxy'
 
     $metering_agent_package = 'openstack-neutron-metering-agent'
     $metering_agent_service = 'neutron-metering-agent'
 
-    $vpnaas_agent_package = 'openstack-neutron-vpn-agent'
+    $vpnaas_agent_package = 'openstack-neutron-vpnaas'
     $vpnaas_agent_service = 'neutron-vpn-agent'
     if $::operatingsystemrelease =~ /^7.*/ or $::operatingsystem == 'Fedora' {
       $openswan_package     = 'libreswan'
     } else {
       $openswan_package     = 'openswan'
     }
+    $libreswan_package     = 'libreswan'
 
     $l3_agent_package   = false
     $l3_agent_service   = 'neutron-l3-agent'
@@ -75,6 +86,9 @@ class neutron::params {
 
     $kernel_headers     = "linux-headers-${::kernelrelease}"
 
+    $sqlite_package_name  = undef
+    $pymysql_package_name = undef
+
   } elsif($::osfamily == 'Debian') {
 
     $nobody_user_group    = 'nogroup'
@@ -84,49 +98,54 @@ class neutron::params {
     $server_service     = 'neutron-server'
     $client_package     = 'python-neutronclient'
 
-    if $::operatingsystem == 'Ubuntu' {
-      $ml2_server_package = 'neutron-plugin-ml2'
-    } else {
+    if $::os_package_type =='debian' {
       $ml2_server_package = false
+    } else {
+      $ml2_server_package = 'neutron-plugin-ml2'
     }
 
-    $ovs_agent_package   = 'neutron-plugin-openvswitch-agent'
-    $ovs_agent_service   = 'neutron-plugin-openvswitch-agent'
+    $ovs_agent_package   = 'neutron-openvswitch-agent'
+    $ovs_agent_service   = 'neutron-openvswitch-agent'
+
     $ovs_server_package  = 'neutron-plugin-openvswitch'
     $ovs_cleanup_service = false
     $ovs_package         = 'openvswitch-switch'
     $libnl_package       = 'libnl1'
     $package_provider    = 'dpkg'
 
-    $linuxbridge_agent_package  = 'neutron-plugin-linuxbridge-agent'
-    $linuxbridge_agent_service  = 'neutron-plugin-linuxbridge-agent'
+    $linuxbridge_agent_package  = 'neutron-linuxbridge-agent'
+    $linuxbridge_agent_service  = 'neutron-linuxbridge-agent'
     $linuxbridge_server_package = 'neutron-plugin-linuxbridge'
-    $linuxbridge_config_file    = '/etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini'
 
-    $sriov_nic_agent_service = 'neutron-plugin-sriov-agent'
-    $sriov_nic_agent_package = 'neutron-plugin-sriov-agent'
+    $sriov_nic_agent_service = 'neutron-sriov-agent'
+    $sriov_nic_agent_package = 'neutron-sriov-agent'
 
-    $cisco_server_package  = 'neutron-plugin-cisco'
-    $cisco_config_file     = '/etc/neutron/plugins/cisco/cisco_plugins.ini'
-    $cisco_ml2_config_file = '/etc/neutron/plugins/ml2/ml2_conf_cisco.ini'
+    $cisco_server_package                   = 'neutron-plugin-cisco'
+    $cisco_config_file                      = '/etc/neutron/plugins/cisco/cisco_plugins.ini'
+    $cisco_ml2_mech_cisco_nexus_config_file = '/etc/neutron/plugins/ml2/ml2_mech_cisco_nexus.ini'
 
     $opencontrail_plugin_package = 'neutron-plugin-contrail'
     $opencontrail_config_file    = '/etc/neutron/plugins/opencontrail/ContrailPlugin.ini'
 
-    $midonet_server_package = 'python-neutron-plugin-midonet'
+    $midonet_server_package = 'python-networking-midonet'
     $midonet_config_file    = '/etc/neutron/plugins/midonet/midonet.ini'
 
-    $plumgrid_plugin_package    = 'neutron-plugin-plumgrid'
+    $plumgrid_plugin_package    = 'networking-plumgrid'
     $plumgrid_pythonlib_package = 'plumgrid-pythonlib'
     $plumgrid_config_file       = '/etc/neutron/plugins/plumgrid/plumgrid.ini'
 
     $nvp_server_package = 'neutron-plugin-nicira'
+
+    $nuage_config_file    = '/etc/neutron/plugins/nuage/plugin.ini'
 
     $dhcp_agent_package = 'neutron-dhcp-agent'
     $dhcp_agent_service = 'neutron-dhcp-agent'
 
     $lbaas_agent_package = 'neutron-lbaas-agent'
     $lbaas_agent_service = 'neutron-lbaas-agent'
+
+    $lbaasv2_agent_package = 'neutron-lbaasv2-agent'
+    $lbaasv2_agent_service = 'neutron-lbaasv2-agent'
 
     $haproxy_package   = 'haproxy'
 
@@ -137,6 +156,7 @@ class neutron::params {
     $vpnaas_agent_service = 'neutron-vpn-agent'
 
     $openswan_package     = 'openswan'
+    $libreswan_package    = false
 
     $metadata_agent_package = 'neutron-metadata-agent'
     $metadata_agent_service = 'neutron-metadata-agent'
@@ -153,6 +173,8 @@ class neutron::params {
     $cliff_package      = 'python-cliff'
     $kernel_headers     = "linux-headers-${::kernelrelease}"
 
+    $sqlite_package_name  = 'python-pysqlite2'
+    $pymysql_package_name = 'python-pymysql'
   } else {
 
     fail("Unsupported osfamily ${::osfamily}")

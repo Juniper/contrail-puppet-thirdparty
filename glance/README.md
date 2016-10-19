@@ -1,8 +1,6 @@
 glance
 =======
 
-6.1.0 - 2015.1 - Kilo
-
 #### Table of Contents
 
 1. [Overview - What is the glance module?](#overview)
@@ -23,22 +21,22 @@ Module Description
 
 The glance module is a thorough attempt to make Puppet capable of managing the entirety of glance.  This includes manifests to provision such things as keystone endpoints, RPC configurations specific to glance, and database connections.  Types are shipped as part of the glance module to assist in manipulation of configuration files.
 
-This module is tested in combination with other modules needed to build and leverage an entire OpenStack software stack.  These modules can be found, all pulled together in the [openstack module](https://github.com/stackfoge/puppet-openstack).
+This module is tested in combination with other modules needed to build and leverage an entire OpenStack software stack.
 
 Setup
 -----
 
 **What the glance module affects**
 
-* glance, the image service for OpenStack.
+* [Glance](https://wiki.openstack.org/wiki/Glance), the image service for OpenStack.
 
 ### Installing glance
 
-    example% puppet module install puppetlabs/glance
+    puppet module install openstack/glance
 
 ### Beginning with glance
 
-To utilize the glance module's functionality you will need to declare multiple resources.  The following is a modified excerpt from the [openstack module](https://github.com/stackfoge/puppet-openstack).  This is not an exhaustive list of all the components needed, we recommend you consult and understand the [openstack module](https://github.com/stackforge/puppet-openstack) and the [core openstack](http://docs.openstack.org) documentation.
+To utilize the glance module's functionality you will need to declare multiple resources. This is not an exhaustive list of all the components needed, we recommend you consult and understand the [core openstack](http://docs.openstack.org) documentation.
 
 **Define a glance node**
 
@@ -105,6 +103,92 @@ class { 'glance::notify::rabbitmq':
 }
 ```
 
+### Types
+
+#### glance_api_config
+
+The `glance_api_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/glance/glance-api.conf` file.
+
+```puppet
+glance_api_config { 'DEFAULT/verbose' :
+  value => true,
+}
+```
+
+This will write `verbose=true` in the `[DEFAULT]` section.
+
+##### name
+
+Section/setting name to manage from `glance-api.conf`
+
+##### value
+
+The value of the setting to be defined.
+
+##### secret
+
+Whether to hide the value from Puppet logs. Defaults to `false`.
+
+##### ensure_absent_val
+
+If value is equal to ensure_absent_val then the resource will behave as if `ensure => absent` was specified. Defaults to `<SERVICE DEFAULT>`
+
+#### glance_registry_config
+
+The `glance_registry_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/glance/glance-registry.conf` file.
+
+```puppet
+glance_registry_config { 'DEFAULT/verbose' :
+  value => true,
+}
+```
+
+This will write `verbose=true` in the `[DEFAULT]` section.
+
+##### name
+
+Section/setting name to manage from `glance-registry.conf`
+
+##### value
+
+The value of the setting to be defined.
+
+##### secret
+
+Whether to hide the value from Puppet logs. Defaults to `false`.
+
+##### ensure_absent_val
+
+If value is equal to ensure_absent_val then the resource will behave as if `ensure => absent` was specified. Defaults to `<SERVICE DEFAULT>`
+
+#### glance_cache_config
+
+The `glance_cache_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/glance/glance-cache.conf` file.
+
+```puppet
+glance_cache_config { 'DEFAULT/verbose' :
+  value => true,
+}
+```
+
+This will write `verbose=true` in the `[DEFAULT]` section.
+
+##### name
+
+Section/setting name to manage from `glance-cache.conf`
+
+##### value
+
+The value of the setting to be defined.
+
+##### secret
+
+Whether to hide the value from Puppet logs. Defaults to `false`.
+
+##### ensure_absent_val
+
+If value is equal to ensure_absent_val then the resource will behave as if `ensure => absent` was specified. Defaults to `<SERVICE DEFAULT>`
+
 Implementation
 --------------
 
@@ -133,7 +217,7 @@ bundle exec rspec spec/acceptance
 
 For more information on writing and running beaker-rspec tests visit the documentation:
 
-* https://github.com/puppetlabs/beaker/wiki/How-to-Write-a-Beaker-Test-for-a-Module
+* https://github.com/puppetlabs/beaker-rspec/blob/master/README.md
 
 Development
 -----------

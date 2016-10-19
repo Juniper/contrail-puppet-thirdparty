@@ -24,9 +24,10 @@ describe 'cinder::glance' do
 
   let :default_params do
     { :glance_api_version         => '2',
-      :glance_num_retries         => '0',
-      :glance_api_insecure        => false,
-      :glance_api_ssl_compression => false }
+      :glance_num_retries         => '<SERVICE DEFAULT>',
+      :glance_api_insecure        => '<SERVICE DEFAULT>',
+      :glance_api_ssl_compression => '<SERVICE DEFAULT>',
+      :glance_request_timeout     => '<SERVICE DEFAULT>' }
   end
 
   let :params do
@@ -42,6 +43,8 @@ describe 'cinder::glance' do
       is_expected.to contain_cinder_config('DEFAULT/glance_api_version').with_value(p[:glance_api_version])
       is_expected.to contain_cinder_config('DEFAULT/glance_num_retries').with_value(p[:glance_num_retries])
       is_expected.to contain_cinder_config('DEFAULT/glance_api_insecure').with_value(p[:glance_api_insecure])
+      is_expected.to contain_cinder_config('DEFAULT/glance_api_ssl_compression').with_value(p[:glance_api_ssl_compression])
+      is_expected.to contain_cinder_config('DEFAULT/glance_request_timeout').with_value(p[:glance_request_timeout])
     end
 
      context 'configure cinder with one glance server' do
@@ -63,20 +66,16 @@ describe 'cinder::glance' do
      end
   end
 
-  context 'on Debian platforms' do
-    let :facts do
-      { :osfamily => 'Debian' }
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge(OSDefaults.get_facts({:processorcount => 8}))
+      end
+
+      it_configures 'cinder with glance'
     end
-
-    it_configures 'cinder with glance'
-  end
-
-  context 'on RedHat platforms' do
-    let :facts do
-      { :osfamily => 'RedHat' }
-    end
-
-    it_configures 'cinder with glance'
   end
 
 end

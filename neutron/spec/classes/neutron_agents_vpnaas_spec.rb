@@ -35,11 +35,11 @@ describe 'neutron::agents::vpnaas' do
       :enabled                     => true,
       :vpn_device_driver           => 'neutron.services.vpn.device_drivers.ipsec.OpenSwanDriver',
       :interface_driver            => 'neutron.agent.linux.interface.OVSInterfaceDriver',
-      :ipsec_status_check_interval => '60'
+      :purge_config                => false,
     }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -54,11 +54,17 @@ describe 'neutron::agents::vpnaas' do
 
     it_configures 'openswan vpnaas_driver'
 
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_vpnaas_agent_config').with({
+        :purge => false
+      })
+    end
+
     it 'configures vpnaas_agent.ini' do
       is_expected.to contain_neutron_vpnaas_agent_config('vpnagent/vpn_device_driver').with_value(p[:vpn_device_driver]);
-      is_expected.to contain_neutron_vpnaas_agent_config('ipsec/ipsec_status_check_interval').with_value(p[:ipsec_status_check_interval]);
+      is_expected.to contain_neutron_vpnaas_agent_config('ipsec/ipsec_status_check_interval').with_value('<SERVICE DEFAULT>');
       is_expected.to contain_neutron_vpnaas_agent_config('DEFAULT/interface_driver').with_value(p[:interface_driver]);
-      is_expected.to contain_neutron_vpnaas_agent_config('DEFAULT/external_network_bridge').with_ensure('absent');
+      is_expected.to contain_neutron_vpnaas_agent_config('DEFAULT/external_network_bridge').with_value('<SERVICE DEFAULT>');
     end
 
     context 'with external_network_bridge as br-ex' do
@@ -78,12 +84,9 @@ describe 'neutron::agents::vpnaas' do
         is_expected.to contain_package('neutron-vpnaas-agent').with(
           :name   => platform_params[:vpnaas_agent_package],
           :ensure => p[:package_ensure],
-          :tag    => 'openstack'
+          :tag    => ['openstack', 'neutron-package'],
         )
         is_expected.to contain_package('neutron').with_before(/Package\[neutron-vpnaas-agent\]/)
-        is_expected.to contain_package('neutron-vpnaas-agent').with_before(/Neutron_vpnaas_agent_config\[.+\]/)
-      else
-        is_expected.to contain_package('neutron').with_before(/Neutron_vpnaas_agent_config\[.+\]/)
       end
     end
 
@@ -92,8 +95,10 @@ describe 'neutron::agents::vpnaas' do
         :name    => platform_params[:vpnaas_agent_service],
         :enable  => true,
         :ensure  => 'running',
-        :require => 'Class[Neutron]'
+        :require => 'Class[Neutron]',
+        :tag     => 'neutron-service',
       )
+      is_expected.to contain_service('neutron-vpnaas-service').that_subscribes_to('Package[neutron]')
     end
 
     context 'with manage_service as false' do
@@ -120,7 +125,9 @@ describe 'neutron::agents::vpnaas' do
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     let :platform_params do
@@ -130,19 +137,34 @@ describe 'neutron::agents::vpnaas' do
     end
 
     it_configures 'neutron vpnaas agent'
+    it 'configures subscription to neutron-vpnaas-agent package' do
+      is_expected.to contain_service('neutron-vpnaas-service').that_subscribes_to('Package[neutron-vpnaas-agent]')
+    end
+
+    context 'when configuring the LibreSwan driver' do
+      before do
+      params.merge!(
+        :vpn_device_driver => 'neutron_vpnaas.services.vpn.device_drivers.libreswan_ipsec.LibreSwanDriver'
+      )
+      end
+
+      it 'fails when configuring LibreSwan on Debian' do
+        is_expected.to raise_error(Puppet::Error, /LibreSwan is not supported on osfamily Debian/) 
+      end
+    end
   end
 
   context 'on RedHat 6 platforms' do
     let :facts do
-      default_facts.merge(
+      @default_facts.merge(test_facts.merge(
         { :osfamily                  => 'RedHat',
           :operatingsystemrelease    => '6.5',
-          :operatingsystemmajrelease => 6 })
+          :operatingsystemmajrelease => 6 }))
     end
 
     let :platform_params do
       { :openswan_package     => 'openswan',
-        :vpnaas_agent_package => 'openstack-neutron-vpn-agent',
+        :vpnaas_agent_package => 'openstack-neutron-vpnaas',
         :vpnaas_agent_service => 'neutron-vpn-agent'}
     end
 
@@ -151,18 +173,35 @@ describe 'neutron::agents::vpnaas' do
 
   context 'on RedHat 7 platforms' do
     let :facts do
-      default_facts.merge(
+      @default_facts.merge(test_facts.merge(
         { :osfamily                  => 'RedHat',
           :operatingsystemrelease    => '7.1.2',
-          :operatingsystemmajrelease => 7 })
+          :operatingsystemmajrelease => 7 }))
     end
 
     let :platform_params do
       { :openswan_package     => 'libreswan',
-        :vpnaas_agent_package => 'openstack-neutron-vpn-agent',
+        :libreswan_package    => 'libreswan',
+        :vpnaas_agent_package => 'openstack-neutron-vpnaas',
         :vpnaas_agent_service => 'neutron-vpn-agent'}
     end
 
     it_configures 'neutron vpnaas agent'
+
+    context 'when configuring the LibreSwan driver' do
+      before do
+      params.merge!(
+        :vpn_device_driver => 'neutron_vpnaas.services.vpn.device_drivers.libreswan_ipsec.LibreSwanDriver'
+      )
+      end
+
+      it 'configures LibreSwan' do
+        is_expected.to contain_neutron_vpnaas_agent_config('vpnagent/vpn_device_driver').with_value(params[:vpn_device_driver]);
+        is_expected.to contain_package('libreswan').with(
+          :ensure => 'present',
+          :name   => platform_params[:libreswan_package]
+        )
+        end
+      end
   end
 end

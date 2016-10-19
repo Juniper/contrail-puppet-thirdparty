@@ -11,17 +11,21 @@ describe Puppet::Provider::Neutron do
 
   let :credential_hash do
     {
-      'auth_host'         => '192.168.56.210',
-      'auth_port'         => '35357',
-      'auth_protocol'     => 'https',
-      'admin_tenant_name' => 'admin_tenant',
-      'admin_user'        => 'admin',
-      'admin_password'    => 'password',
+      'tenant_name' => 'admin_tenant',
+      'username'    => 'admin',
+      'password'    => 'password',
+      'auth_url'    => 'https://192.168.56.210:35357'
     }
   end
 
-  let :auth_endpoint do
-    'https://192.168.56.210:35357/v2.0/'
+  let :deprecated_credential_hash do
+    {
+      'admin_tenant_name' => 'new_tenant',
+      'admin_user'        => 'new_user',
+      'admin_password'    => 'new_password',
+      'identity_uri'      => 'https://192.168.56.210:35357/v2.0',
+      'nova_region_name'  => 'NEW_REGION',
+    }
   end
 
   let :credential_error do
@@ -62,12 +66,6 @@ describe Puppet::Provider::Neutron do
       end.to raise_error(Puppet::Error, credential_error)
     end
 
-    it 'should use specified host/port/protocol in the auth endpoint' do
-      conf = {'keystone_authtoken' => credential_hash}
-      klass.expects(:neutron_conf).returns(conf)
-      expect(klass.get_auth_endpoint).to eq(auth_endpoint)
-    end
-
     it 'should find region_name if specified' do
       conf = {
         'keystone_authtoken' => credential_hash,
@@ -83,26 +81,39 @@ describe Puppet::Provider::Neutron do
 
     it 'should set auth credentials in the environment' do
       authenv = {
-        :OS_AUTH_URL    => auth_endpoint,
-        :OS_USERNAME    => credential_hash['admin_user'],
-        :OS_TENANT_NAME => credential_hash['admin_tenant_name'],
-        :OS_PASSWORD    => credential_hash['admin_password'],
+        :OS_AUTH_URL    => credential_hash['auth_url'],
+        :OS_USERNAME    => credential_hash['username'],
+        :OS_TENANT_NAME => credential_hash['tenant_name'],
+        :OS_PASSWORD    => credential_hash['password'],
       }
       klass.expects(:get_neutron_credentials).with().returns(credential_hash)
       klass.expects(:withenv).with(authenv)
       klass.auth_neutron('test_retries')
     end
 
+    it 'should set deprecated auth credentials in the environment' do
+      authenv = {
+        :OS_AUTH_URL    => deprecated_credential_hash['identity_uri'],
+        :OS_USERNAME    => deprecated_credential_hash['admin_user'],
+        :OS_TENANT_NAME => deprecated_credential_hash['admin_tenant_name'],
+        :OS_PASSWORD    => deprecated_credential_hash['admin_password'],
+        :OS_REGION_NAME => 'NEW_REGION',
+      }
+      klass.expects(:get_neutron_credentials).with().returns(deprecated_credential_hash)
+      klass.expects(:withenv).with(authenv)
+      klass.auth_neutron('test_retries')
+    end
+
     it 'should set region in the environment if needed' do
       authenv = {
-        :OS_AUTH_URL    => auth_endpoint,
-        :OS_USERNAME    => credential_hash['admin_user'],
-        :OS_TENANT_NAME => credential_hash['admin_tenant_name'],
-        :OS_PASSWORD    => credential_hash['admin_password'],
+        :OS_AUTH_URL    => credential_hash['auth_url'],
+        :OS_USERNAME    => credential_hash['username'],
+        :OS_TENANT_NAME => credential_hash['tenant_name'],
+        :OS_PASSWORD    => credential_hash['password'],
         :OS_REGION_NAME => 'REGION_NAME',
       }
 
-      cred_hash = credential_hash.merge({'nova_region_name' => 'REGION_NAME'})
+      cred_hash = credential_hash.merge({'region_name' => 'REGION_NAME'})
       klass.expects(:get_neutron_credentials).with().returns(cred_hash)
       klass.expects(:withenv).with(authenv)
       klass.auth_neutron('test_retries')
@@ -131,9 +142,9 @@ describe Puppet::Provider::Neutron do
 
     it 'should exclude the column header' do
       output = <<-EOT
-        id
-        net1
-        net2
+id
+net1
+net2
       EOT
       klass.expects(:auth_neutron).returns(output)
       result = klass.list_neutron_resources('foo')
@@ -243,4 +254,42 @@ tenant_id="3056a91768d948d399f1d79051a7f221"
 
   end
 
+  describe 'garbage in the csv output' do
+    it '#list_router_ports' do
+      output = <<-EOT
+/usr/lib/python2.7/dist-packages/urllib3/util/ssl_.py:90: InsecurePlatformWarning: A true SSLContext object is not available. This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail. For more information, see https://urllib3.readthedocs.org/en/latest/security.html#insecureplatformwarning.
+  InsecurePlatformWarning
+"id","name","mac_address","fixed_ips"
+"1345e576-a21f-4c2e-b24a-b245639852ab","","fa:16:3e:e3:e6:38","{""subnet_id"": ""839a1d2d-2c6e-44fb-9a2b-9b011dce8c2f"", ""ip_address"": ""10.0.0.1""}"
+      EOT
+      expected = [{ "fixed_ips"=>
+          "{\"subnet_id\": \"839a1d2d-2c6e-44fb-9a2b-9b011dce8c2f\", \
+\"ip_address\": \"10.0.0.1\"}",
+          "name"=>"",
+          "subnet_id"=>"839a1d2d-2c6e-44fb-9a2b-9b011dce8c2f",
+          "id"=>"1345e576-a21f-4c2e-b24a-b245639852ab",
+          "mac_address"=>"fa:16:3e:e3:e6:38"}]
+
+      klass.expects(:auth_neutron).
+        with('router-port-list', '--format=csv', 'router1').
+        returns(output)
+      result = klass.list_router_ports('router1')
+      expect(result).to eql(expected)
+    end
+
+    it '#list_neutron_resources' do
+      output = <<-EOT
+/usr/lib/python2.7/dist-packages/urllib3/util/ssl_.py:90: InsecurePlatformWarning: A true SSLContext object is not available. This prevents urllib3 from configuring SSL appropriately and may cause certain SSL connections to fail. For more information, see https://urllib3.readthedocs.org/en/latest/security.html#insecureplatformwarning.
+  InsecurePlatformWarning
+id
+4a305398-d806-46c5-a6aa-dcd6a4a99330
+      EOT
+      klass.expects(:auth_neutron).
+        with('subnet-list', '--format=csv', '--column=id', '--quote=none').
+        returns(output)
+      expected = ['4a305398-d806-46c5-a6aa-dcd6a4a99330']
+      result = klass.list_neutron_resources('subnet')
+      expect(result).to eql(expected)
+    end
+  end
 end

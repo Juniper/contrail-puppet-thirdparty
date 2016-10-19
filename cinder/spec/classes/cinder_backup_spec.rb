@@ -24,10 +24,10 @@ describe 'cinder::backup' do
 
   let :default_params do
     { :enable               => true,
-      :backup_topic         => 'cinder-backup',
-      :backup_manager       => 'cinder.backup.manager.BackupManager',
-      :backup_api_class     => 'cinder.backup.api.API',
-      :backup_name_template => 'backup-%s' }
+      :backup_topic         => '<SERVICE DEFAULT>',
+      :backup_manager       => '<SERVICE DEFAULT>',
+      :backup_api_class     => '<SERVICE DEFAULT>',
+      :backup_name_template => '<SERVICE DEFAULT>' }
   end
 
   let :params do
@@ -46,15 +46,17 @@ describe 'cinder::backup' do
         is_expected.to contain_package('cinder-backup').with(
           :name   => platform_params[:backup_package],
           :ensure => 'present',
-          :tag    => 'openstack'
+          :tag    => ['openstack', 'cinder-package'],
         )
-        is_expected.to contain_package('cinder-backup').with_before(/Cinder_config\[.+\]/)
         is_expected.to contain_package('cinder-backup').with_before(/Service\[cinder-backup\]/)
       end
     end
 
     it 'ensure cinder backup service is running' do
-      is_expected.to contain_service('cinder-backup').with('hasstatus' => true)
+      is_expected.to contain_service('cinder-backup').with(
+        'hasstatus' => true,
+        'tag'       => 'cinder-service',
+      )
     end
 
     it 'configures cinder.conf' do
@@ -74,29 +76,24 @@ describe 'cinder::backup' do
     end
   end
 
-  context 'on Debian platforms' do
-    let :facts do
-      { :osfamily => 'Debian' }
-    end
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge(OSDefaults.get_facts({:processorcount => 8}))
+      end
 
-    let :platform_params do
-      { :backup_package => 'cinder-backup',
-        :backup_service => 'cinder-backup' }
-    end
+      let :platform_params do
+        if facts[:osfamily] == 'Debian'
+          { :backup_package => 'cinder-backup',
+            :backup_service => 'cinder-backup' }
+        else
+          { :backup_service => 'opentack-cinder-backup' }
+        end
+      end
 
-    it_configures 'cinder backup'
+      it_configures 'cinder backup'
+    end
   end
-
-  context 'on RedHat platforms' do
-    let :facts do
-      { :osfamily => 'RedHat' }
-    end
-
-    let :platform_params do
-      { :backup_service => 'opentack-cinder-backup' }
-    end
-
-    it_configures 'cinder backup'
-  end
-
 end

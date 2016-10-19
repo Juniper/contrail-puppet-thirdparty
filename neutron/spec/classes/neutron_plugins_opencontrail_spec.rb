@@ -16,11 +16,12 @@ describe 'neutron::plugins::opencontrail' do
       :keystone_admin_user        => 'admin',
       :keystone_admin_tenant_name => 'admin',
       :keystone_admin_password    => 'admin',
-      :keystone_admin_token       => 'token1'
+      :keystone_admin_token       => 'token1',
+      :purge_config               => false,
     }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -34,6 +35,12 @@ describe 'neutron::plugins::opencontrail' do
 
     before do
       params.merge!(default_params)
+    end
+
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_plugin_opencontrail').with({
+        :purge => false
+      })
     end
 
     it 'should perform default configuration of' do
@@ -52,7 +59,9 @@ describe 'neutron::plugins::opencontrail' do
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     let :params do
@@ -73,7 +82,10 @@ describe 'neutron::plugins::opencontrail' do
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
 
     let :params do

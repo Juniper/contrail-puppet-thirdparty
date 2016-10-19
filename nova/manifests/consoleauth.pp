@@ -9,7 +9,7 @@
 #
 # [*enabled*]
 #   (optional) Whether the nova consoleauth service will be run
-#   Defaults to false
+#   Defaults to true
 #
 # [*manage_service*]
 #   (optional) Whether to start/stop the service
@@ -20,11 +20,12 @@
 #   Defaults to 'present'
 #
 class nova::consoleauth(
-  $enabled        = false,
+  $enabled        = true,
   $manage_service = true,
   $ensure_package = 'present'
 ) {
 
+  include ::nova::deps
   include ::nova::params
 
   nova::generic_service { 'consoleauth':
@@ -33,7 +34,6 @@ class nova::consoleauth(
     package_name   => $::nova::params::consoleauth_package_name,
     service_name   => $::nova::params::consoleauth_service_name,
     ensure_package => $ensure_package,
-    require        => Package['nova-common'],
   }
 
 }

@@ -30,12 +30,12 @@ describe 'Puppet::Type.type(:ceilometer_config)' do
 
   it 'should accept a valid value' do
     @ceilometer_config[:value] = 'bar'
-    expect(@ceilometer_config[:value]).to eq('bar')
+    expect(@ceilometer_config[:value]).to eq(['bar'])
   end
 
   it 'should not accept a value with whitespace' do
     @ceilometer_config[:value] = 'b ar'
-    expect(@ceilometer_config[:value]).to eq('b ar')
+    expect(@ceilometer_config[:value]).to eq(['b ar'])
   end
 
   it 'should accept valid ensure values' do
@@ -50,4 +50,15 @@ describe 'Puppet::Type.type(:ceilometer_config)' do
       @ceilometer_config[:ensure] = :latest
     }.to raise_error(Puppet::Error, /Invalid value/)
   end
+
+  it 'should autorequire the package that install the file' do
+    catalog = Puppet::Resource::Catalog.new
+    package = Puppet::Type.type(:package).new(:name => 'ceilometer-common')
+    catalog.add_resource package, @ceilometer_config
+    dependency = @ceilometer_config.autorequire
+    expect(dependency.size).to eq(1)
+    expect(dependency[0].target).to eq(@ceilometer_config)
+    expect(dependency[0].source).to eq(package)
+  end
+
 end

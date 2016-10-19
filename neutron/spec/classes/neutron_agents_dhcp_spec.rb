@@ -11,23 +11,19 @@ describe 'neutron::agents::dhcp' do
   end
 
   let :default_params do
-    { :package_ensure         => 'present',
-      :enabled                => true,
-      :debug                  => false,
-      :state_path             => '/var/lib/neutron',
-      :resync_interval        => 30,
-      :interface_driver       => 'neutron.agent.linux.interface.OVSInterfaceDriver',
-      :dhcp_domain            => 'openstacklocal',
-      :dhcp_driver            => 'neutron.agent.linux.dhcp.Dnsmasq',
-      :root_helper            => 'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
-      :use_namespaces         => true,
-      :dnsmasq_config_file    => nil,
-      :dhcp_delete_namespaces => false,
+    { :package_ensure           => 'present',
+      :enabled                  => true,
+      :state_path               => '/var/lib/neutron',
+      :resync_interval          => 30,
+      :interface_driver         => 'neutron.agent.linux.interface.OVSInterfaceDriver',
+      :dhcp_driver              => 'neutron.agent.linux.dhcp.Dnsmasq',
+      :root_helper              => 'sudo neutron-rootwrap /etc/neutron/rootwrap.conf',
       :enable_isolated_metadata => false,
-      :enable_metadata_network  => false }
+      :enable_metadata_network  => false,
+      :purge_config             => false }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -43,17 +39,18 @@ describe 'neutron::agents::dhcp' do
     it_configures 'dnsmasq dhcp_driver'
 
     it 'configures dhcp_agent.ini' do
-      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/debug').with_value(p[:debug]);
+      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/debug').with_value('<SERVICE DEFAULT>');
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/state_path').with_value(p[:state_path]);
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/resync_interval').with_value(p[:resync_interval]);
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/interface_driver').with_value(p[:interface_driver]);
-      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dhcp_domain').with_value(p[:dhcp_domain]);
+      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dhcp_domain').with_value('<SERVICE DEFAULT>');
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dhcp_driver').with_value(p[:dhcp_driver]);
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/root_helper').with_value(p[:root_helper]);
-      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/use_namespaces').with_value(p[:use_namespaces]);
-      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dhcp_delete_namespaces').with_value(p[:dhcp_delete_namespaces]);
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/enable_isolated_metadata').with_value(p[:enable_isolated_metadata]);
+      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/force_metadata').with_value('<SERVICE DEFAULT>');
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/enable_metadata_network').with_value(p[:enable_metadata_network]);
+      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dhcp_broadcast_reply').with_value('<SERVICE DEFAULT>');
+      is_expected.to contain_neutron_dhcp_agent_config('AGENT/availability_zone').with_value('<SERVICE DEFAULT>');
     end
 
     it 'installs neutron dhcp agent package' do
@@ -61,7 +58,7 @@ describe 'neutron::agents::dhcp' do
         is_expected.to contain_package('neutron-dhcp-agent').with(
           :name   => platform_params[:dhcp_agent_package],
           :ensure => p[:package_ensure],
-          :tag    => 'openstack'
+          :tag    => ['openstack', 'neutron-package'],
         )
         is_expected.to contain_package('neutron').with_before(/Package\[neutron-dhcp-agent\]/)
         is_expected.to contain_package('neutron-dhcp-agent').with_before(/Neutron_dhcp_agent_config\[.+\]/)
@@ -76,8 +73,16 @@ describe 'neutron::agents::dhcp' do
         :name    => platform_params[:dhcp_agent_service],
         :enable  => true,
         :ensure  => 'running',
-        :require => 'Class[Neutron]'
+        :require => 'Class[Neutron]',
+        :tag     => 'neutron-service',
       )
+      is_expected.to contain_service('neutron-dhcp-service').that_subscribes_to('Package[neutron]')
+    end
+
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_dhcp_agent_config').with({
+        :purge => false
+      })
     end
 
     context 'with manage_service as false' do
@@ -109,12 +114,50 @@ describe 'neutron::agents::dhcp' do
       end
     end
 
-    context 'when enabling metadata networks without enabling isolated metadata' do
+    context 'when enabling metadata networks without enabling isolated metadata or force metadata' do
       before :each do
-        params.merge!(:enable_isolated_metadata => false, :enable_metadata_network => true)
+        params.merge!(:enable_isolated_metadata => false, :enable_force_metadata => false, :enable_metadata_network => true)
       end
 
-      it_raises 'a Puppet::Error', /enable_metadata_network to true requires enable_isolated_metadata also enabled./
+      it_raises 'a Puppet::Error', /enable_metadata_network to true requires enable_isolated_metadata or enable_force_metadata also enabled./
+    end
+
+    context 'when enabling force metadata only' do
+      before :each do
+        params.merge!(:enable_force_metadata => true, :enable_metadata_network => false)
+      end
+      it 'should enable force_metadata only' do
+        is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/force_metadata').with_value('true');
+        is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/enable_metadata_network').with_value('false');
+      end
+    end
+
+    context 'when enabling force metadata with metadata networks' do
+      before :each do
+        params.merge!(:enable_force_metadata => true, :enable_metadata_network => true)
+      end
+      it 'should enable both force_metadata and metadata_network' do
+        is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/force_metadata').with_value('true');
+        is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/enable_metadata_network').with_value('true');
+      end
+    end
+
+    context 'with use_namespaces as false' do
+      before :each do
+        params.merge!(:use_namespaces => false)
+      end
+      it 'should set use_namespaces option' do
+        is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/use_namespaces').with_value(p[:use_namespaces])
+      end
+    end
+
+    context 'when availability zone is set' do
+      before :each do
+        params.merge!(:availability_zone => 'zone1')
+      end
+      it 'should configure availability zone' do
+        is_expected.to contain_neutron_dhcp_agent_config('AGENT/availability_zone').with_value(p[:availability_zone]);
+      end
     end
   end
 
@@ -126,6 +169,17 @@ describe 'neutron::agents::dhcp' do
     end
     it 'configures dnsmasq_config_file' do
       is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dnsmasq_config_file').with_value(params[:dnsmasq_config_file])
+    end
+  end
+
+  shared_examples_for 'neutron dhcp agent with dnsmasq_dns_servers set' do
+    before do
+      params.merge!(
+        :dnsmasq_dns_servers => ['1.2.3.4','5.6.7.8']
+      )
+    end
+    it 'should set dnsmasq_dns_servers' do
+      is_expected.to contain_neutron_dhcp_agent_config('DEFAULT/dnsmasq_dns_servers').with_value(params[:dnsmasq_dns_servers].join(','))
     end
   end
 
@@ -149,7 +203,9 @@ describe 'neutron::agents::dhcp' do
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     let :platform_params do
@@ -161,11 +217,18 @@ describe 'neutron::agents::dhcp' do
 
     it_configures 'neutron dhcp agent'
     it_configures 'neutron dhcp agent with dnsmasq_config_file specified'
+    it_configures 'neutron dhcp agent with dnsmasq_dns_servers set'
+    it 'configures subscription to neutron-dhcp-agent package' do
+      is_expected.to contain_service('neutron-dhcp-service').that_subscribes_to('Package[neutron-dhcp-agent]')
+    end
   end
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily               => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
 
     let :platform_params do
@@ -176,5 +239,6 @@ describe 'neutron::agents::dhcp' do
 
     it_configures 'neutron dhcp agent'
     it_configures 'neutron dhcp agent with dnsmasq_config_file specified'
+    it_configures 'neutron dhcp agent with dnsmasq_dns_servers set'
   end
 end

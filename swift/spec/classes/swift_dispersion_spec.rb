@@ -32,16 +32,11 @@ describe 'swift::dispersion' do
     :ensure  => 'file',
     :owner   => 'swift',
     :group   => 'swift',
-    :mode    => '0660',
     :require => 'Package[swift]')
   }
 
   shared_examples 'swift::dispersion' do
     let (:p) { default_params.merge!(params) }
-
-    it 'depends on swift package' do
-      is_expected.to contain_package('swift').with_before(/Swift_dispersion_config\[.+\]/)
-    end
 
     it 'configures dispersion.conf' do
       is_expected.to contain_swift_dispersion_config(

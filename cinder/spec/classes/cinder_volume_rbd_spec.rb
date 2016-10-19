@@ -1,15 +1,20 @@
 require 'spec_helper'
 
 describe 'cinder::volume::rbd' do
+
   let :req_params do
     {
       :rbd_pool                         => 'volumes',
       :rbd_user                         => 'test',
-      :rbd_secret_uuid                  => '0123456789',
+      :rbd_secret_uuid                  => '<SERVICE DEFAULT>',
       :rbd_ceph_conf                    => '/foo/boo/zoo/ceph.conf',
       :rbd_flatten_volume_from_snapshot => true,
-      :volume_tmp_dir                   => '/foo/tmp',
-      :rbd_max_clone_depth              => '0'
+      :volume_tmp_dir                   => '<SERVICE DEFAULT>',
+      :rbd_max_clone_depth              => '0',
+      :rados_connect_timeout            => '<SERVICE DEFAULT>',
+      :rados_connection_interval        => '<SERVICE DEFAULT>',
+      :rados_connection_retries         => '<SERVICE DEFAULT>',
+      :rbd_store_chunk_size             => '<SERVICE DEFAULT>'
     }
   end
 
@@ -20,7 +25,7 @@ describe 'cinder::volume::rbd' do
   end
 
   let :facts do
-    {:osfamily => 'Debian'}
+    OSDefaults.get_facts({:osfamily => 'Debian'})
   end
 
   describe 'rbd volume driver' do
@@ -34,21 +39,15 @@ describe 'cinder::volume::rbd' do
       is_expected.to contain_cinder_config('DEFAULT/rbd_pool').with_value(req_params[:rbd_pool])
       is_expected.to contain_cinder_config('DEFAULT/rbd_user').with_value(req_params[:rbd_user])
       is_expected.to contain_cinder_config('DEFAULT/rbd_secret_uuid').with_value(req_params[:rbd_secret_uuid])
+      is_expected.to contain_cinder_config('DEFAULT/rados_connect_timeout').with_value(req_params[:rados_connect_timeout])
+      is_expected.to contain_cinder_config('DEFAULT/rados_connection_interval').with_value(req_params[:rados_connection_interval])
+      is_expected.to contain_cinder_config('DEFAULT/rados_connection_retries').with_value(req_params[:rados_connection_retries])
+      is_expected.to contain_cinder_config('DEFAULT/rbd_store_chunk_size').with_value(req_params[:rbd_store_chunk_size])
       is_expected.to contain_file('/etc/init/cinder-volume.override').with(:ensure => 'present')
-      is_expected.to contain_file_line('set initscript env').with(
+      is_expected.to contain_file_line('set initscript env DEFAULT').with(
         :line    => /env CEPH_ARGS=\"--id test\"/,
         :path    => '/etc/init/cinder-volume.override',
         :notify  => 'Service[cinder-volume]')
-    end
-
-    context 'with rbd_secret_uuid disabled' do
-      let(:params) { req_params.merge!({:rbd_secret_uuid => false}) }
-      it { is_expected.to contain_cinder_config('DEFAULT/rbd_secret_uuid').with_ensure('absent') }
-    end
-
-    context 'with volume_tmp_dir disabled' do
-      let(:params) { req_params.merge!({:volume_tmp_dir => false}) }
-      it { is_expected.to contain_cinder_config('DEFAULT/volume_tmp_dir').with_ensure('absent') }
     end
 
   end
@@ -58,7 +57,7 @@ describe 'cinder::volume::rbd' do
       params.merge!({:extra_options => {'rbd_backend/param1' => {'value' => 'value1'}}})
     end
     it 'configure rbd volume with additional configuration' do
-      should contain_cinder__backend__rbd('DEFAULT').with({
+      is_expected.to contain_cinder__backend__rbd('DEFAULT').with({
         :extra_options => {'rbd_backend/param1' => {'value' => 'value1'}}
       })
     end
@@ -66,7 +65,7 @@ describe 'cinder::volume::rbd' do
 
   describe 'with RedHat' do
     let :facts do
-        { :osfamily => 'RedHat' }
+        @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :params do
@@ -80,7 +79,7 @@ describe 'cinder::volume::rbd' do
     end
 
     it 'should configure RedHat init override' do
-      is_expected.to contain_file_line('set initscript env').with(
+      is_expected.to contain_file_line('set initscript env DEFAULT').with(
         :line    => /export CEPH_ARGS=\"--id test\"/,
         :path    => '/etc/sysconfig/openstack-cinder-volume',
         :notify  => 'Service[cinder-volume]')

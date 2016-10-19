@@ -13,10 +13,13 @@ describe provider_class do
 
   let :router_attrs do
     {
-      :name            => router_name,
-      :ensure          => 'present',
-      :admin_state_up  => 'True',
-      :tenant_id       => '60f9544eb94c42a6b7e8e98c2be981b1',
+      :name                   => router_name,
+      :ensure                 => 'present',
+      :admin_state_up         => 'True',
+      :distributed            => 'True',
+      :ha                     => 'False',
+      :tenant_id              => '60f9544eb94c42a6b7e8e98c2be981b1',
+      :availability_zone_hint => 'zone1',
     }
   end
 
@@ -39,10 +42,16 @@ external_gateway_info=""
 id="c5f799fa-b3e0-47ca-bdb7-abeff209b816"
 name="router1"
 status="ACTIVE"
-tenant_id="60f9544eb94c42a6b7e8e98c2be981b1"'
+distributed="True"
+ha="False"
+tenant_id="60f9544eb94c42a6b7e8e98c2be981b1"
+availability-zone-hint="zone1"'
 
       provider.expects(:auth_neutron).with('router-create',
-                                           '--format=shell', ["--tenant_id=#{router_attrs[:tenant_id]}"],
+                                           '--format=shell', ["--tenant_id=#{router_attrs[:tenant_id]}",
+                                                              "--distributed=#{router_attrs[:distributed]}",
+                                                              "--ha=#{router_attrs[:ha]}",
+                                                              "--availability-zone-hint=#{router_attrs[:availability_zone_hint]}"],
                                            router_name).returns(output)
 
       provider.create

@@ -15,8 +15,18 @@
 #
 # Author: Loic Dachary <loic@dachary.org>
 #
+# == Class: ceph::mons
+#
 # Class wrapper for the benefit of scenario_node_terminus
 #
-class ceph::mons($args, $defaults = {}) {
+# === Parameters:
+#
+# [*args*] A Ceph mons config hash
+#   Optional.
+#
+# [*defaults*] A config hash
+#   Optional. Defaults to a empty hash
+#
+class ceph::mons($args = {}, $defaults = {}) {
   create_resources(ceph::mon, $args, $defaults)
 }

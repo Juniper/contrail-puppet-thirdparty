@@ -42,7 +42,7 @@ Puppet::Type.newtype(:neutron_network) do
 
   newproperty(:provider_network_type) do
     desc 'The physical mechanism by which the virtual network is realized.'
-    newvalues(:flat, :vlan, :local, :gre, :l3_ext, :vxlan)
+    newvalues(:flat, :vlan, :local, :gre, :l3_ext, :vxlan, :uplink)
   end
 
   newproperty(:provider_physical_network) do
@@ -67,6 +67,10 @@ Puppet::Type.newtype(:neutron_network) do
     munge do |v|
       v.to_s.capitalize
     end
+  end
+
+  newproperty(:availability_zone_hint) do
+    desc 'The availability zone hint to provide the scheduler'
   end
 
   # Require the neutron-server service to be running

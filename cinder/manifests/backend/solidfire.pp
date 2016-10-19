@@ -24,19 +24,51 @@
 #
 # [*sf_emulate_512*]
 #   (optional) Use 512 byte emulation for volumes.
-#   Defaults to True
+#   Defaults to $::os_service_default
 #
 # [*sf_allow_tenant_qos*]
 #   (optional) Allow tenants to specify QoS via volume metadata.
-#   Defaults to False
+#   Defaults to $::os_service_default
 #
 # [*sf_account_prefix*]
 #   (optional) Prefix to use when creating tenant accounts on SolidFire Cluster.
-#   Defaults to None, so account name is simply the tenant-uuid
+#   Defaults to $::os_service_default
+#
+# [*sf_template_account_name*]
+#   (optional) Account name on the SolidFire Cluster to use as owner of
+#   template/cache volumes (created if does not exist)
+#   Defaults to $::os_service_default
+#
+# [*sf_allow_template_caching*]
+#   (optional) Create an internal cache of copy of images when a bootable
+#   volume is created to eliminate fetch from glance and qemu-
+#   conversion on subsequent calls.
+#   Defaults to $::os_service_default
 #
 # [*sf_api_port*]
 #   (optional) Port ID to use to connect to SolidFire API.
-#   Defaults to 443
+#   Defaults to $::os_service_default
+#
+# [*sf_volume_prefix*]
+#   (optional) Create SolidFire volumes with this prefix. Volume names
+#   are of the form <sf_volume_prefix><cinder-volume-id>.
+#   Defaults to $::os_service_default-
+#
+# [*sf_svip*]
+#   (optional) Overrides default cluster SVIP with the one specified.
+#   This is required or deployments that have implemented the use of
+#   VLANs for iSCSI networks in their cloud.
+#   Defaults to $::os_service_default
+#
+# [*sf_enable_volume_mapping*]
+#   (optional) Create an internal mapping of volume IDs and account.
+#   Optimizes lookups and performance at the expense of memory, very
+#   large deployments may want to consider setting to False.
+#   Defaults to $::os_service_default
+#
+# [*sf_enable_vag*]
+#   (optional) Utilize volume access groups on a per-tenant basis.
+#   Defaults to $::os_service_default
 #
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
@@ -48,25 +80,37 @@ define cinder::backend::solidfire(
   $san_ip,
   $san_login,
   $san_password,
-  $volume_backend_name = $name,
-  $volume_driver       = 'cinder.volume.drivers.solidfire.SolidFireDriver',
-  $sf_emulate_512      = true,
-  $sf_allow_tenant_qos = false,
-  $sf_account_prefix   = '',
-  $sf_api_port         = '443',
-  $extra_options       = {},
+  $volume_backend_name       = $name,
+  $volume_driver           = 'cinder.volume.drivers.solidfire.SolidFireDriver',
+  $sf_emulate_512            = $::os_service_default,
+  $sf_allow_tenant_qos       = $::os_service_default,
+  $sf_account_prefix         = $::os_service_default,
+  $sf_template_account_name  = $::os_service_default,
+  $sf_allow_template_caching = $::os_service_default,
+  $sf_api_port               = $::os_service_default,
+  $sf_volume_prefix          = $::os_service_default,
+  $sf_svip                   = $::os_service_default,
+  $sf_enable_volume_mapping  = $::os_service_default,
+  $sf_enable_vag             = $::os_service_default,
+  $extra_options             = {},
 ) {
 
   cinder_config {
-    "${name}/volume_backend_name": value => $volume_backend_name;
-    "${name}/volume_driver":       value => $volume_driver;
-    "${name}/san_ip":              value => $san_ip;
-    "${name}/san_login":           value => $san_login;
-    "${name}/san_password":        value => $san_password, secret => true;
-    "${name}/sf_emulate_512":      value => $sf_emulate_512;
-    "${name}/sf_allow_tenant_qos": value => $sf_allow_tenant_qos;
-    "${name}/sf_account_prefix":   value => $sf_account_prefix;
-    "${name}/sf_api_port":         value => $sf_api_port;
+    "${name}/volume_backend_name":         value => $volume_backend_name;
+    "${name}/volume_driver":               value => $volume_driver;
+    "${name}/san_ip":                      value => $san_ip;
+    "${name}/san_login":                   value => $san_login;
+    "${name}/san_password":                value => $san_password, secret => true;
+    "${name}/sf_emulate_512":              value => $sf_emulate_512;
+    "${name}/sf_allow_tenant_qos":         value => $sf_allow_tenant_qos;
+    "${name}/sf_account_prefix":           value => $sf_account_prefix;
+    "${name}/sf_template_account_name":    value => $sf_template_account_name;
+    "${name}/sf_allow_template_caching":   value => $sf_allow_template_caching;
+    "${name}/sf_api_port":                 value => $sf_api_port;
+    "${name}/sf_volume_prefix":            value => $sf_volume_prefix;
+    "${name}/sf_svip":                     value => $sf_svip;
+    "${name}/sf_enable_volume_mapping":    value => $sf_enable_volume_mapping;
+    "${name}/sf_enable_vag":               value => $sf_enable_vag;
   }
 
   create_resources('cinder_config', $extra_options)

@@ -40,7 +40,6 @@ describe 'keystone::resource::service_identity' do
         :ensure   => 'present',
         :password => 'secrete',
         :email    => 'neutron@localhost',
-        :tenant   => 'services',
       )}
 
       it { is_expected.to contain_keystone_user_role("#{title}@services").with(
@@ -48,12 +47,81 @@ describe 'keystone::resource::service_identity' do
         :roles  => ['admin'],
       )}
 
-      it { is_expected.to contain_keystone_service(title).with(
+      it { is_expected.to contain_keystone_service("#{title}::network").with(
         :ensure      => 'present',
-        :type        => 'network',
         :description => 'neutron service',
       )}
 
+      it { is_expected.to contain_keystone_endpoint("RegionOne/#{title}::network").with(
+        :ensure       => 'present',
+        :public_url   => 'http://7.7.7.7:9696',
+        :internal_url => 'http://10.0.0.1:9696',
+        :admin_url    => 'http://192.168.0.1:9696',
+        :region       => 'RegionOne',
+      )}
+    end
+
+    context 'with ensure set to absent' do
+      let :params do
+        required_params.merge(:ensure => 'absent')
+      end
+
+      it { is_expected.to contain_keystone_user(title).with(
+        :ensure   => 'absent',
+        :password => 'secrete',
+        :email    => 'neutron@localhost',
+      )}
+
+      it { is_expected.to contain_keystone_user_role("#{title}@services").with(
+        :ensure => 'absent',
+        :roles  => ['admin'],
+      )}
+
+      it { is_expected.to contain_keystone_service("#{title}::network").with(
+        :ensure      => 'absent',
+        :description => 'neutron service',
+      )}
+
+      it { is_expected.to contain_keystone_endpoint("RegionOne/#{title}::network").with(
+        :ensure       => 'absent',
+        :public_url   => 'http://7.7.7.7:9696',
+        :internal_url => 'http://10.0.0.1:9696',
+        :admin_url    => 'http://192.168.0.1:9696',
+        :region       => 'RegionOne',
+      )}
+
+    end
+
+    context 'with bad ensure parameter value' do
+      let :params do
+        required_params.merge(:ensure => 'badvalue')
+      end
+
+      it { is_expected.to raise_error Puppet::Error, /Valid values for ensure parameter are present or absent/ }
+    end
+
+    context 'when explicitly setting an region' do
+      let :params do
+        required_params.merge(
+          :region => 'East',
+        )
+      end
+      it { is_expected.to contain_keystone_endpoint("East/#{title}::network").with(
+        :ensure       => 'present',
+        :public_url   => 'http://7.7.7.7:9696',
+        :internal_url => 'http://10.0.0.1:9696',
+        :admin_url    => 'http://192.168.0.1:9696',
+        :region       => 'East',
+      )}
+    end
+
+    context 'when trying to create an endpoint without service_type (will be dropped in Mitaka)' do
+      let :params do
+        required_params.merge(
+          :configure_service => false,
+          :service_type      => false,
+        )
+      end
       it { is_expected.to contain_keystone_endpoint("RegionOne/#{title}").with(
         :ensure       => 'present',
         :public_url   => 'http://7.7.7.7:9696',
@@ -62,11 +130,20 @@ describe 'keystone::resource::service_identity' do
       )}
     end
 
-    context 'when omitting a required parameter password' do
+    context 'when trying to create a service without service_type' do
       let :params do
-        required_params.delete(:password)
+        required_params.delete(:service_type)
+        required_params
       end
-      it { expect { is_expected.to raise_error(Puppet::Error) } }
+      it_raises 'a Puppet::Error', /When configuring a service, you need to set the service_type parameter/
+    end
+
+    context 'when trying to create an endpoint without url' do
+      let :params do
+        required_params.delete(:public_url)
+        required_params
+      end
+      it_raises 'a Puppet::Error', /When configuring an endpoint, you need to set the _url parameters/
     end
 
     context 'with user domain' do
@@ -80,7 +157,6 @@ describe 'keystone::resource::service_identity' do
         :ensure   => 'present',
         :password => 'secrete',
         :email    => 'neutron@localhost',
-        :tenant   => 'services',
         :domain   => 'userdomain',
       )}
       it { is_expected.to contain_keystone_user_role("#{title}@services").with(
@@ -88,6 +164,7 @@ describe 'keystone::resource::service_identity' do
         :roles  => ['admin'],
       )}
     end
+
     context 'with user and project domain' do
       let :params do
         required_params.merge({
@@ -99,7 +176,6 @@ describe 'keystone::resource::service_identity' do
         :ensure   => 'present',
         :password => 'secrete',
         :email    => 'neutron@localhost',
-        :tenant   => 'services',
         :domain   => 'userdomain',
       )}
       it { is_expected.to contain_keystone_domain('userdomain').with(
@@ -120,7 +196,6 @@ describe 'keystone::resource::service_identity' do
         :ensure   => 'present',
         :password => 'secrete',
         :email    => 'neutron@localhost',
-        :tenant   => 'services',
         :domain   => 'defaultdomain',
       )}
       it { is_expected.to contain_keystone_domain('defaultdomain').with(
@@ -136,7 +211,7 @@ describe 'keystone::resource::service_identity' do
 
   context 'on a Debian osfamily' do
     let :facts do
-      { :osfamily => "Debian" }
+      @default_facts.merge({ :osfamily => "Debian" })
     end
 
     include_examples 'keystone::resource::service_identity examples'
@@ -144,7 +219,7 @@ describe 'keystone::resource::service_identity' do
 
   context 'on a RedHat osfamily' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     include_examples 'keystone::resource::service_identity examples'

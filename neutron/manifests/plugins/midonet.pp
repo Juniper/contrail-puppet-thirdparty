@@ -1,7 +1,7 @@
 # == Class: midonet::neutron_plugin
 #
 # Install and configure Midonet Neutron Plugin. Please note that this manifest
-# does not install the 'python-neutron-midonet-plugin' package, it only
+# does not install the 'python-networking-midonet' package, it only
 # configures Neutron to do so needed for this deployment.  Check out the
 # MidoNet module to do so.
 #
@@ -17,12 +17,22 @@
 #   service is desirable and defaulted)
 # [*keystone_password*]
 #   Password from which midonet api will authenticate against Keystone
+#   Defaults to $::os_service_default
 # [*keystone_tenant*]
 #   Tenant from which midonet api will authenticate against Keystone (services
 #   tenant is desirable and defaulted)
 # [*sync_db*]
 #   Whether 'midonet-db-manage' should run to create and/or syncrhonize the database
 #   with MidoNet specific tables. Defaults to false
+#
+# [*purge_config*]
+#   (optional) Whether to set only the specified config options
+#   in the midonet config.
+#   Defaults to false.
+#
+# [*package_ensure*]
+#   Whether to install the latest package, or a version for midonet plugin
+#   Defaults to 'present'.
 #
 # === Examples
 #
@@ -69,22 +79,21 @@ class neutron::plugins::midonet (
   $midonet_api_ip    = '127.0.0.1',
   $midonet_api_port  = '8080',
   $keystone_username = 'neutron',
-  $keystone_password = undef,
+  $keystone_password = $::os_service_default,
   $keystone_tenant   = 'services',
-  $sync_db           = false
+  $sync_db           = false,
+  $purge_config      = false,
+  $package_ensure    = 'present'
 ) {
 
   include ::neutron::params
-
   Neutron_plugin_midonet<||> ~> Service['neutron-server']
-
   ensure_resource('file', '/etc/neutron/plugins/midonet', {
     ensure => directory,
     owner  => 'root',
     group  => 'neutron',
     mode   => '0640'}
   )
-
   # Ensure the neutron package is installed before config is set
   # under both RHEL and Ubuntu
   if ($::neutron::params::server_package) {
@@ -93,10 +102,15 @@ class neutron::plugins::midonet (
     Package['neutron'] -> Neutron_plugin_midonet<||>
   }
 
-  # Although this manifest does not install midonet plugin package because it
-  # is not available in common distro repos, this statement forces you to
-  # have an orchestrator/wrapper manifest that does that job.
-  Package[$::neutron::params::midonet_server_package] -> Neutron_plugin_midonet<||>
+  resources { 'neutron_plugin_midonet':
+  purge => $purge_config,
+}
+
+  package { 'python-networking-midonet':
+    ensure => $package_ensure,
+    name   => $::neutron::params::midonet_server_package,
+    tag    => ['neutron-package', 'openstack'],
+    }
 
   neutron_plugin_midonet {
     'MIDONET/midonet_uri':  value => "http://${midonet_api_ip}:${midonet_api_port}/midonet-api";
@@ -104,7 +118,6 @@ class neutron::plugins::midonet (
     'MIDONET/password':     value => $keystone_password, secret =>true;
     'MIDONET/project_id':   value => $keystone_tenant;
   }
-
   if $::osfamily == 'Debian' {
     file_line { '/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG':
       path    => '/etc/default/neutron-server',
@@ -114,7 +127,6 @@ class neutron::plugins::midonet (
       notify  => Service['neutron-server'],
     }
   }
-
   # In RH, this link is used to start Neutron process but in Debian, it's used only
   # to manage database synchronization.
   if defined(File['/etc/neutron/plugin.ini']) {
@@ -127,18 +139,15 @@ class neutron::plugins::midonet (
       require => Package[$::neutron::params::midonet_server_package]
     }
   }
-
   if $sync_db {
-
     Package<| title == $::neutron::params::midonet_server_package |> ~> Exec['midonet-db-sync']
-
     exec { 'midonet-db-sync':
-      command     => 'midonet-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade head',
+      command     => 'neutron-db-manage --subproject networking-midonet upgrade head',
       path        => '/usr/bin',
       before      => Service['neutron-server'],
+      require     => Exec['neutron-db-sync'],
       subscribe   => Neutron_config['database/connection'],
       refreshonly => true
     }
   }
 }
-

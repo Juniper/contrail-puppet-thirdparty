@@ -9,23 +9,27 @@ shared_examples 'generic nova service' do |service|
   context 'with default parameters' do
     it 'installs package and service' do
       is_expected.to contain_package(service[:name]).with({
-        :name   => service[:package_name],
-        :ensure => 'present',
-        :notify => "Service[#{service[:name]}]",
-        :tag    => ['openstack']
+        :name    => service[:package_name],
+        :ensure  => 'present',
+        :tag     => ['openstack', 'nova-package'],
       })
+      is_expected.to contain_package(service[:name]).that_requires('Anchor[nova::install::begin]')
+      is_expected.to contain_package(service[:name]).that_notifies('Anchor[nova::install::end]')
       is_expected.to contain_service(service[:name]).with({
         :name      => service[:service_name],
-        :ensure    => 'stopped',
+        :ensure    => 'running',
         :hasstatus => true,
-        :enable    => false
+        :enable    => true,
+        :tag       => 'nova-service',
       })
+      is_expected.to contain_service(service[:name]).that_subscribes_to('Anchor[nova::service::begin]')
+      is_expected.to contain_service(service[:name]).that_notifies('Anchor[nova::service::end]')
     end
   end
 
   context 'with overridden parameters' do
     let :params do
-      { :enabled        => true,
+      { :enabled        => false,
         :ensure_package => '2012.1-2' }
     end
 
@@ -33,14 +37,19 @@ shared_examples 'generic nova service' do |service|
       is_expected.to contain_package(service[:name]).with({
         :name   => service[:package_name],
         :ensure => '2012.1-2',
-        :notify => "Service[#{service[:name]}]"
+        :tag    => ['openstack', 'nova-package'],
       })
+      is_expected.to contain_package(service[:name]).that_requires('Anchor[nova::install::begin]')
+      is_expected.to contain_package(service[:name]).that_notifies('Anchor[nova::install::end]')
       is_expected.to contain_service(service[:name]).with({
         :name      => service[:service_name],
-        :ensure    => 'running',
+        :ensure    => 'stopped',
         :hasstatus => true,
-        :enable    => true
+        :enable    => false,
+        :tag       => 'nova-service',
       })
+      is_expected.to contain_service(service[:name]).that_subscribes_to('Anchor[nova::service::begin]')
+      is_expected.to contain_service(service[:name]).that_notifies('Anchor[nova::service::end]')
     end
   end
 

@@ -23,7 +23,7 @@ describe 'ceilometer::agent::central' do
         :ensure => 'latest',
         :name   => platform_params[:agent_package_name],
         :before => ['Service[ceilometer-agent-central]'],
-        :tag    => 'openstack'
+        :tag    => ['openstack', 'ceilometer-package'],
       )
     end
 
@@ -45,7 +45,8 @@ describe 'ceilometer::agent::central' do
             :name       => platform_params[:agent_service_name],
             :enable     => params[:enabled],
             :hasstatus  => true,
-            :hasrestart => true
+            :hasrestart => true,
+            :tag        => 'ceilometer-service',
           )
         end
       end
@@ -68,7 +69,8 @@ describe 'ceilometer::agent::central' do
           :name       => platform_params[:agent_service_name],
           :enable     => false,
           :hasstatus  => true,
-          :hasrestart => true
+          :hasrestart => true,
+          :tag        => 'ceilometer-service',
         )
       end
     end
@@ -77,7 +79,7 @@ describe 'ceilometer::agent::central' do
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
     end
 
     let :platform_params do
@@ -90,7 +92,7 @@ describe 'ceilometer::agent::central' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :platform_params do

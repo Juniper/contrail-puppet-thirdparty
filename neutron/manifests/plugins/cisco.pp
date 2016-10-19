@@ -42,8 +42,49 @@
 #
 # [*nexus_plugin*]
 # (optional) The nexus plugin to use
-# Defaults to undef. This will not set a nexus plugin to use
+# Defaults to $::os_service_default. This will not set a nexus plugin to use
 # Can be set to neutron.plugins.cisco.nexus.cisco_nexus_plugin_v2.NexusPlugin
+#
+# [*vlan_start*]
+#  (optional) First VLAN for private networks.
+#  Defaults to '100'.
+#
+# [*vlan_end*]
+#  (optional) Last VLAN for private networks.
+#  Defaults to '3000'.
+#
+# [*vlan_name_prefix*]
+#  (optional) VLAN Name prefix
+#  Defaults to 'q-'
+#
+# [*model_class*]
+#  (optional) Model Class
+#  Defaults to 'neutron.plugins.cisco.models.virt_phy_sw_v2.VirtualPhysicalSwitchModelV2'
+#
+# [*max_ports*]
+#  (optional) Number max of ports
+#  Defaults to '100'
+#
+# [*max_port_profiles*]
+#  (optional) Number max of port profiles
+#  Defaults to '65568'
+#
+# [*manager_class*]
+#  (optional) Manager Class
+#  Defaults to 'neutron.plugins.cisco.segmentation.l2network_vlan_mgr_v2.L2NetworkVLANMgr'
+#
+# [*max_networks*]
+#  (optional)
+#  Defaults to '65568'
+#
+# [*package_ensure*]
+#  (optional) the ensure state of the package resource
+#  Defaults to 'present'
+#
+# [*purge_config*]
+#   (optional) Whether to set only the specified config options
+#   in the cisco config.
+#   Defaults to false.
 #
 # Other parameters are currently not used by the plugin and
 # can be left unchanged, but in grizzly the plugin will fail
@@ -65,7 +106,7 @@ class neutron::plugins::cisco(
   $keystone_auth_url = 'http://127.0.0.1:35357/v2.0/',
 
   $vswitch_plugin = 'neutron.plugins.openvswitch.ovs_neutron_plugin.OVSNeutronPluginV2',
-  $nexus_plugin   = undef,
+  $nexus_plugin   = $::os_service_default,
 
   # Plugin minimum configuration
   $vlan_start        = '100',
@@ -76,7 +117,8 @@ class neutron::plugins::cisco(
   $max_port_profiles = '65568',
   $manager_class     = 'neutron.plugins.cisco.segmentation.l2network_vlan_mgr_v2.L2NetworkVLANMgr',
   $max_networks      = '65568',
-  $package_ensure    = 'present'
+  $package_ensure    = 'present',
+  $purge_config      = false,
 )
 {
   Neutron_plugin_cisco<||> ~> Service['neutron-server']
@@ -125,11 +167,25 @@ class neutron::plugins::cisco(
     tag    => 'openstack',
   }
 
+  # Setting purge for all configs
+  resources { 'neutron_plugin_cisco':
+    purge => $purge_config,
+  }
 
-  if $nexus_plugin {
-    neutron_plugin_cisco {
-      'PLUGINS/nexus_plugin' : value => $nexus_plugin;
-    }
+  resources { 'neutron_plugin_cisco_db_conn':
+    purge => $purge_config,
+  }
+
+  resources { 'neutron_plugin_cisco_l2network':
+    purge => $purge_config,
+  }
+
+  resources { 'neutron_plugin_cisco_credentials':
+    purge => $purge_config,
+  }
+
+  neutron_plugin_cisco {
+    'PLUGINS/nexus_plugin' : value => $nexus_plugin;
   }
 
   if $vswitch_plugin {

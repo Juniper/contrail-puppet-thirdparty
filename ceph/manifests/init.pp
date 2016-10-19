@@ -14,11 +14,15 @@
 #   limitations under the License.
 #
 # Author: David Moreau Simard <dmsimard@iweb.com>
-# Author: David Gurtner <david@nine.ch>
-
+# Author: David Gurtner <aldavud@crimson.ch>
+#
+# == Class: ceph
+#
 # init takes care of installing/configuring the common dependencies across classes
 # it also takes care of the global configuration values
-### == Parameters
+#
+# === Parameters:
+#
 # [*fsid*] The cluster's fsid.
 #   Mandatory. Get one with `uuidgen -r`.
 #
@@ -31,13 +35,16 @@
 # [*keyring*] The location of the keyring retrieved by default
 #   Optional. Defaults to /etc/ceph/keyring.
 #
+# [*osd_journal_size*] The size of the journal file/device.
+#   Optional. Integer. Default provided by Ceph.
+#
 # [*osd_pool_default_pg_num*] The default number of PGs per pool.
 #   Optional. Integer. Default provided by Ceph.
 #
 # [*osd_pool_default_pgp_num*] The default flags for new pools.
 #   Optional. Integer. Default provided by Ceph.
 #
-# [*$osd_pool_size*] Number of replicas for objects in the pool
+# [*osd_pool_default_size*] Number of replicas for objects in the pool
 #   Optional. Integer. Default provided by Ceph.
 #
 # [*osd_pool_default_min_size*] The default minimum num of replicas.
@@ -64,6 +71,9 @@
 #   individually through ceph::mon.
 #   Optional. String like e.g. 'a, b, c'.
 #
+# [*ms_bind_ipv6*] Enables Ceph daemons to bind to IPv6 addresses.
+#   Optional. Boolean. Default provided by Ceph.
+#
 # [*require_signatures*] If Ceph requires signatures on all
 #   message traffic (client<->cluster and between cluster daemons).
 #   Optional. Boolean. Default provided by Ceph.
@@ -85,11 +95,15 @@
 # [*public_network*] The address of the public network.
 #   Optional. {public-network-ip/netmask}
 #
+# [*public_addr*] The address of the node (on public network.)
+#   Optional. {public-network-ip}
+#
 class ceph (
   $fsid,
   $ensure                     = present,
   $authentication_type        = 'cephx',
   $keyring                    = undef,
+  $osd_journal_size           = undef,
   $osd_pool_default_pg_num    = undef,
   $osd_pool_default_pgp_num   = undef,
   $osd_pool_default_size      = undef,
@@ -99,14 +113,16 @@ class ceph (
   $mon_osd_nearfull_ratio     = undef,
   $mon_initial_members        = undef,
   $mon_host                   = undef,
+  $ms_bind_ipv6               = undef,
   $require_signatures         = undef,
   $cluster_require_signatures = undef,
   $service_require_signatures = undef,
   $sign_messages              = undef,
   $cluster_network            = undef,
   $public_network             = undef,
+  $public_addr                = undef,
 ) {
-  include ceph::params
+  include ::ceph::params
 
   package { $::ceph::params::packages :
     ensure => $ensure,
@@ -115,7 +131,7 @@ class ceph (
 
   if $ensure !~ /(absent|purged)/ {
     # Make sure ceph is installed before managing the configuration
-    Package<| tag == 'ceph' |> -> Ceph_Config<| |>
+    Package<| tag == 'ceph' |> -> Ceph_config<| |>
     # [global]
     ceph_config {
       'global/fsid':                        value => $fsid;
@@ -129,28 +145,15 @@ class ceph (
       'global/mon_osd_nearfull_ratio':      value => $mon_osd_nearfull_ratio;
       'global/mon_initial_members':         value => $mon_initial_members;
       'global/mon_host':                    value => $mon_host;
+      'global/ms_bind_ipv6':                value => $ms_bind_ipv6;
       'global/require_signatures':          value => $require_signatures;
       'global/cluster_require_signatures':  value => $cluster_require_signatures;
       'global/service_require_signatures':  value => $service_require_signatures;
       'global/sign_messages':               value => $sign_messages;
       'global/cluster_network':             value => $cluster_network;
       'global/public_network':              value => $public_network;
-      'global/rbd_cache':                   value => 'true';
-      'global/rbd_cache_size':              value => '536870912';
-      'global/rbd_default_format':          value => '2';
-    }
-
-    ceph_config {
-      'osd/osd_journal_size':               value => 1024;
-      'osd/osd_mkfs_type':                  value => xfs;
-      'osd/keyring':                        value => '/var/lib/ceph/osd/$cluster-$num/keyring';
-      'osd/osd_op_threads':                 value => '4';
-      'osd/osd_disk_threads':               value => '2';
-    }
-
-    ceph_config {
-      'client.images/keyring':               value => '/etc/ceph/ceph.client.images.keyring';
-      'client.volumes/keyring':              value => '/etc/ceph/ceph.client.volumes.keyring';
+      'global/public_addr':                 value => $public_addr;
+      'osd/osd_journal_size':               value => $osd_journal_size;
     }
 
     if $authentication_type == 'cephx' {

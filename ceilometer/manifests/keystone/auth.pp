@@ -2,91 +2,114 @@
 #
 # Configures Ceilometer user, service and endpoint in Keystone.
 #
-# === Parameters
+# === Parameters:
 #
 # [*password*]
-#   Password for Ceilometer user. Required.
+#   (Required) Password for Ceilometer user.
 #
 # [*email*]
-#   Email for Ceilometer user. Optional. Defaults to 'ceilometer@localhost'.
+#   (Optional) Email for Ceilometer user.
+#   Defaults to 'ceilometer@localhost'.
 #
 # [*auth_name*]
-#   Username for Ceilometer service. Optional. Defaults to 'ceilometer'.
+#   (Optional) Username for Ceilometer service.
+#   Defaults to 'ceilometer'.
 #
 # [*configure_endpoint*]
-#   Should Ceilometer endpoint be configured? Optional. Defaults to 'true'.
+#   (Optional) Should Ceilometer endpoint be configured.
+#   Defaults to true.
 #
 # [*configure_user*]
-#   Should Ceilometer service user be configured? Optional. Defaults to 'true'.
+#   (Optional) Should Ceilometer service user be configured?
+#   Defaults to true.
 #
 # [*configure_user_role*]
-#   Should roles be configured on Ceilometer service user? Optional. Defaults to 'true'.
+#   (Optional) Should roles be configured on Ceilometer service user?
+#   Defaults to true.
 #
 # [*service_name*]
-#   Name of the service. Optional. Defaults to value of auth_name.
+#   (Optional) Name of the service.
+#   Defaults to value of auth_name.
 #
 # [*service_type*]
-#    Type of service. Optional. Defaults to 'metering'.
+#   (Optional) Type of service. Optional.
+#   Defaults to 'metering'.
+#
+# [*service_description*]
+#   (Optional) Description for keystone service.
+#   Defaults to 'Openstack Metering Service'.
 #
 # [*region*]
-#    Region for endpoint. Optional. Defaults to 'RegionOne'.
+#   (Optional) Region for endpoint.
+#   Defaults to 'RegionOne'.
 #
 # [*tenant*]
-#    Tenant for Ceilometer user. Optional. Defaults to 'services'.
+#   (Optional) Tenant for Ceilometer user.
+#   Defaults to 'services'.
 #
 # [*public_url*]
-#   (optional) The endpoint's public url. (Defaults to 'http://127.0.0.1:8777')
+#   (Optional) The endpoint's public url.
 #   This url should *not* contain any trailing '/'.
+#   Defaults to 'http://127.0.0.1:8777'.
 #
 # [*admin_url*]
-#   (optional) The endpoint's admin url. (Defaults to 'http://127.0.0.1:8777')
+#   (Optional) The endpoint's admin url.
 #   This url should *not* contain any trailing '/'.
+#   Defaults to 'http://127.0.0.1:8777'.
 #
 # [*internal_url*]
-#   (optional) The endpoint's internal url. (Defaults to 'http://127.0.0.1:8777')
+#   (Optional) The endpoint's internal url.
 #   This url should *not* contain any trailing '/'.
+#   Defaults to 'http://127.0.0.1:8777'.
 #
 # [*port*]
-#   (optional) DEPRECATED: Use public_url, internal_url and admin_url instead.
-#   Default port for endpoints. (Defaults to 8777)
+#   (Optional) DEPRECATED: Use public_url, internal_url and admin_url instead.
 #   Setting this parameter overrides public_url, internal_url and admin_url parameters.
+#   Default port for endpoints.
+#   Defaults to 8777.
 #
 # [*public_protocol*]
-#   (optional) DEPRECATED: Use public_url instead.
-#   Protocol for public endpoint. (Defaults to 'http')
+#   (Optional) DEPRECATED: Use public_url instead.
+#   Protocol for public endpoint.
 #   Setting this parameter overrides public_url parameter.
+#   Defaults to 'http'.
 #
 # [*public_address*]
-#   (optional) DEPRECATED: Use public_url instead.
-#   Public address for endpoint. (Defaults to '127.0.0.1')
+#   (Optional) DEPRECATED: Use public_url instead.
+#   Public address for endpoint.
 #   Setting this parameter overrides public_url parameter.
+#   Defaults to '127.0.0.1'.
 #
 # [*internal_protocol*]
-#   (optional) DEPRECATED: Use internal_url instead.
-#   Protocol for internal endpoint. (Defaults to 'http')
+#   (Optional) DEPRECATED: Use internal_url instead.
+#   Protocol for internal endpoint.
 #   Setting this parameter overrides internal_url parameter.
+#   Defaults to 'http'.
 #
 # [*internal_address*]
-#   (optional) DEPRECATED: Use internal_url instead.
-#   Internal address for endpoint. (Defaults to '127.0.0.1')
+#   (Optional) DEPRECATED: Use internal_url instead.
+#   Internal address for endpoint.
 #   Setting this parameter overrides internal_url parameter.
+#   Defaults to '127.0.0.1'.
 #
 # [*admin_protocol*]
-#   (optional) DEPRECATED: Use admin_url instead.
-#   Protocol for admin endpoint. (Defaults to 'http')
+#   (Optional) DEPRECATED: Use admin_url instead.
+#   Protocol for admin endpoint.
 #   Setting this parameter overrides admin_url parameter.
+#   Defaults to 'http'.
 #
 # [*admin_address*]
-#   (optional) DEPRECATED: Use admin_url instead.
-#   Admin address for endpoint. (Defaults to '127.0.0.1')
+#   (Optional) DEPRECATED: Use admin_url instead.
+#   Admin address for endpoint.
 #   Setting this parameter overrides admin_url parameter.
+#   Defaults to '127.0.0.1'.
 #
-# === Deprecation notes
+# === Deprecation notes:
 #
 # If any value is provided for public_protocol, public_address or port parameters,
 # public_url will be completely ignored. The same applies for internal and admin parameters.
 #
-# === Examples
+# === Examples:
 #
 #  class { 'ceilometer::keystone::auth':
 #    public_url   => 'https://10.0.0.10:8777',
@@ -102,6 +125,7 @@ class ceilometer::keystone::auth (
   $configure_user_role  = true,
   $service_name         = undef,
   $service_type         = 'metering',
+  $service_description  = 'Openstack Metering Service',
   $region               = 'RegionOne',
   $tenant               = 'services',
   $configure_endpoint   = true,
@@ -182,7 +206,7 @@ class ceilometer::keystone::auth (
     configure_user_role => $configure_user_role,
     configure_endpoint  => $configure_endpoint,
     service_type        => $service_type,
-    service_description => 'Openstack Metering Service',
+    service_description => $service_description,
     service_name        => $service_name_real,
     region              => $region,
     password            => $password,
@@ -200,8 +224,7 @@ class ceilometer::keystone::auth (
         ensure => present,
       }
     }
-    Keystone_role['ResellerAdmin'] -> Keystone_user_role["${auth_name}@${tenant}"] ~>
-      Service <| name == 'ceilometer-api' |>
+    Keystone_role['ResellerAdmin'] -> Keystone_user_role["${auth_name}@${tenant}"]
   }
 
 }

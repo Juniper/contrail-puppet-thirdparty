@@ -33,6 +33,7 @@ describe 'horizon::wsgi::apache' do
         is_expected.to contain_class('apache')
         is_expected.to contain_class('apache::mod::wsgi')
         is_expected.to contain_service('httpd').with_name(platforms_params[:http_service])
+        is_expected.to contain_package('httpd').with_name(platforms_params[:http_service])
         is_expected.to contain_file(platforms_params[:httpd_config_file])
         is_expected.to contain_package('horizon').with_ensure('present')
         is_expected.to contain_apache__vhost('horizon_vhost').with(
@@ -43,6 +44,7 @@ describe 'horizon::wsgi::apache' do
           'serveraliases'        => ['*'],
           'docroot'              => '/var/www/',
           'ssl'                  => 'false',
+          'port'                 => '80',
           'redirectmatch_status' => 'permanent',
           'redirectmatch_regexp' => '^/$',
           'redirectmatch_dest'   => platforms_params[:root_url],
@@ -57,7 +59,8 @@ describe 'horizon::wsgi::apache' do
     context 'with overriden parameters' do
       before do
         params.merge!({
-          :priority => '10',
+          :priority      => '10',
+          :redirect_type => 'temp',
         })
       end
 
@@ -66,6 +69,7 @@ describe 'horizon::wsgi::apache' do
         is_expected.to contain_class('apache')
         is_expected.to contain_class('apache::mod::wsgi')
         is_expected.to contain_service('httpd').with_name(platforms_params[:http_service])
+        is_expected.to contain_package('httpd').with_name(platforms_params[:http_service])
         is_expected.to contain_file(platforms_params[:httpd_config_file])
         is_expected.to contain_package('horizon').with_ensure('present')
         is_expected.to contain_apache__vhost('horizon_vhost').with(
@@ -76,7 +80,8 @@ describe 'horizon::wsgi::apache' do
           'serveraliases'        => ['*'],
           'docroot'              => '/var/www/',
           'ssl'                  => 'false',
-          'redirectmatch_status' => 'permanent',
+          'port'                 => '80',
+          'redirectmatch_status' => 'temp',
           'redirectmatch_regexp' => '^/$',
           'redirectmatch_dest'   => platforms_params[:root_url],
           'wsgi_script_aliases'  => { platforms_params[:root_url] => '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi' },
@@ -110,6 +115,7 @@ describe 'horizon::wsgi::apache' do
           'serveraliases'          => ['*'],
           'docroot'                => '/var/www/',
           'ssl'                    => 'true',
+          'port'                   => '443',
           'ssl_cert'               => '/etc/pki/tls/certs/httpd.crt',
           'ssl_key'                => '/etc/pki/tls/private/httpd.key',
           'ssl_ca'                 => '/etc/pki/tls/certs/ca.crt',
@@ -118,7 +124,7 @@ describe 'horizon::wsgi::apache' do
           'redirectmatch_dest'     => platforms_params[:root_url],
           'wsgi_process_group'     => 'horizon-ssl',
           'wsgi_daemon_process'    => 'horizon-ssl',
-          'wsgi_script_aliases'    => { platforms_params[:root_url] => '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi' }
+          'wsgi_script_aliases'  => { platforms_params[:root_url] => '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi' },
         )}
 
         it { is_expected.to contain_apache__vhost('horizon_vhost').with(
@@ -129,12 +135,13 @@ describe 'horizon::wsgi::apache' do
           'serveraliases'        => ['*'],
           'docroot'              => '/var/www/',
           'ssl'                  => 'false',
+          'port'                 => '80',
           'redirectmatch_status' => 'permanent',
           'redirectmatch_regexp' => '(.*)',
           'redirectmatch_dest'   => 'https://some.host.tld',
           'wsgi_process_group'   => platforms_params[:wsgi_group],
           'wsgi_daemon_process'  => platforms_params[:wsgi_group],
-          'wsgi_script_aliases'  => { platforms_params[:root_url] => '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi' }
+          'wsgi_script_aliases'  => { platforms_params[:root_url] => '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi' },
         )}
       end
 
@@ -220,7 +227,45 @@ describe 'horizon::wsgi::apache' do
     before do
       facts.merge!({
         :osfamily               => 'Debian',
-        :operatingsystemrelease => '6.0'
+        :operatingsystem        => 'Debian',
+        :operatingsystemrelease => '6.0',
+        :os_package_type        => 'debian'
+      })
+    end
+
+    let :platforms_params do
+      { :http_service      => 'apache2',
+        :httpd_config_file => '/etc/apache2/sites-available/openstack-dashboard-alias-only.conf',
+        :root_url          => '/horizon',
+        :apache_user       => 'www-data',
+        :apache_group      => 'www-data',
+        :wsgi_user         => 'horizon',
+        :wsgi_group        => 'horizon',
+        :unix_user         => 'horizon',
+        :unix_group        => 'horizon' }
+    end
+
+    it_behaves_like 'apache for horizon'
+    it 'configures webroot alias' do
+      if (Gem::Version.new(Puppet.version) >= Gem::Version.new('4.0'))
+        is_expected.to contain_apache__vhost('horizon_vhost').with(
+          'aliases' => [{'alias' => '/horizon/static', 'path' => '/usr/share/openstack-dashboard/static'}],
+        )
+      else
+        is_expected.to contain_apache__vhost('horizon_vhost').with(
+          'aliases' => [['alias', '/horizon/static'], ['path', '/usr/share/openstack-dashboard/static']],
+        )
+      end
+    end
+  end
+
+  context 'on Ubuntu platforms' do
+    before do
+      facts.merge!({
+        :osfamily               => 'Debian',
+        :operatingsystem        => 'Ubuntu',
+        :operatingsystemrelease => '14.04',
+        :os_package_type        => 'ubuntu'
       })
     end
 
