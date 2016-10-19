@@ -3,6 +3,9 @@ require 'puppet/util/inifile'
 
 class Puppet::Provider::Neutron < Puppet::Provider
 
+  initvars
+  commands :neutron => 'neutron'
+
   def self.conf_filename
     '/etc/neutron/neutron.conf'
   end
@@ -26,23 +29,25 @@ class Puppet::Provider::Neutron < Puppet::Provider
   end
 
   def self.get_neutron_credentials
-    auth_keys = ['admin_tenant_name', 'admin_user', 'admin_password']
-    deprecated_auth_url = ['auth_host', 'auth_port', 'auth_protocol']
+    deprecated_auth_keys = ['admin_tenant_name', 'admin_user', 'admin_password', 'identity_uri']
+    auth_keys = ['tenant_name', 'username', 'password', 'auth_url']
     conf = neutron_conf
     if conf and conf['keystone_authtoken'] and
-        auth_keys.all?{|k| !conf['keystone_authtoken'][k].nil?} and
-        ( deprecated_auth_url.all?{|k| !conf['keystone_authtoken'][k].nil?} or
-        !conf['keystone_authtoken']['auth_uri'].nil? )
+        !conf['keystone_authtoken']['password'].nil? and
+        auth_keys.all?{|k| !conf['keystone_authtoken'][k].nil?}
       creds = Hash[ auth_keys.map \
                    { |k| [k, conf['keystone_authtoken'][k].strip] } ]
-      if !conf['keystone_authtoken']['auth_uri'].nil?
-        creds['auth_uri'] = conf['keystone_authtoken']['auth_uri']
-      else
-        q = conf['keystone_authtoken']
-        creds['auth_uri'] = "#{q['auth_protocol']}://#{q['auth_host']}:#{q['auth_port']}/v2.0/"
+      if !conf['keystone_authtoken']['region_name'].nil?
+        creds['region_name'] = conf['keystone_authtoken']['region_name'].strip
       end
+      return creds
+    elsif conf and conf['keystone_authtoken'] and
+        !conf['keystone_authtoken']['admin_password'].nil? and
+        deprecated_auth_keys.all?{|k| !conf['keystone_authtoken'][k].nil?}
+      creds = Hash[ deprecated_auth_keys.map \
+                   { |k| [k, conf['keystone_authtoken'][k].strip] } ]
       if conf['DEFAULT'] and !conf['DEFAULT']['nova_region_name'].nil?
-        creds['nova_region_name'] = conf['DEFAULT']['nova_region_name']
+        creds['nova_region_name'] = conf['DEFAULT']['nova_region_name'].strip
       end
       return creds
     else
@@ -56,19 +61,6 @@ correctly configured.")
     self.class.neutron_credentials
   end
 
-  def self.auth_endpoint
-    @auth_endpoint ||= get_auth_endpoint
-  end
-
-  def self.get_auth_endpoint
-    q = neutron_credentials
-    if q['auth_uri'].nil?
-      return "#{q['auth_protocol']}://#{q['auth_host']}:#{q['auth_port']}/v2.0/"
-    else
-      return "#{q['auth_uri']}".strip
-    end
-  end
-
   def self.neutron_conf
     return @neutron_conf if @neutron_conf
     @neutron_conf = Puppet::Util::IniConfig::File.new
@@ -78,14 +70,25 @@ correctly configured.")
 
   def self.auth_neutron(*args)
     q = neutron_credentials
-    authenv = {
-      :OS_AUTH_URL    => self.auth_endpoint,
-      :OS_USERNAME    => q['admin_user'],
-      :OS_TENANT_NAME => q['admin_tenant_name'],
-      :OS_PASSWORD    => q['admin_password']
-    }
+    if q.key?('admin_password')
+      authenv = {
+        :OS_AUTH_URL    => q['identity_uri'],
+        :OS_USERNAME    => q['admin_user'],
+        :OS_TENANT_NAME => q['admin_tenant_name'],
+        :OS_PASSWORD    => q['admin_password']
+      }
+    else
+      authenv = {
+        :OS_AUTH_URL    => q['auth_url'],
+        :OS_USERNAME    => q['username'],
+        :OS_TENANT_NAME => q['tenant_name'],
+        :OS_PASSWORD    => q['password']
+      }
+    end
     if q.key?('nova_region_name')
       authenv[:OS_REGION_NAME] = q['nova_region_name']
+    elsif q.key?('region_name')
+      authenv[:OS_REGION_NAME] = q['region_name']
     end
     rv = nil
     timeout = 10
@@ -133,8 +136,8 @@ correctly configured.")
 
   def self.list_neutron_resources(type)
     ids = []
-    list = auth_neutron("#{type}-list", '--format=csv',
-                        '--column=id', '--quote=none')
+    list = cleanup_csv_with_id(auth_neutron("#{type}-list", '--format=csv',
+                                            '--column=id', '--quote=none'))
     if list.nil?
       raise(Puppet::ExecutionFailure, "Can't retrieve #{type}-list because Neutron or Keystone API is not available.")
     end
@@ -177,7 +180,7 @@ correctly configured.")
     end
 
     headers = nil
-    CSV.parse(cmd_output) do |row|
+    CSV.parse(cleanup_csv(cmd_output)) do |row|
       if headers == nil
         headers = row
       else
@@ -192,12 +195,17 @@ correctly configured.")
     return results
   end
 
-  def self.get_tenant_id(catalog, name)
+  def self.get_tenant_id(catalog, name, domain='Default')
     instance_type = 'keystone_tenant'
     instance = catalog.resource("#{instance_type.capitalize!}[#{name}]")
     if ! instance
       instance = Puppet::Type.type(instance_type).instances.find do |i|
-        i.provider.name == name
+        # We need to check against the Default domain name because of
+        # https://review.openstack.org/#/c/226919/ which changed the naming
+        # format for the tenant to include ::<Domain name>. This should be
+        # removed when we drop the resource without a domain name.
+        # TODO(aschultz): remove ::domain lookup as part of M-cycle
+        i.provider.name == name || i.provider.name == "#{name}::#{domain}"
       end
     end
     if instance
@@ -217,4 +225,16 @@ correctly configured.")
     hash
   end
 
+  def self.cleanup_csv(text)
+    # Ignore warnings - assume legitimate output starts with a double quoted
+    # string.  Errors will be caught and raised prior to this
+    text = text.split("\n").drop_while { |line| line !~ /^\".*\"/ }.join("\n")
+    "#{text}\n"
+  end
+
+  def self.cleanup_csv_with_id(text)
+    return nil if text.nil?
+    text = text.split("\n").drop_while { |line| line !~ /^\s*id$/ }.join("\n")
+    "#{text}\n"
+  end
 end

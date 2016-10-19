@@ -41,7 +41,7 @@
 #
 #  [*rabbit_hosts*]
 #    (optional) Address of the message broker in this cell
-#    Defaults to 'localhost'
+#    Defaults to ['localhost']
 #
 #  [*rabbit_port*]
 #    (optional) Port number of the message broker in this cell
@@ -64,15 +64,14 @@ define nova::manage::cells (
   $cell_parent_name    = undef,
   $rabbit_username     = 'guest',
   $rabbit_password     = 'guest',
-  $rabbit_hosts        = 'localhost',
+  $rabbit_hosts        = ['localhost'],
   $rabbit_port         = '5672',
   $rabbit_virtual_host = '/',
   $weight_offset       = '1.0',
   $weight_scale        = '1.0'
 ) {
 
-  File['/etc/nova/nova.conf'] -> Nova_cells[$name]
-  Exec<| title == 'nova-db-sync' |> -> Nova_cells[$name]
+  include ::nova::deps
 
   nova_cells { $name:
     ensure              => present,

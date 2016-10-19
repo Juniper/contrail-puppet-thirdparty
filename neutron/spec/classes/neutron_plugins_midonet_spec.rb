@@ -4,8 +4,7 @@ describe 'neutron::plugins::midonet' do
 
   let :pre_condition do
     "class { 'neutron::server': auth_password => 'password' }
-     class { 'neutron': rabbit_password => 'passw0rd' }
-     package { 'python-neutron-plugin-midonet': }"
+     class { 'neutron': rabbit_password => 'passw0rd' }"
   end
 
   let :default_params do
@@ -14,11 +13,12 @@ describe 'neutron::plugins::midonet' do
     :midonet_api_port  => '8080',
     :keystone_username => 'neutron',
     :keystone_password => 'test_midonet',
-    :keystone_tenant   => 'services'
+    :keystone_tenant   => 'services',
+    :purge_config      => false,
   }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -34,11 +34,22 @@ describe 'neutron::plugins::midonet' do
       params.merge!(default_params)
     end
 
+    it 'should install package python-networking-midonet' do
+      is_expected.to contain_package('python-networking-midonet').with(
+        :ensure  => 'present')
+    end
+
     it 'should create plugin symbolic link' do
       is_expected.to contain_file('/etc/neutron/plugin.ini').with(
         :ensure  => 'link',
         :target  => '/etc/neutron/plugins/midonet/midonet.ini',
-        :require => 'Package[python-neutron-plugin-midonet]')
+        :require => 'Package[python-networking-midonet]')
+    end
+
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_plugin_midonet').with({
+        :purge => false
+      })
     end
 
     it 'should perform default configuration of' do
@@ -53,14 +64,16 @@ describe 'neutron::plugins::midonet' do
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian'})
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
     it 'configures /etc/default/neutron-server' do
       is_expected.to contain_file_line('/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG').with(
         :path    => '/etc/default/neutron-server',
         :match   => '^NEUTRON_PLUGIN_CONFIG=(.*)$',
         :line    => 'NEUTRON_PLUGIN_CONFIG=/etc/neutron/plugins/midonet/midonet.ini',
-        :require => ['Package[neutron-server]', 'Package[python-neutron-plugin-midonet]'],
+        :require => ['Package[neutron-server]', 'Package[python-networking-midonet]'],
         :notify  => 'Service[neutron-server]'
       )
     end
@@ -69,7 +82,10 @@ describe 'neutron::plugins::midonet' do
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat'})
+      @default_facts.merge(test_facts.merge({
+         :osfamily               => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
     it_configures 'neutron midonet plugin'
   end

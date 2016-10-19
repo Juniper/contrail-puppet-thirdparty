@@ -1,8 +1,6 @@
 nova
 ====
 
-6.1.0 - 2015.1 - Kilo
-
 #### Table of Contents
 
 1. [Overview - What is the nova module?](#overview)
@@ -16,29 +14,29 @@ nova
 Overview
 --------
 
-The nova module is a part of [OpenStack](https://github.com/openstack), an effort by the Openstack infrastructure team to provide continuous integration testing and code review for Openstack and Openstack community projects as part of the core software.  The module its self is used to flexibly configure and manage the compute service for Openstack.
+The nova module is a part of [OpenStack](https://github.com/openstack), an effort by the OpenStack infrastructure team to provide continuous integration testing and code review for OpenStack and OpenStack community projects as part of the core software.  The module its self is used to flexibly configure and manage the compute service for OpenStack.
 
 Module Description
 ------------------
 
 The nova module is a thorough attempt to make Puppet capable of managing the entirety of nova.  This includes manifests to provision such things as keystone endpoints, RPC configurations specific to nova, and database connections.  Types are shipped as part of the nova module to assist in manipulation of configuration files.
 
-This module is tested in combination with other modules needed to build and leverage an entire Openstack software stack.  These modules can be found, all pulled together in the [openstack module](https://github.com/openstack/puppet-openstack).
+This module is tested in combination with other modules needed to build and leverage an entire OpenStack software stack.
 
 Setup
 -----
 
 **What the nova module affects:**
 
-* nova, the compute service for Openstack.
+* [Nova](https://wiki.openstack.org/wiki/Nova), the compute service for OpenStack.
 
 ### Installing nova
 
-    example% puppet module install puppetlabs/nova
+    puppet module install openstack/nova
 
 ### Beginning with nova
 
-To utilize the nova module's functionality you will need to declare multiple resources.  The following is a modified excerpt from the [openstack module](https://github.com/stackforge/puppet-openstack).  This is not an exhaustive list of all the components needed, we recommend you consult and understand the [openstack module](https://github.com/stackforge/puppet-openstack) and the [core openstack](http://docs.openstack.org) documentation.
+To utilize the nova module's functionality you will need to declare multiple resources. This is not an exhaustive list of all the components needed, we recommend you consult and understand the [core openstack](http://docs.openstack.org) documentation.
 
 ```puppet
 class { 'nova':
@@ -68,6 +66,36 @@ Implementation
 
 nova is a combination of Puppet manifest and ruby code to delivery configuration and extra functionality through types and providers.
 
+### Types
+
+#### nova_config
+
+The `nova_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/nova/nova.conf` file.
+
+```puppet
+nova_config { 'DEFAULT/verbose' :
+  value => true,
+}
+```
+
+This will write `verbose=true` in the `[DEFAULT]` section.
+
+##### name
+
+Section/setting name to manage from `nova.conf`
+
+##### value
+
+The value of the setting to be defined.
+
+##### secret
+
+Whether to hide the value from Puppet logs. Defaults to `false`.
+
+##### ensure_absent_val
+
+If value is equal to ensure_absent_val then the resource will behave as if `ensure => absent` was specified. Defaults to `<SERVICE DEFAULT>`
+
 Limitations
 -----------
 
@@ -96,7 +124,7 @@ bundle exec rspec spec/acceptance
 
 For more information on writing and running beaker-rspec tests visit the documentation:
 
-* https://github.com/puppetlabs/beaker/wiki/How-to-Write-a-Beaker-Test-for-a-Module
+* https://github.com/puppetlabs/beaker-rspec/blob/master/README.md
 
 Contributors
 ------------

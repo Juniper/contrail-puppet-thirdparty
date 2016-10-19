@@ -45,8 +45,19 @@ describe 'ceilometer::agent::notification' do
     end
 
     it 'configures notifications parameters in ceilometer.conf' do
+      is_expected.to contain_ceilometer_config('notification/workers').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_ceilometer_config('notification/ack_on_event_error').with_value( params[:ack_on_event_error] )
       is_expected.to contain_ceilometer_config('notification/store_events').with_value( params[:store_events] )
+      is_expected.to contain_ceilometer_config('notification/disable_non_metric_meters').with_value('<SERVICE DEFAULT>')
+    end
+
+    context 'with disabled non-metric meters' do
+      before do
+        params.merge!({ :disable_non_metric_meters => true })
+      end
+      it 'disables non-metric meters' do
+        is_expected.to contain_ceilometer_config('notification/disable_non_metric_meters').with_value(params[:disable_non_metric_meters])
+      end
     end
 
     [{:enabled => true}, {:enabled => false}].each do |param_hash|
@@ -61,7 +72,8 @@ describe 'ceilometer::agent::notification' do
             :name       => platform_params[:agent_notification_service_name],
             :enable     => params[:enabled],
             :hasstatus  => true,
-            :hasrestart => true
+            :hasrestart => true,
+            :tag        => 'ceilometer-service'
           )
         end
       end
@@ -80,16 +92,30 @@ describe 'ceilometer::agent::notification' do
           :name       => platform_params[:agent_notification_service_name],
           :enable     => false,
           :hasstatus  => true,
-          :hasrestart => true
+          :hasrestart => true,
+          :tag        => 'ceilometer-service'
         )
       end
     end
 
+    context 'with multiple messaging urls' do
+      before do
+        params.merge!({
+          :messaging_urls => ['rabbit://rabbit_user:password@localhost/nova',
+                              'rabbit://rabbit_user:password@localhost/neutron'] })
+      end
+
+      it 'configures two messaging urls' do
+        is_expected.to contain_ceilometer_config('notification/messaging_urls').with_value(
+          ['rabbit://rabbit_user:password@localhost/nova', 'rabbit://rabbit_user:password@localhost/neutron']
+        )
+      end
+    end
   end
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
     end
 
     let :platform_params do
@@ -102,7 +128,7 @@ describe 'ceilometer::agent::notification' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :platform_params do
@@ -115,10 +141,10 @@ describe 'ceilometer::agent::notification' do
 
   context 'on RHEL 7' do
     let :facts do
-      { :osfamily                  => 'RedHat',
+      @default_facts.merge({ :osfamily                  => 'RedHat',
         :operatingsystem           => 'RedHat',
         :operatingsystemmajrelease => 7
-      }
+      })
     end
 
     let :platform_params do
@@ -131,10 +157,10 @@ describe 'ceilometer::agent::notification' do
 
   context 'on CentOS 7' do
     let :facts do
-      { :osfamily                  => 'RedHat',
+      @default_facts.merge({ :osfamily                  => 'RedHat',
         :operatingsystem           => 'CentOS',
         :operatingsystemmajrelease => 7
-      }
+      })
     end
 
     let :platform_params do
@@ -147,10 +173,10 @@ describe 'ceilometer::agent::notification' do
 
   context 'on Scientific 7' do
     let :facts do
-      { :osfamily                  => 'RedHat',
+      @default_facts.merge({ :osfamily                  => 'RedHat',
         :operatingsystem           => 'Scientific',
         :operatingsystemmajrelease => 7
-      }
+      })
     end
 
     let :platform_params do
@@ -163,10 +189,10 @@ describe 'ceilometer::agent::notification' do
 
   context 'on Fedora 20' do
     let :facts do
-      { :osfamily               => 'RedHat',
+      @default_facts.merge({ :osfamily               => 'RedHat',
         :operatingsystem        => 'Fedora',
         :operatingsystemrelease => 20
-      }
+      })
     end
 
     let :platform_params do

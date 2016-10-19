@@ -5,22 +5,22 @@
 # === Parameters
 #
 # [*public_url*]
-#   (optional) Public url for keystone endpoint. (Defaults to 'http://127.0.0.1:5000')
+#   (optional) Public url for keystone endpoint.
+#   Defaults to 'http://127.0.0.1:5000'
 #   This url should *not* contain any version or trailing '/'.
 #
 # [*internal_url*]
-#   (optional) Internal url for keystone endpoint. (Defaults to $public_url)
+#   (optional) Internal url for keystone endpoint.
+#   Defaults to $public_url
 #   This url should *not* contain any version or trailing '/'.
 #
 # [*admin_url*]
-#   (optional) Admin url for keystone endpoint. (Defaults to 'http://127.0.0.1:35357')
+#   (optional) Admin url for keystone endpoint.
+#   Defaults to 'http://127.0.0.1:35357'
 #   This url should *not* contain any version or trailing '/'.
 #
 # [*region*]
 #   (optional) Region for endpoint. (Defaults to 'RegionOne')
-#
-# [*version*]
-#   (optional) API version for endpoint. Appended to all endpoint urls. (Defaults to 'v2.0')
 #
 # [*user_domain*]
 #   (Optional) Domain for $auth_name
@@ -36,6 +36,13 @@
 #   If keystone_project_domain is not specified, use $keystone_default_domain
 #   Defaults to undef
 #
+# [*version*]
+#   (optional) API version for endpoint.
+#   Defaults to 'v2.0'. Valid values are 'v2.0', 'v3', or the empty string ''.
+#   If the version is set to the empty string (''), then it won't be
+#   used. This is the expected behaviour since Keystone V3 handles API versions
+#   from the context.
+#
 # === Examples
 #
 #  class { 'keystone::endpoint':
@@ -48,20 +55,46 @@ class keystone::endpoint (
   $public_url        = 'http://127.0.0.1:5000',
   $internal_url      = undef,
   $admin_url         = 'http://127.0.0.1:35357',
-  $version           = 'v2.0',
   $region            = 'RegionOne',
   $user_domain       = undef,
   $project_domain    = undef,
   $default_domain    = undef,
+  $version           = 'unset', # defaults to 'v2.0' if unset by user
 ) {
 
-  $public_url_real = "${public_url}/${version}"
-  $admin_url_real = "${admin_url}/${version}"
+  include ::keystone::deps
 
-  if $internal_url {
-    $internal_url_real = "${internal_url}/${version}"
+  if $version == 'unset' {
+    # $version will be set to empty '' once tempest & all openstack clients
+    # actually support versionless endpoints.
+    # See ongoing work in Tempest:
+    # https://review.openstack.org/#/q/status:open+project:openstack/tempest-lib+branch:master+topic:bug/1530181
+    # Until that, we need to set a version by default.
+    $_version = 'v2.0'
   } else {
-    $internal_url_real = "${public_url}/${version}"
+    $_version = $version
+  }
+  if empty($_version) {
+    $admin_url_real =  $admin_url
+    $public_url_real = $public_url
+
+    if $internal_url {
+      $internal_url_real = $internal_url
+    }
+    else {
+      $internal_url_real = $public_url
+    }
+  }
+  else {
+    $public_url_real = "${public_url}/${_version}"
+    $admin_url_real = "${admin_url}/${_version}"
+
+    if $internal_url {
+      $internal_url_real = "${internal_url}/${_version}"
+    }
+    else {
+      $internal_url_real = "${public_url}/${_version}"
+    }
   }
 
   keystone::resource::service_identity { 'keystone':
@@ -77,5 +110,5 @@ class keystone::endpoint (
     project_domain      => $project_domain,
     default_domain      => $default_domain,
   }
-
+  Keystone::Resource::Service_identity['keystone'] ->  File<| tag == 'openrc' |>
 }

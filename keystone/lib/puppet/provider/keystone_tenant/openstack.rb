@@ -9,15 +9,26 @@ Puppet::Type.type(:keystone_tenant).provide(
 
   @credentials = Puppet::Provider::Openstack::CredentialsV3.new
 
+  include PuppetX::Keystone::CompositeNamevar::Helpers
+
   def initialize(value={})
     super(value)
     @property_flush = {}
   end
 
+  def self.do_not_manage
+    @do_not_manage
+  end
+
+  def self.do_not_manage=(value)
+    @do_not_manage = value
+  end
+
   def create
-    # see if resource[:domain], or project_name::project_domain
-    project_name, project_domain = self.class.name_and_domain(resource[:name], resource[:domain])
-    properties = [project_name]
+    if self.class.do_not_manage
+      fail("Not managing Keystone_tenant[#{@resource[:name]}] due to earlier Keystone API failures.")
+    end
+    properties = [resource[:name]]
     if resource[:enabled] == :true
       properties << '--enable'
     elsif resource[:enabled] == :false
@@ -27,25 +38,39 @@ Puppet::Type.type(:keystone_tenant).provide(
       properties << '--description'
       properties << resource[:description]
     end
-    if project_domain
-      properties << '--domain'
-      properties << project_domain
-    end
+    properties << '--domain'
+    properties << resource[:domain]
+
     @property_hash = self.class.request('project', 'create', properties)
-    @property_hash[:name] = resource[:name]
+    @property_hash[:name]   = resource[:name]
+    @property_hash[:domain] = resource[:domain]
     @property_hash[:ensure] = :present
+  rescue Puppet::ExecutionFailure => e
+    if e.message =~ /No domain with a name or ID of/
+      raise(Puppet::Error, "No project #{resource[:name]} with domain #{resource[:domain]} found")
+    else
+      raise
+    end
   end
+
+  mk_resource_methods
 
   def exists?
     @property_hash[:ensure] == :present
   end
 
   def destroy
+    if self.class.do_not_manage
+      fail("Not managing Keystone_tenant[#{@resource[:name]}] due to earlier Keystone API failures.")
+    end
     self.class.request('project', 'delete', id)
     @property_hash.clear
   end
 
   def enabled=(value)
+    if self.class.do_not_manage
+      fail("Not managing Keystone_tenant[#{@resource[:name]}] due to earlier Keystone API failures.")
+    end
     @property_flush[:enabled] = value
   end
 
@@ -54,74 +79,39 @@ Puppet::Type.type(:keystone_tenant).provide(
   end
 
   def description=(value)
+    if self.class.do_not_manage
+      fail("Not managing Keystone_tenant[#{@resource[:name]}] due to earlier Keystone API failures.")
+    end
     @property_flush[:description] = value
   end
 
-  def description
-    @property_hash[:description]
-  end
-
-  def domain
-    @property_hash[:domain]
-  end
-
-  def id
-    @property_hash[:id]
-  end
-
   def self.instances
-    instance_hash = {}
-    list = request('project', 'list', '--long')
-    list.each do |project|
-      domname = domain_name_from_id(project[:domain_id])
-      if instance_hash.include?(project[:name]) # not unique
-        curdomid = instance_hash[project[:name]][:domain_id]
-        if curdomid != default_domain_id
-          # Move the project from the short name slot to the long name slot
-          # because it is not in the default domain.
-          curdomname = domain_name_from_id(curdomid)
-          instance_hash["#{project[:name]}::#{curdomname}"] = instance_hash[project[:name]]
-          # Use the short name slot for the new project
-          instance_hash[project[:name]] = project
-        else
-          # Use the long name for the new project
-          instance_hash["#{project[:name]}::#{domname}"] = project
-        end
-      else
-        # Unique (for now) - store in short name slot
-        instance_hash[project[:name]] = project
-      end
+    if default_domain_changed
+      warning(default_domain_deprecation_message)
     end
-    instance_hash.keys.collect do |project_name|
-      project = instance_hash[project_name]
-      domname = domain_name_from_id(project[:domain_id])
+    self.do_not_manage = true
+    projects = request('project', 'list', '--long')
+    list = projects.collect do |project|
+      domain_name = domain_name_from_id(project[:domain_id])
       new(
-        :name        => project_name,
+        :name        => resource_to_name(domain_name, project[:name]),
         :ensure      => :present,
         :enabled     => project[:enabled].downcase.chomp == 'true' ? true : false,
         :description => project[:description],
-        :domain      => domname,
+        :domain      => domain_name,
         :domain_id   => project[:domain_id],
         :id          => project[:id]
       )
     end
+    self.do_not_manage = false
+    list
   end
 
   def self.prefetch(resources)
-    project_hash = {}
-    projects = instances
-    resources.each do |resname, resource|
-      # resname may be specified as just "name" or "name::domain"
-      name, resdomain = name_and_domain(resname, resource[:domain])
-      provider = projects.find do |project|
-        # have a match if the full instance name matches the full resource name, OR
-        # the base resource name matches the base instance name, and the
-        # resource domain matches the instance domain
-        project_name, project_domain = name_and_domain(project.name, project.domain)
-        (project.name == resname) ||
-          ((project_name == name) && (project_domain == resdomain))
-      end
-      resource.provider = provider if provider
+    prefetch_composite(resources) do |sorted_namevars|
+      domain = sorted_namevars[0]
+      name   = sorted_namevars[1]
+      resource_to_name(domain, name)
     end
   end
 
@@ -139,5 +129,4 @@ Puppet::Type.type(:keystone_tenant).provide(
       @property_flush.clear
     end
   end
-
 end

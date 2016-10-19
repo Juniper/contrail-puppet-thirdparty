@@ -1,4 +1,5 @@
-require 'puppet/provider/openstack/credentials'
+#require 'puppet/provider/openstack/credentials'
+require File.join(File.dirname(__FILE__), '..','..','..', 'puppet/provider/openstack/credentials')
 
 module Puppet::Provider::Openstack::Auth
 
@@ -12,8 +13,9 @@ module Puppet::Provider::Openstack::Auth
 
   def get_os_vars_from_rcfile(filename)
     env = {}
-    if File.exists?(filename)
-      File.open(filename).readlines.delete_if{|l| l=~ /^#|^$/ }.each do |line|
+    rcfile = [filename, '/root/openrc'].detect { |f| File.exists? f }
+    unless rcfile.nil?
+      File.open(rcfile).readlines.delete_if{|l| l=~ /^#|^$/ }.each do |line|
         key, value = line.split('=')
         key = key.split(' ').last
         value = value.chomp.gsub(/'/, '')
@@ -27,7 +29,7 @@ module Puppet::Provider::Openstack::Auth
     RCFILENAME
   end
 
-  def request(service, action, properties=nil)
+  def request(service, action, properties=nil, options={})
     properties ||= []
     set_credentials(@credentials, get_os_vars_from_env)
     unless @credentials.set?
@@ -37,7 +39,7 @@ module Puppet::Provider::Openstack::Auth
     unless @credentials.set?
       raise(Puppet::Error::OpenstackAuthInputError, 'Insufficient credentials to authenticate')
     end
-    super(service, action, properties, @credentials)
+    super(service, action, properties, @credentials, options)
   end
 
   def set_credentials(creds, env)

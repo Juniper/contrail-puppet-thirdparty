@@ -37,13 +37,13 @@ describe 'neutron::agents::metering' do
       :enabled          => true,
       :debug            => false,
       :interface_driver => 'neutron.agent.linux.interface.OVSInterfaceDriver',
-      :use_namespaces   => true,
-      :measure_interval => '30',
-      :report_interval  => '300'
+      :driver           => 'neutron.services.metering.drivers.noop.noop_driver.NoopMeteringDriver',
+      :use_namespaces   => nil,
+      :purge_config     => false,
     }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -56,12 +56,18 @@ describe 'neutron::agents::metering' do
 
     it { is_expected.to contain_class('neutron::params') }
 
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_metering_agent_config').with({
+        :purge => false
+      })
+    end
+
     it 'configures metering_agent.ini' do
       is_expected.to contain_neutron_metering_agent_config('DEFAULT/debug').with_value(p[:debug]);
       is_expected.to contain_neutron_metering_agent_config('DEFAULT/interface_driver').with_value(p[:interface_driver]);
-      is_expected.to contain_neutron_metering_agent_config('DEFAULT/use_namespaces').with_value(p[:use_namespaces]);
-      is_expected.to contain_neutron_metering_agent_config('DEFAULT/measure_interval').with_value(p[:measure_interval]);
-      is_expected.to contain_neutron_metering_agent_config('DEFAULT/report_interval').with_value(p[:report_interval]);
+      is_expected.to contain_neutron_metering_agent_config('DEFAULT/driver').with_value(p[:driver]);
+      is_expected.to contain_neutron_metering_agent_config('DEFAULT/measure_interval').with_value('<SERVICE DEFAULT>');
+      is_expected.to contain_neutron_metering_agent_config('DEFAULT/report_interval').with_value('<SERVICE DEFAULT>');
     end
 
     it 'installs neutron metering agent package' do
@@ -69,13 +75,9 @@ describe 'neutron::agents::metering' do
         is_expected.to contain_package('neutron-metering-agent').with(
           :name   => platform_params[:metering_agent_package],
           :ensure => p[:package_ensure],
-          :tag    => 'openstack'
+          :tag    => ['openstack', 'neutron-package'],
         )
         is_expected.to contain_package('neutron').with_before(/Package\[neutron-metering-agent\]/)
-        is_expected.to contain_package('neutron-metering-agent').with_before(/Neutron_metering_agent_config\[.+\]/)
-        is_expected.to contain_package('neutron-metering-agent').with_before(/Neutron_config\[.+\]/)
-      else
-        is_expected.to contain_package('neutron').with_before(/Neutron_metering_agent_config\[.+\]/)
       end
     end
 
@@ -84,8 +86,10 @@ describe 'neutron::agents::metering' do
         :name    => platform_params[:metering_agent_service],
         :enable  => true,
         :ensure  => 'running',
-        :require => 'Class[Neutron]'
+        :require => 'Class[Neutron]',
+        :tag     => 'neutron-service',
       )
+      is_expected.to contain_service('neutron-metering-service').that_subscribes_to('Package[neutron]')
     end
 
     context 'with manage_service as false' do
@@ -96,11 +100,31 @@ describe 'neutron::agents::metering' do
         is_expected.to contain_service('neutron-metering-service').without_ensure
       end
     end
+
+    context 'with use_namespaces as false' do
+      before :each do
+        params.merge!(:use_namespaces => false)
+      end
+      it 'should set use_namespaces option' do
+        is_expected.to contain_neutron_metering_agent_config('DEFAULT/use_namespaces').with_value(p[:use_namespaces])
+      end
+    end
+
+    context 'with non-default driver' do
+      before :each do
+        params.merge!(:driver => 'neutron.services.metering.drivers.iptables.iptables_driver.IptablesMeteringDriver')
+      end
+      it 'should properly set driver option' do
+        is_expected.to contain_neutron_metering_agent_config('DEFAULT/driver').with_value(p[:driver])
+      end
+    end
   end
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     let :platform_params do
@@ -109,11 +133,17 @@ describe 'neutron::agents::metering' do
     end
 
     it_configures 'neutron metering agent'
+    it 'configures subscription to neutron-metering-agent package' do
+      is_expected.to contain_service('neutron-metering-service').that_subscribes_to('Package[neutron-metering-agent]')
+    end
   end
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily               => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
 
     let :platform_params do

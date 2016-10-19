@@ -6,41 +6,17 @@ describe 'ceilometer with mysql' do
 
     it 'should work with no errors' do
       pp= <<-EOS
-      Exec { logoutput => 'on_failure' }
-
-      # Common resources
-      case $::osfamily {
-        'Debian': {
-          include ::apt
-          class { '::openstack_extras::repo::debian::ubuntu':
-            release         => 'kilo',
-            package_require => true,
-          }
-          $package_provider = 'apt'
-        }
-        'RedHat': {
-          class { '::openstack_extras::repo::redhat::redhat':
-            release => 'kilo',
-          }
-          package { 'openstack-selinux': ensure => 'latest' }
-          $package_provider = 'yum'
-        }
-        default: {
-          fail("Unsupported osfamily (${::osfamily})")
-        }
+      # make sure apache is stopped before ceilometer-api eventlet
+      # in case of wsgi was run before
+      class { '::apache':
+        service_ensure => 'stopped',
       }
+      Service['httpd'] -> Service['keystone']
 
-      class { '::mysql::server': }
-
-      class { '::rabbitmq':
-        delete_guest_user => true,
-        package_provider  => $package_provider,
-      }
-
-      rabbitmq_vhost { '/':
-        provider => 'rabbitmqctl',
-        require  => Class['rabbitmq'],
-      }
+      include ::openstack_integration
+      include ::openstack_integration::repos
+      include ::openstack_integration::rabbitmq
+      include ::openstack_integration::mysql
 
       rabbitmq_user { 'ceilometer':
         admin    => true,
@@ -57,7 +33,6 @@ describe 'ceilometer with mysql' do
         require              => Class['rabbitmq'],
       }
 
-
       # Keystone resources, needed by Ceilometer to run
       class { '::keystone::db::mysql':
         password => 'keystone',
@@ -65,7 +40,7 @@ describe 'ceilometer with mysql' do
       class { '::keystone':
         verbose             => true,
         debug               => true,
-        database_connection => 'mysql://keystone:keystone@127.0.0.1/keystone',
+        database_connection => 'mysql+pymysql://keystone:keystone@127.0.0.1/keystone',
         admin_token         => 'admin_token',
         enabled             => true,
       }
@@ -84,14 +59,14 @@ describe 'ceilometer with mysql' do
         rabbit_userid       => 'ceilometer',
         rabbit_password     => 'an_even_bigger_secret',
         rabbit_host         => '127.0.0.1',
+        debug               => true,
+        verbose             => true,
       }
-      # Until https://review.openstack.org/177593 is merged:
-      Package<| title == 'python-mysqldb' |> -> Class['ceilometer::db']
       class { '::ceilometer::db::mysql':
         password => 'a_big_secret',
       }
       class { '::ceilometer::db':
-        database_connection => 'mysql://ceilometer:a_big_secret@127.0.0.1/ceilometer?charset=utf8',
+        database_connection => 'mysql+pymysql://ceilometer:a_big_secret@127.0.0.1/ceilometer?charset=utf8',
       }
       class { '::ceilometer::keystone::auth':
         password => 'a_big_secret',
@@ -99,8 +74,6 @@ describe 'ceilometer with mysql' do
       class { '::ceilometer::client': }
       class { '::ceilometer::collector': }
       class { '::ceilometer::expirer': }
-      class { '::ceilometer::alarm::evaluator': }
-      class { '::ceilometer::alarm::notifier': }
       class { '::ceilometer::agent::central': }
       class { '::ceilometer::agent::notification': }
       class { '::ceilometer::api':
@@ -108,6 +81,7 @@ describe 'ceilometer with mysql' do
         keystone_password     => 'a_big_secret',
         keystone_identity_uri => 'http://127.0.0.1:35357/',
       }
+      class { '::ceilometer::dispatcher::gnocchi': }
       EOS
 
 
@@ -121,7 +95,7 @@ describe 'ceilometer with mysql' do
     end
 
     describe cron do
-      it { should have_entry('1 0 * * * ceilometer-expirer').with_user('ceilometer') }
+      it { is_expected.to have_entry('1 0 * * * ceilometer-expirer').with_user('ceilometer') }
     end
 
   end

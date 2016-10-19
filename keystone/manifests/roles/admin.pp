@@ -33,10 +33,6 @@
 #   Admin user. Optional.
 #   Defaults to admin.
 #
-# [*ignore_default_tenant*]
-#   Ignore setting the default tenant value when the user is created. Optional.
-#   Defaults to false.
-#
 # [*admin_tenant_desc*]
 #   Optional. Description for admin tenant,
 #   Defaults to 'admin tenant'
@@ -82,7 +78,6 @@ class keystone::roles::admin(
   $admin_tenant           = 'openstack',
   $admin_roles            = ['admin'],
   $service_tenant         = 'services',
-  $ignore_default_tenant  = false,
   $admin_tenant_desc      = 'admin tenant',
   $service_tenant_desc    = 'Tenant for the openstack services',
   $configure_user         = true,
@@ -91,6 +86,8 @@ class keystone::roles::admin(
   $admin_project_domain   = undef,
   $service_project_domain = undef,
 ) {
+
+  include ::keystone::deps
 
   $domains = unique(delete_undef_values([ $admin_user_domain, $admin_project_domain, $service_project_domain]))
   keystone_domain { $domains:
@@ -104,33 +101,36 @@ class keystone::roles::admin(
     description => $service_tenant_desc,
     domain      => $service_project_domain,
   }
+
   keystone_tenant { $admin_tenant:
     ensure      => present,
     enabled     => true,
     description => $admin_tenant_desc,
     domain      => $admin_project_domain,
   }
+
   keystone_role { 'admin':
     ensure => present,
   }
 
   if $configure_user {
     keystone_user { $admin:
-      ensure                => present,
-      enabled               => true,
-      tenant                => $admin_tenant,
-      email                 => $email,
-      password              => $password,
-      domain                => $admin_user_domain,
-      ignore_default_tenant => $ignore_default_tenant,
+      ensure   => present,
+      enabled  => true,
+      email    => $email,
+      password => $password,
+      domain   => $admin_user_domain,
     }
   }
 
   if $configure_user_role {
     keystone_user_role { "${admin}@${admin_tenant}":
-      ensure => present,
-      roles  => $admin_roles,
+      ensure         => present,
+      user_domain    => $admin_user_domain,
+      project_domain => $admin_project_domain,
+      roles          => $admin_roles,
     }
+    Keystone_user_role["${admin}@${admin_tenant}"] -> File<| tag == 'openrc' |>
   }
 
 }

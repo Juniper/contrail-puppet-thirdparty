@@ -13,43 +13,53 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-#  Author: David Gurtner <david@nine.ch>
+#  Author: David Gurtner <aldavud@crimson.ch>
 #
 require 'spec_helper'
 
 describe 'ceph::profile::mon' do
 
   shared_examples_for 'ceph profile mon' do
-    it { should contain_ceph__mon('first').with(
+
+    it { is_expected.to contain_ceph__mon('first').with(
       :authentication_type => 'cephx',
-      :key                 => 'AQATGHJTUCBqIBAA7M2yafV1xctn1pgr3GcKPg==')
+      :key                 => 'AQATGHJTUCBqIBAA7M2yafV1xctn1pgr3GcKPg==',
+      :public_addr         => '10.11.12.2')
     }
-    it { should contain_ceph__key('client.admin').that_requires('Ceph::Mon[first]').with(
-      :secret          => 'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA==',
-      :cap_mon         => 'allow *',
-      :cap_osd         => 'allow *',
-      :cap_mds         => 'allow',
-      :mode            => '0644',
-      :inject          => true,
-      :inject_as_id    => 'mon.',
-      :inject_keyring  => '/var/lib/ceph/mon/ceph-first/keyring')
-    }
-    it { should contain_ceph__key('client.bootstrap-osd').that_requires('Ceph::Mon[first]').with(
-      :secret          => 'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw==',
-      :keyring_path    => '/var/lib/ceph/bootstrap-osd/ceph.keyring',
-      :cap_mon         => 'allow profile bootstrap-osd',
-      :inject          => true,
-      :inject_as_id    => 'mon.',
-      :inject_keyring  => '/var/lib/ceph/mon/ceph-first/keyring')
-    }
-    it { should contain_ceph__key('client.bootstrap-mds').that_requires('Ceph::Mon[first]').with(
-      :secret          => 'AQCztJdSyNb0NBAASA2yPZPuwXeIQnDJ9O8gVw==',
-      :keyring_path    => '/var/lib/ceph/bootstrap-mds/ceph.keyring',
-      :cap_mon         => 'allow profile bootstrap-mds',
-      :inject          => true,
-      :inject_as_id    => 'mon.',
-      :inject_keyring  => '/var/lib/ceph/mon/ceph-first/keyring')
-    }
+    it { is_expected.to contain_class('ceph::keys').with(
+      'args' => {
+        'client.admin' => {
+          'secret'  => 'AQBMGHJTkC8HKhAAJ7NH255wYypgm1oVuV41MA==',
+          'mode'    => '0600',
+          'cap_mon' => 'allow *',
+          'cap_osd' => 'allow *',
+          'cap_mds' => 'allow *'
+        },
+        'client.bootstrap-osd' => {
+          'secret'       => 'AQARG3JTsDDEHhAAVinHPiqvJkUi5Mww/URupw==',
+          'keyring_path' => '/var/lib/ceph/bootstrap-osd/ceph.keyring',
+          'cap_mon'      => 'allow profile bootstrap-osd'
+        },
+        'client.bootstrap-mds' => {
+          'secret'       => 'AQCztJdSyNb0NBAASA2yPZPuwXeIQnDJ9O8gVw==',
+          'keyring_path' => '/var/lib/ceph/bootstrap-mds/ceph.keyring',
+          'cap_mon'      => 'allow profile bootstrap-mds'
+        },
+        'client.volumes' => {
+          'secret'  => 'AQA4MPZTOGU0ARAAXH9a0fXxVq0X25n2yPREDw==',
+          'mode'    => '0644',
+          'user'    => 'root',
+          'group'   => 'root',
+          'cap_mon' => 'allow r',
+          'cap_osd' => 'allow class-read object_prefix rbd_children, allow rwx pool=volumes'
+        }
+      },
+      'defaults' => {
+        'inject'         => true,
+        'inject_as_id'   => 'mon.',
+        'inject_keyring' => '/var/lib/ceph/mon/ceph-first/keyring'
+      }
+    )}
   end
 
   context 'on Debian' do
@@ -57,15 +67,14 @@ describe 'ceph::profile::mon' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'wheezy',
+        :lsbdistid        => 'Debian',
+        :lsbdistcodename  => 'jessie',
         :operatingsystem  => 'Debian',
         :hostname         => 'first',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile mon'
+    it_configures 'ceph profile mon'
   end
 
   context 'on Ubuntu' do
@@ -73,30 +82,25 @@ describe 'ceph::profile::mon' do
     let :facts do
       {
         :osfamily         => 'Debian',
-        :lsbdistcodename  => 'precise',
+        :lsbdistid        => 'Ubuntu',
+        :lsbdistcodename  => 'trusty',
         :operatingsystem  => 'Ubuntu',
         :hostname         => 'first',
       }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile mon'
+    it_configures 'ceph profile mon'
   end
 
-  context 'on RHEL6' do
+  context 'on RHEL7' do
 
     let :facts do
-      {
-        :osfamily         => 'RedHat',
-        :operatingsystem  => 'RHEL6',
-        :hostname         => 'first',
-      }
+      { :osfamily                  => 'RedHat',
+        :hostname                  => 'first',
+        :operatingsystemmajrelease => '7' }
     end
 
-    # dont actually run any tests. these cannot run under puppet 2.7
-    # TODO: uncomment once 2.7 is deprecated
-    #it_configures 'ceph profile mon'
+    it_configures 'ceph profile mon'
   end
 
 end

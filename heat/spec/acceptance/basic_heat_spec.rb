@@ -6,41 +6,11 @@ describe 'basic heat' do
 
     it 'should work with no errors' do
       pp= <<-EOS
-      Exec { logoutput => 'on_failure' }
-
-      # Common resources
-      case $::osfamily {
-        'Debian': {
-          include ::apt
-          class { '::openstack_extras::repo::debian::ubuntu':
-            release         => 'kilo',
-            package_require => true,
-          }
-          $package_provider = 'apt'
-        }
-        'RedHat': {
-          class { '::openstack_extras::repo::redhat::redhat':
-            release => 'kilo',
-          }
-          package { 'openstack-selinux': ensure => 'latest' }
-          $package_provider = 'yum'
-        }
-        default: {
-          fail("Unsupported osfamily (${::osfamily})")
-        }
-      }
-
-      class { '::mysql::server': }
-
-      class { '::rabbitmq':
-        delete_guest_user => true,
-        package_provider  => $package_provider,
-      }
-
-      rabbitmq_vhost { '/':
-        provider => 'rabbitmqctl',
-        require  => Class['rabbitmq'],
-      }
+      include ::openstack_integration
+      include ::openstack_integration::repos
+      include ::openstack_integration::rabbitmq
+      include ::openstack_integration::mysql
+      include ::openstack_integration::keystone
 
       rabbitmq_user { 'heat':
         admin    => true,
@@ -57,42 +27,23 @@ describe 'basic heat' do
         require              => Class['rabbitmq'],
       }
 
-
-      # Keystone resources, needed by Ceilometer to run
-      class { '::keystone::db::mysql':
-        password => 'keystone',
-      }
-      class { '::keystone':
-        verbose             => true,
-        debug               => true,
-        database_connection => 'mysql://keystone:keystone@127.0.0.1/keystone',
-        admin_token         => 'admin_token',
-        enabled             => true,
-      }
-      class { '::keystone::roles::admin':
-        email       => 'test@example.tld',
-        password    => 'a_big_secret',
-        admin_roles => ['admin', '_member_', 'heat_stack_owner']
-      }
-      class { '::keystone::endpoint':
-        public_url => "https://${::fqdn}:5000/",
-        admin_url  => "https://${::fqdn}:35357/",
-      }
-
       # heat resources
       class { '::heat':
         rabbit_userid       => 'heat',
         rabbit_password     => 'an_even_bigger_secret',
         rabbit_host         => '127.0.0.1',
-        database_connection => 'mysql://heat:a_big_secret@127.0.0.1/heat?charset=utf8',
+        database_connection => 'mysql+pymysql://heat:a_big_secret@127.0.0.1/heat?charset=utf8',
         identity_uri        => 'http://127.0.0.1:35357/',
         keystone_password   => 'a_big_secret',
+        debug               => true,
+        verbose             => true,
       }
       class { '::heat::db::mysql':
         password => 'a_big_secret',
       }
       class { '::heat::keystone::auth':
-        password => 'a_big_secret',
+        password                  => 'a_big_secret',
+        configure_delegated_roles => true,
       }
       class { '::heat::keystone::domain':
         domain_password => 'oh_my_no_secret',
@@ -104,6 +55,7 @@ describe 'basic heat' do
       }
       class { '::heat::api_cloudwatch': }
       class { '::heat::api_cfn': }
+      class { '::heat::cron::purge_deleted': }
       EOS
 
 
@@ -124,5 +76,8 @@ describe 'basic heat' do
       it { is_expected.to be_listening.with('tcp') }
     end
 
+    describe cron do
+      it { is_expected.to have_entry('1 0 * * * heat-manage purge_deleted -g days 1 >>/var/log/heat/heat-purge_deleted.log 2>&1').with_user('heat') }
+    end
   end
 end

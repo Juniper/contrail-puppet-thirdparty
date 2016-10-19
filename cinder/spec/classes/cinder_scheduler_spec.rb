@@ -5,19 +5,19 @@ describe 'cinder::scheduler' do
   describe 'on debian platforms' do
 
     let :facts do
-      { :osfamily => 'Debian' }
+      OSDefaults.get_facts({ :osfamily => 'Debian' })
     end
 
     describe 'with default parameters' do
 
       it { is_expected.to contain_class('cinder::params') }
-      it { is_expected.to contain_cinder_config('DEFAULT/scheduler_driver').with_ensure('absent') }
+      it { is_expected.to contain_cinder_config('DEFAULT/scheduler_driver').with_value('<SERVICE DEFAULT>') }
 
       it { is_expected.to contain_package('cinder-scheduler').with(
         :name   => 'cinder-scheduler',
         :ensure => 'present',
-        :before => ['Cinder_config[DEFAULT/scheduler_driver]','Service[cinder-scheduler]'],
-        :tag    => 'openstack',
+        :before => ['Service[cinder-scheduler]'],
+        :tag    => ['openstack', 'cinder-package'],
       ) }
 
       it { is_expected.to contain_service('cinder-scheduler').with(
@@ -25,7 +25,8 @@ describe 'cinder::scheduler' do
         :enable    => true,
         :ensure    => 'running',
         :require   => 'Package[cinder]',
-        :hasstatus => true
+        :hasstatus => true,
+        :tag       => 'cinder-service',
       ) }
     end
 
@@ -56,7 +57,7 @@ describe 'cinder::scheduler' do
   describe 'on rhel platforms' do
 
     let :facts do
-      { :osfamily => 'RedHat' }
+      OSDefaults.get_facts({ :osfamily => 'RedHat' })
     end
 
     describe 'with default parameters' do

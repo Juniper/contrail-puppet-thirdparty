@@ -13,7 +13,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-# Author: David Gurtner <david@nine.ch>
+# Author: David Gurtner <aldavud@crimson.ch>
 #
 require 'spec_helper'
 
@@ -24,7 +24,7 @@ describe 'ceph::osds' do
       {
         :args => {
           '/dev/sdb' => {
-            'journal' => '/tmp/journal',
+            'journal' => '/srv/journal',
           },
           '/srv/data' => {
           },
@@ -36,12 +36,12 @@ describe 'ceph::osds' do
     end
 
     it {
-      should contain_ceph__osd('/dev/sdb').with(
+      is_expected.to contain_ceph__osd('/dev/sdb').with(
         :ensure  => 'present',
-        :journal => '/tmp/journal',
+        :journal => '/srv/journal',
         :cluster => 'CLUSTER'
     )
-      should contain_ceph__osd('/srv/data').with(
+      is_expected.to contain_ceph__osd('/srv/data').with(
         :ensure  => 'present',
         :cluster => 'CLUSTER')
     }

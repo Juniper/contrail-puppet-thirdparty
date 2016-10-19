@@ -14,11 +14,16 @@ describe 'cinder::volume::dellsc_iscsi' do
 
   let :default_params do
   {
-      :dell_sc_api_port      => 3033,
+      :dell_sc_api_port      => '<SERVICE DEFAULT>',
       :dell_sc_server_folder => 'srv',
+      :dell_sc_verify_cert   => '<SERVICE DEFAULT>',
       :dell_sc_volume_folder => 'vol',
-      :iscsi_port            => 3260,
+      :iscsi_port            => '<SERVICE DEFAULT>',
   }
+  end
+
+  let :facts do
+    OSDefaults.get_facts({})
   end
 
    shared_examples_for 'dellsc_iscsi volume driver' do
@@ -48,7 +53,7 @@ describe 'cinder::volume::dellsc_iscsi' do
     end
 
     it 'configure dellsc_iscsi volume with additional configuration' do
-      should contain_cinder__backend__dellsc_iscsi('DEFAULT').with({
+      is_expected.to contain_cinder__backend__dellsc_iscsi('DEFAULT').with({
         :extra_options => {'dellsc_iscsi_backend/param1' => {'value' => 'value1'}}
       })
     end

@@ -6,7 +6,7 @@
 #
 # [*enabled*]
 #   (optional) Whether to run the vncproxy service
-#   Defaults to false
+#   Defaults to true
 #
 # [*manage_service*]
 #   (optional) Whether to start/stop the service
@@ -34,7 +34,7 @@
 #   Defaults to '/vnc_auto.html'
 #
 class nova::vncproxy(
-  $enabled           = false,
+  $enabled           = true,
   $manage_service    = true,
   $vncproxy_protocol = 'http',
   $host              = '0.0.0.0',
@@ -43,6 +43,7 @@ class nova::vncproxy(
   $ensure_package    = 'present'
 ) {
 
+  include ::nova::deps
   include ::nova::params
 
   # See http://nova.openstack.org/runnova/vncconsole.html for more details.
@@ -58,6 +59,7 @@ class nova::vncproxy(
     package { 'python-numpy':
       ensure => present,
       name   => $::nova::params::numpy_package_name,
+      tag    => ['openstack', 'nova-support-package'],
     }
   }
   nova::generic_service { 'vncproxy':

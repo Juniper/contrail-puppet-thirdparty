@@ -34,9 +34,17 @@
 #  [*package_ensure*]
 #    (optional) Package ensure state. Defaults to 'present'.
 #
+#  [*cache_backend*]
+#   (optional) Horizon cache backend.
+#   Defaults: 'django.core.cache.backends.locmem.LocMemCache'
+#
+#  [*cache_options*]
+#   (optional) A hash of parameters to enable specific cache options.
+#   Defaults to undef
+#
 #  [*cache_server_ip*]
 #    (optional) Memcached IP address. Can be a string, or an array.
-#    Defaults to '127.0.0.1'.
+#    Defaults to undef.
 #
 #  [*cache_server_port*]
 #    (optional) Memcached port. Defaults to '11211'.
@@ -139,6 +147,11 @@
 #  [*listen_ssl*]
 #    (optional) Enable SSL support in Apache. (Defaults to false)
 #
+#  [*ssl_no_verify*]
+#    (optionsl) Disable SSL hostname verifying. Set it if you don't have
+#    properly configured DNS which will resolve hostnames for SSL endpoints
+#    Horizon will connect to. (Defaults to false)
+#
 #  [*ssl_redirect*]
 #    (optional) Whether to redirect http to https
 #    Defaults to True
@@ -182,7 +195,7 @@
 #
 #  [*django_session_engine*]
 #    (optional) Selects the session engine for Django to use.
-#    Defaults to undefined - will not add entry to local settings.
+#    Defaults to undef - will not add entry to local settings.
 #
 #  [*tuskar_ui*]
 #    (optional) Boolean to enable Tuskar-UI related configuration (http://tuskar-ui.readthedocs.org/)
@@ -195,11 +208,66 @@
 #  [*tuskar_ui_undercloud_admin_password*]
 #    (optional) Tuskar-UI - Undercloud admin password used to authenticate admin user in Tuskar-UI.
 #    It is required by Heat to perform certain actions.
-#    Defaults to undefined
+#    Defaults to undef
 #
 #  [*tuskar_ui_deployment_mode*]
 #    (optional) Tuskar-UI - Deployment mode ('poc' or 'scale')
 #    Defaults to 'scale'
+#
+#  [*custom_theme_path*]
+#    (optional) The directory location for the theme (e.g., "static/themes/blue")
+#    Default to undef
+#
+#  [*redirect_type*]
+#    (optional) What type of redirect to use when redirecting an http request
+#    for a user. This should be either 'temp' or 'permanent'. Setting this value
+#    to 'permanent' will result in the use of a 301 redirect which may be cached
+#    by a user's browser.  Setting this value to 'temp' will result in the use
+#    of a 302 redirect which is not cached by browsers and may solve issues if
+#    users report errors accessing horizon. Only used if configure_apache is
+#    set to true.
+#    Defaults to 'permanent'
+#
+#  [*api_versions*]
+#    (optional) A hash of parameters to set specific api versions.
+#    Example: api_versions => {'identity' => 3}
+#    Default to 'identity' => 3
+#
+#  [*keystone_multidomain_support*]
+#    (optional) Enables multi-domain in horizon. When this is enabled, it will require user to enter
+#    the Domain name in addition to username for login.
+#    Default to false
+#
+#  [*keystone_default_domain*]
+#    (optional) Overrides the default domain used when running on single-domain model with Keystone V3.
+#    All entities will be created in the default domain.
+#    Default to undef
+#
+#  [*image_backend*]
+#    (optional) Overrides the default image backend settings.  This allows the list of supported
+#    image types etc. to be explicitly defined.
+#    Example: image_backend => { 'image_formats' => { '' => 'Select type', 'qcow2' => 'QCOW2' } }
+#    Default to empty hash
+#
+#  [*overview_days_range*]
+#    (optional) The default date range in the Overview panel meters - either <today> minus N
+#    days (if the value is integer N), or from the beginning of the current month
+#    until today (if it's undefined). This setting should be used to limit the amount
+#    of data fetched by default when rendering the Overview panel.
+#    Defaults to undef.
+#
+#  [*root_url*]
+#    (optional) The base URL used to contruct horizon web addresses.
+#    Defaults to '/dashboard' or '/horizon' depending OS
+#
+#  [*session_timeout*]
+#    (optional) The session timeout for horizon in seconds. After this many seconds of inactivity
+#    the user is logged out.
+#    Defaults to 1800.
+#
+#  [*timezone*]
+#    (optional) The timezone of the server.
+#    Defaults to 'UTC'.
 #
 # === Examples
 #
@@ -216,7 +284,9 @@ class horizon(
   $secret_key,
   $fqdn                                = undef,
   $package_ensure                      = 'present',
-  $cache_server_ip                     = '127.0.0.1',
+  $cache_backend                       = 'django.core.cache.backends.locmem.LocMemCache',
+  $cache_options                       = undef,
+  $cache_server_ip                     = undef,
   $cache_server_port                   = '11211',
   $horizon_app_links                   = false,
   $keystone_url                        = 'http://127.0.0.1:5000/v2.0',
@@ -236,6 +306,7 @@ class horizon(
   $server_aliases                      = $::fqdn,
   $allowed_hosts                       = $::fqdn,
   $listen_ssl                          = false,
+  $ssl_no_verify                       = false,
   $ssl_redirect                        = true,
   $horizon_cert                        = undef,
   $horizon_key                         = undef,
@@ -251,14 +322,22 @@ class horizon(
   $tuskar_ui_ironic_discoverd_url      = 'http://127.0.0.1:5050',
   $tuskar_ui_undercloud_admin_password = undef,
   $tuskar_ui_deployment_mode           = 'scale',
+  $custom_theme_path                   = undef,
+  $redirect_type                       = 'permanent',
+  $api_versions                        = {'identity' => '3'},
+  $keystone_multidomain_support        = false,
+  $keystone_default_domain             = undef,
+  $image_backend                       = {},
+  $overview_days_range                 = undef,
+  $root_url                            = $::horizon::params::root_url,
+  $session_timeout                     = 1800,
+  $timezone                            = 'UTC',
   # DEPRECATED PARAMETERS
   $can_set_mount_point                 = undef,
   $vhost_extra_params                  = undef,
   $secure_cookies                      = false,
   $django_session_engine               = undef,
-) {
-
-  include ::horizon::params
+) inherits ::horizon::params {
 
   $hypervisor_defaults = {
     'can_set_mount_point' => true,
@@ -297,10 +376,21 @@ class horizon(
 
   Service <| title == 'memcached' |> -> Class['horizon']
 
+  $hypervisor_options_real = merge($hypervisor_defaults,$hypervisor_options)
+  $cinder_options_real     = merge($cinder_defaults,$cinder_options)
+  $neutron_options_real    = merge($neutron_defaults,$neutron_options)
+  validate_hash($api_versions)
+
+  if $cache_backend =~ /MemcachedCache/ {
+    ensure_packages('python-memcache',
+      { name   => $::horizon::params::memcache_package,
+        tag    => ['openstack']})
+  }
+
   package { 'horizon':
     ensure => $package_ensure,
     name   => $::horizon::params::package_name,
-    tag    => 'openstack',
+    tag    => ['openstack', 'horizon-package'],
   }
 
   concat { $::horizon::params::config_file:
@@ -314,18 +404,23 @@ class horizon(
     order   => '50',
   }
 
-  package { 'python-lesscpy':
-    ensure  => $package_ensure,
+  exec { 'refresh_horizon_django_cache':
+    command     => "${::horizon::params::manage_py} collectstatic --noinput --clear",
+    refreshonly => true,
+    require     => Package['horizon'],
   }
 
-  exec { 'refresh_horizon_django_cache':
-    command     => "${::horizon::params::manage_py} collectstatic --noinput --clear && ${::horizon::params::manage_py} compress --force",
+  exec { 'refresh_horizon_django_compress':
+    command     => "${::horizon::params::manage_py} compress --force",
     refreshonly => true,
-    require     => [Package['python-lesscpy'], Package['horizon']],
+    require     => Package['horizon'],
   }
 
   if $compress_offline {
-    Concat[$::horizon::params::config_file] ~> Exec['refresh_horizon_django_cache']
+    Concat[$::horizon::params::config_file] ~> Exec['refresh_horizon_django_compress']
+    if $::os_package_type == 'rpm' {
+      Concat[$::horizon::params::config_file] ~> Exec['refresh_horizon_django_cache'] -> Exec['refresh_horizon_django_compress']
+    }
   }
 
   if $configure_apache {
@@ -339,6 +434,8 @@ class horizon(
       horizon_key    => $horizon_key,
       horizon_ca     => $horizon_ca,
       extra_params   => $vhost_extra_params,
+      redirect_type  => $redirect_type,
+      root_url       => $root_url
     }
   }
 

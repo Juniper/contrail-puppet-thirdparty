@@ -32,6 +32,7 @@ describe 'glance::backend::cinder' do
 
       it 'configures glance-api.conf' do
         is_expected.to contain_glance_api_config('glance_store/default_store').with_value('cinder')
+        is_expected.to contain_glance_api_config('glance_store/default_store').with_value('cinder')
         is_expected.to contain_glance_api_config('glance_store/cinder_api_insecure').with_value(false)
         is_expected.to contain_glance_api_config('glance_store/cinder_catalog_info').with_value('volume:cinder:publicURL')
         is_expected.to contain_glance_api_config('glance_store/cinder_http_retries').with_value('3')
@@ -45,6 +46,13 @@ describe 'glance::backend::cinder' do
         is_expected.to contain_glance_cache_config('glance_store/cinder_ca_certificates_file').with(:ensure => 'absent')
         is_expected.to contain_glance_cache_config('glance_store/cinder_endpoint_template').with(:ensure => 'absent')
       end
+      it 'not configures glance-glare.conf' do
+        is_expected.to_not contain_glance_glare_config('glance_store/cinder_api_insecure').with_value(false)
+        is_expected.to_not contain_glance_glare_config('glance_store/cinder_catalog_info').with_value('volume:cinder:publicURL')
+        is_expected.to_not contain_glance_glare_config('glance_store/cinder_http_retries').with_value('3')
+        is_expected.to_not contain_glance_glare_config('glance_store/cinder_ca_certificates_file').with(:ensure => 'absent')
+        is_expected.to_not contain_glance_glare_config('glance_store/cinder_endpoint_template').with(:ensure => 'absent')
+      end
     end
 
     context 'when overriding parameters' do
@@ -55,10 +63,10 @@ describe 'glance::backend::cinder' do
           :cinder_catalog_info         => 'volume:cinder:internalURL',
           :cinder_endpoint_template    => 'http://srv-foo:8776/v1/%(project_id)s',
           :cinder_http_retries         => '10',
+          :glare_enabled               => true,
         }
       end
       it 'configures glance-api.conf' do
-        is_expected.to contain_glance_api_config('glance_store/default_store').with_value('cinder')
         is_expected.to contain_glance_api_config('glance_store/cinder_api_insecure').with_value(true)
         is_expected.to contain_glance_api_config('glance_store/cinder_ca_certificates_file').with_value('/etc/ssh/ca.crt')
         is_expected.to contain_glance_api_config('glance_store/cinder_catalog_info').with_value('volume:cinder:internalURL')
@@ -72,23 +80,26 @@ describe 'glance::backend::cinder' do
         is_expected.to contain_glance_cache_config('glance_store/cinder_endpoint_template').with_value('http://srv-foo:8776/v1/%(project_id)s')
         is_expected.to contain_glance_cache_config('glance_store/cinder_http_retries').with_value('10')
       end
+      it 'configures glance-glare.conf' do
+        is_expected.to contain_glance_glare_config('glance_store/cinder_api_insecure').with_value(true)
+        is_expected.to contain_glance_glare_config('glance_store/cinder_ca_certificates_file').with_value('/etc/ssh/ca.crt')
+        is_expected.to contain_glance_glare_config('glance_store/cinder_catalog_info').with_value('volume:cinder:internalURL')
+        is_expected.to contain_glance_glare_config('glance_store/cinder_endpoint_template').with_value('http://srv-foo:8776/v1/%(project_id)s')
+        is_expected.to contain_glance_glare_config('glance_store/cinder_http_retries').with_value('10')
+      end
     end
-
   end
 
-  context 'on Debian platforms' do
-    let :facts do
-      { :osfamily => 'Debian' }
+
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts())
+      end
+
+      it_configures 'glance with cinder backend'
     end
-
-    it_configures 'glance with cinder backend'
-  end
-
-  context 'on RedHat platforms' do
-    let :facts do
-      { :osfamily => 'RedHat' }
-    end
-
-    it_configures 'glance with cinder backend'
   end
 end

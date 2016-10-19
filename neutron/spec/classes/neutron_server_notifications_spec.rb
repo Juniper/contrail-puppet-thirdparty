@@ -24,16 +24,21 @@ describe 'neutron::server::notifications' do
         {
             :notify_nova_on_port_status_changes => true,
             :notify_nova_on_port_data_changes   => true,
-            :send_events_interval               => '2',
             :nova_url                           => 'http://127.0.0.1:8774/v2',
+            :auth_type                          => 'password',
+            :username                           => 'nova',
+            :tenant_name                        => 'services',
+            :project_domain_id                  => 'default',
+            :project_name                       => 'services',
+            :user_domain_id                     => 'default',
+            :auth_url                           => 'http://127.0.0.1:35357',
             :nova_admin_auth_url                => 'http://127.0.0.1:35357/v2.0',
             :nova_admin_username                => 'nova',
             :nova_admin_tenant_name             => 'services',
-            :nova_region_name                   => nil,
         }
     end
 
-    let :default_facts do
+    let :test_facts do
       { :operatingsystem           => 'default',
         :operatingsystemrelease    => 'default'
       }
@@ -41,8 +46,7 @@ describe 'neutron::server::notifications' do
 
     let :params do
         {
-            :nova_admin_password  => 'secrete',
-            :nova_admin_tenant_id => 'UUID'
+            :password  => 'secrete'
         }
     end
 
@@ -54,14 +58,22 @@ describe 'neutron::server::notifications' do
         it 'configure neutron.conf' do
             is_expected.to contain_neutron_config('DEFAULT/notify_nova_on_port_status_changes').with_value(true)
             is_expected.to contain_neutron_config('DEFAULT/notify_nova_on_port_data_changes').with_value(true)
-            is_expected.to contain_neutron_config('DEFAULT/send_events_interval').with_value('2')
+            is_expected.to contain_neutron_config('DEFAULT/send_events_interval').with_value('<SERVICE DEFAULT>')
             is_expected.to contain_neutron_config('DEFAULT/nova_url').with_value('http://127.0.0.1:8774/v2')
-            is_expected.to contain_neutron_config('DEFAULT/nova_admin_auth_url').with_value('http://127.0.0.1:35357/v2.0')
-            is_expected.to contain_neutron_config('DEFAULT/nova_admin_username').with_value('nova')
-            is_expected.to contain_neutron_config('DEFAULT/nova_admin_password').with_value('secrete')
-            is_expected.to contain_neutron_config('DEFAULT/nova_admin_password').with_secret( true )
-            is_expected.to contain_neutron_config('DEFAULT/nova_admin_tenant_id').with_value('UUID')
-            is_expected.to contain_neutron_config('DEFAULT/nova_region_name').with_ensure('absent')
+            is_expected.to contain_neutron_config('nova/auth_type').with_value('password')
+            is_expected.to contain_neutron_config('nova/auth_url').with_value('http://127.0.0.1:35357')
+            is_expected.to contain_neutron_config('nova/username').with_value('nova')
+            is_expected.to contain_neutron_config('nova/password').with_value('secrete')
+            is_expected.to contain_neutron_config('nova/password').with_secret( true )
+            is_expected.to contain_neutron_config('nova/tenant_name').with_value('services')
+            is_expected.to contain_neutron_config('nova/region_name').with_value('<SERVICE DEFAULT>')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_region_name')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_admin_auth_url')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_admin_username')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_admin_password')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_admin_password')
+            is_expected.not_to contain_neutron_config('DEFAULT/nova_admin_tenant_id')
+            is_expected.not_to contain_neutron_config('nova/auth_plugin')
         end
 
         context 'when overriding parameters' do
@@ -71,10 +83,11 @@ describe 'neutron::server::notifications' do
                     :notify_nova_on_port_data_changes   => false,
                     :send_events_interval               => '10',
                     :nova_url                           => 'http://nova:8774/v3',
-                    :nova_admin_auth_url                => 'http://keystone:35357/v2.0',
-                    :nova_admin_username                => 'joe',
-                    :nova_region_name                   => 'MyRegion',
-                    :nova_admin_tenant_id               => 'UUID2'
+                    :auth_url                           => 'http://keystone:35357/v2.0',
+                    :auth_type                          => 'v2password',
+                    :username                           => 'joe',
+                    :region_name                        => 'MyRegion',
+                    :tenant_id                          => 'UUID2'
                 )
             end
             it 'should configure neutron server with overrided parameters' do
@@ -82,56 +95,104 @@ describe 'neutron::server::notifications' do
                 is_expected.to contain_neutron_config('DEFAULT/notify_nova_on_port_data_changes').with_value(false)
                 is_expected.to contain_neutron_config('DEFAULT/send_events_interval').with_value('10')
                 is_expected.to contain_neutron_config('DEFAULT/nova_url').with_value('http://nova:8774/v3')
+                is_expected.to contain_neutron_config('nova/auth_url').with_value('http://keystone:35357/v2.0')
+                is_expected.to contain_neutron_config('nova/auth_type').with_value('v2password')
+                is_expected.to contain_neutron_config('nova/username').with_value('joe')
+                is_expected.to contain_neutron_config('nova/password').with_value('secrete')
+                is_expected.to contain_neutron_config('nova/password').with_secret( true )
+                is_expected.to contain_neutron_config('nova/region_name').with_value('MyRegion')
+                is_expected.to contain_neutron_config('nova/tenant_id').with_value('UUID2')
+            end
+        end
+
+        context 'when using deprecated parameters' do
+            before :each do
+                params.merge!(
+                    :nova_admin_auth_url  => 'http://keystone:35357/v2.0',
+                    :nova_admin_username  => 'joe',
+                    :nova_admin_password  => 'secrete',
+                    :nova_region_name     => 'MyRegion',
+                    :nova_admin_tenant_id => 'UUID2',
+                    :password             => false
+                )
+            end
+            it 'should configure neutron server with deprecated parameters' do
                 is_expected.to contain_neutron_config('DEFAULT/nova_admin_auth_url').with_value('http://keystone:35357/v2.0')
                 is_expected.to contain_neutron_config('DEFAULT/nova_admin_username').with_value('joe')
                 is_expected.to contain_neutron_config('DEFAULT/nova_admin_password').with_value('secrete')
                 is_expected.to contain_neutron_config('DEFAULT/nova_admin_password').with_secret( true )
                 is_expected.to contain_neutron_config('DEFAULT/nova_region_name').with_value('MyRegion')
                 is_expected.to contain_neutron_config('DEFAULT/nova_admin_tenant_id').with_value('UUID2')
+                is_expected.not_to contain_neutron_config('nova/auth_url')
+                is_expected.not_to contain_neutron_config('nova/username')
+                is_expected.not_to contain_neutron_config('nova/password')
+                is_expected.not_to contain_neutron_config('nova/tenant_id')
             end
         end
 
-        context 'when no nova_admin_password is specified' do
+        context 'when auth_plugin is provided' do
             before :each do
-                params.merge!({ :nova_admin_password => false })
+                params.merge!(
+                    :auth_plugin => 'v3password',
+                )
+            end
+            it 'should configure auth_plugin for nova notifications' do
+                is_expected.to contain_neutron_config('nova/auth_plugin').with_value('v3password')
+                is_expected.not_to contain_neutron_config('nova/auth_type')
+            end
+        end
+
+        context 'when no nova_admin_password or password is specified' do
+            before :each do
+                params.merge!({
+                  :nova_admin_password => false,
+                  :password            => false })
             end
 
-            it_raises 'a Puppet::Error', /nova_admin_password must be set./
+            it_raises 'a Puppet::Error', /nova_admin_password or password must be set./
         end
 
         context 'when no nova_admin_tenant_id and nova_admin_tenant_name specified' do
             before :each do
                 params.merge!({
                   :nova_admin_tenant_name => false,
-                  :nova_admin_tenant_id   => false,
+                  :nova_admin_password    => 'secrete',
                 })
             end
 
             it_raises 'a Puppet::Error', /You must provide either nova_admin_tenant_name or nova_admin_tenant_id./
         end
 
-        context 'when providing a tenant name' do
+        context 'when no tenant_id and tenant_name specified' do
+            before :each do
+                params.merge!({
+                  :tenant_name => false,
+                  :password    => 'secrete',
+                })
+            end
+
+            it_raises 'a Puppet::Error', /You must provide either tenant_name or tenant_id./
+        end
+
+        context 'when providing a nova_tenant_name' do
             before :each do
                 params.merge!({
                   :nova_admin_tenant_name => 'services',
-                  :nova_admin_tenant_id   => false,
+                  :nova_admin_password    => 'secrete',
+                  :password               => false
                 })
             end
-            it 'should configure nova admin tenant id' do
-              is_expected.to contain_nova_admin_tenant_id_setter('nova_admin_tenant_id').with(
-                :ensure           => 'present',
-                :tenant_name      => 'services',
-                :auth_url         => 'http://127.0.0.1:35357/v2.0',
-                :auth_password    => 'secrete',
-                :auth_tenant_name => 'services'
-              )
+            it 'should configure nova admin tenant name' do
+              is_expected.to contain_neutron_config('DEFAULT/nova_admin_tenant_name').with_value('services')
             end
         end
     end
 
     context 'on Debian platforms' do
         let :facts do
-            default_facts.merge({ :osfamily => 'Debian' })
+            @default_facts.merge(test_facts.merge({
+               :osfamily => 'Debian'
+            }))
         end
 
         let :platform_params do
@@ -143,7 +204,10 @@ describe 'neutron::server::notifications' do
 
     context 'on RedHat platforms' do
         let :facts do
-            default_facts.merge({ :osfamily => 'RedHat' })
+            @default_facts.merge(test_facts.merge({
+               :osfamily               => 'RedHat',
+               :operatingsystemrelease => '7'
+            }))
         end
 
         let :platform_params do

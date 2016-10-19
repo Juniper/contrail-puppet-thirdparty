@@ -25,7 +25,7 @@
 #
 # [*service_name*]
 #    Name of the service. Optional.
-#    Defaults to value of auth_name.
+#    Defaults to 'Image Service'.
 #
 # [*service_type*]
 #    Type of service. Optional. Defaults to 'image'.
@@ -106,7 +106,7 @@ class glance::keystone::auth(
   $configure_endpoint  = true,
   $configure_user      = true,
   $configure_user_role = true,
-  $service_name        = undef,
+  $service_name        = 'Image Service',
   $service_type        = 'image',
   $region              = 'RegionOne',
   $tenant              = 'services',
@@ -182,7 +182,8 @@ class glance::keystone::auth(
   $real_service_name = pick($service_name, $auth_name)
 
   if $configure_endpoint {
-    Keystone_endpoint["${region}/${real_service_name}"]  ~> Service <| name == 'glance-api' |>
+    Keystone_endpoint["${region}/${real_service_name}::${service_type}"]  ~> Service<| title == 'glance-api' |>
+    Keystone_endpoint["${region}/${real_service_name}::${service_type}"] -> Glance_image<||>
   }
 
   keystone::resource::service_identity { $auth_name:
@@ -202,8 +203,8 @@ class glance::keystone::auth(
   }
 
   if $configure_user_role {
-    Keystone_user_role["${auth_name}@${tenant}"] ~> Service <| name == 'glance-registry' |>
-    Keystone_user_role["${auth_name}@${tenant}"] ~> Service <| name == 'glance-api' |>
+    Keystone_user_role["${auth_name}@${tenant}"] ~> Service<| title == 'glance-registry' |>
+    Keystone_user_role["${auth_name}@${tenant}"] ~> Service<| title == 'glance-api' |>
   }
 
 }

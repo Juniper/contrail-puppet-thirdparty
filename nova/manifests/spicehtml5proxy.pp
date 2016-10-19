@@ -10,7 +10,7 @@
 #
 # [*enabled*]
 #   (optional) enable spicehtml5proxy service
-#   true/false
+#   Defaults to true
 #
 # [*manage_service*]
 #   (optional) Whether to start/stop the service
@@ -29,13 +29,14 @@
 #   Defaults to 'present'
 #
 class nova::spicehtml5proxy(
-  $enabled        = false,
+  $enabled        = true,
   $manage_service = true,
   $host           = '0.0.0.0',
   $port           = '6082',
   $ensure_package = 'present'
 ) {
 
+  include ::nova::deps
   include ::nova::params
 
   nova_config {

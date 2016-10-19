@@ -4,11 +4,15 @@ describe 'ceilometer' do
 
   let :params do
     {
-      :metering_secret    => 'metering-s3cr3t',
-      :package_ensure     => 'present',
-      :debug              => 'False',
-      :log_dir            => '/var/log/ceilometer',
-      :verbose            => 'False',
+      :http_timeout               => '600',
+      :event_time_to_live         => '604800',
+      :metering_time_to_live      => '604800',
+      :metering_secret            => 'metering-s3cr3t',
+      :package_ensure             => 'present',
+      :debug                      => 'False',
+      :log_dir                    => '/var/log/ceilometer',
+      :verbose                    => 'False',
+      :use_stderr                 => 'True',
     }
   end
 
@@ -22,23 +26,29 @@ describe 'ceilometer' do
     }
   end
 
-  let :qpid_params do
-    {
-      :rpc_backend   => "ceilometer.openstack.common.rpc.impl_qpid",
-      :qpid_hostname => 'localhost',
-      :qpid_port     => 5672,
-      :qpid_username => 'guest',
-      :qpid_password  => 'guest',
-    }
-  end
-
   shared_examples_for 'ceilometer' do
+
+    it 'configures time to live for events and meters' do
+      is_expected.to contain_ceilometer_config('database/event_time_to_live').with_value( params[:event_time_to_live] )
+      is_expected.to contain_ceilometer_config('database/metering_time_to_live').with_value( params[:metering_time_to_live] )
+    end
+
+    it 'configures timeout for HTTP requests' do
+      is_expected.to contain_ceilometer_config('DEFAULT/http_timeout').with_value(params[:http_timeout])
+    end
 
     context 'with rabbit_host parameter' do
       before { params.merge!( rabbit_params ) }
       it_configures 'a ceilometer base installation'
       it_configures 'rabbit with SSL support'
       it_configures 'rabbit without HA support (with backward compatibility)'
+      it_configures 'rabbit with connection heartbeats'
+
+      context 'with rabbit_ha_queues' do
+        before { params.merge!( rabbit_params ).merge!( :rabbit_ha_queues => true ) }
+        it_configures 'rabbit with rabbit_ha_queues'
+       end
+
     end
 
     context 'with rabbit_hosts parameter' do
@@ -55,18 +65,18 @@ describe 'ceilometer' do
         it_configures 'rabbit with SSL support'
         it_configures 'rabbit with HA support'
       end
-    end
 
-    context 'with qpid' do
-      before {params.merge!( qpid_params ) }
-      it_configures 'a ceilometer base installation'
-      it_configures 'qpid support'
+      context("with legacy rpc_backend value") do
+        before { params.merge!( rabbit_params ).merge!(:rpc_backend => 'ceilometer.openstack.common.rpc.impl_kombu') }
+        it { is_expected.to contain_ceilometer_config('DEFAULT/rpc_backend').with_value('ceilometer.openstack.common.rpc.impl_kombu') }
+      end
     end
 
   end
 
   shared_examples_for 'a ceilometer base installation' do
 
+    it { is_expected.to contain_class('ceilometer::logging') }
     it { is_expected.to contain_class('ceilometer::params') }
 
     it 'configures ceilometer group' do
@@ -85,30 +95,11 @@ describe 'ceilometer' do
       )
     end
 
-    it 'configures ceilometer configuration folder' do
-      is_expected.to contain_file('/etc/ceilometer/').with(
-        :ensure  => 'directory',
-        :owner   => 'ceilometer',
-        :group   => 'ceilometer',
-        :mode    => '0750',
-        :require => 'Package[ceilometer-common]'
-      )
-    end
-
-    it 'configures ceilometer configuration file' do
-      is_expected.to contain_file('/etc/ceilometer/ceilometer.conf').with(
-        :owner   => 'ceilometer',
-        :group   => 'ceilometer',
-        :mode    => '0640',
-        :require => 'Package[ceilometer-common]'
-      )
-    end
-
     it 'installs ceilometer common package' do
       is_expected.to contain_package('ceilometer-common').with(
         :ensure => 'present',
         :name   => platform_params[:common_package_name],
-        :tag    => 'openstack'
+        :tag    => ['openstack', 'ceilometer-package'],
       )
     end
 
@@ -122,44 +113,13 @@ describe 'ceilometer' do
       it { expect { is_expected.to raise_error(Puppet::Error) } }
     end
 
-    it 'configures debug and verbosity' do
-      is_expected.to contain_ceilometer_config('DEFAULT/debug').with_value( params[:debug] )
-      is_expected.to contain_ceilometer_config('DEFAULT/verbose').with_value( params[:verbose] )
-    end
-
-    it 'configures logging directory by default' do
-      is_expected.to contain_ceilometer_config('DEFAULT/log_dir').with_value( params[:log_dir] )
-    end
-
-    context 'with logging directory disabled' do
-      before { params.merge!( :log_dir => false) }
-
-      it { is_expected.to contain_ceilometer_config('DEFAULT/log_dir').with_ensure('absent') }
-    end
-
     it 'configures notification_topics' do
       is_expected.to contain_ceilometer_config('DEFAULT/notification_topics').with_value('notifications')
     end
 
-    it 'configures syslog to be disabled by default' do
-      is_expected.to contain_ceilometer_config('DEFAULT/use_syslog').with_value('false')
-    end
-
-    context 'with syslog enabled' do
-      before { params.merge!( :use_syslog => 'true' ) }
-
-      it { is_expected.to contain_ceilometer_config('DEFAULT/use_syslog').with_value('true') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/syslog_log_facility').with_value('LOG_USER') }
-    end
-
-    context 'with syslog enabled and custom settings' do
-      before { params.merge!(
-       :use_syslog   => 'true',
-       :log_facility => 'LOG_LOCAL0'
-      ) }
-
-      it { is_expected.to contain_ceilometer_config('DEFAULT/use_syslog').with_value('true') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/syslog_log_facility').with_value('LOG_LOCAL0') }
+    context 'with rabbitmq durable queues configured' do
+      before { params.merge!( :amqp_durable_queues => true ) }
+      it_configures 'rabbit with durable queues'
     end
 
     context 'with overriden notification_topics parameter' do
@@ -178,6 +138,8 @@ describe 'ceilometer' do
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] ).with_secret(true)
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_rate').with_value('2')
     end
 
     it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_host').with_value( params[:rabbit_host] ) }
@@ -194,6 +156,8 @@ describe 'ceilometer' do
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] ).with_secret(true)
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_rate').with_value('2')
     end
 
     it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_host').with_ensure('absent') }
@@ -203,6 +167,13 @@ describe 'ceilometer' do
 
   end
 
+  shared_examples_for 'rabbit with rabbit_ha_queues' do
+
+    it 'configures rabbit' do
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value( params[:rabbit_ha_queues] )
+    end
+  end
+
   shared_examples_for 'rabbit with HA support' do
 
     it 'configures rabbit' do
@@ -210,6 +181,8 @@ describe 'ceilometer' do
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] ).with_secret(true)
       is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_rate').with_value('2')
     end
 
     it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_host').with_ensure('absent') }
@@ -217,6 +190,23 @@ describe 'ceilometer' do
     it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_hosts').with_value( params[:rabbit_hosts].join(',') ) }
     it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('true') }
 
+  end
+  shared_examples_for 'rabbit with durable queues' do
+    it 'in ceilometer' do
+      is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/amqp_durable_queues').with_value(true)
+    end
+  end
+
+  shared_examples_for 'rabbit with connection heartbeats' do
+    context "with heartbeat configuration" do
+      before { params.merge!(
+        :rabbit_heartbeat_timeout_threshold => '60',
+        :rabbit_heartbeat_rate              => '10'
+      ) }
+
+      it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('60') }
+      it { is_expected.to contain_ceilometer_config('oslo_messaging_rabbit/heartbeat_rate').with_value('10') }
+    end
   end
 
   shared_examples_for 'rabbit with SSL support' do
@@ -274,37 +264,19 @@ describe 'ceilometer' do
     end
   end
 
-  shared_examples_for 'qpid support' do
-    context("with default parameters") do
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect').with_value(true) }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect_timeout').with_value('0') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect_limit').with_value('0') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect_interval_min').with_value('0') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect_interval_max').with_value('0') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_reconnect_interval').with_value('0') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_heartbeat').with_value('60') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_protocol').with_value('tcp') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_tcp_nodelay').with_value(true) }
-    end
+  shared_examples_for 'memcached support' do
+    context "with memcached enabled" do
+      before { params.merge!(
+        :memcached_servers => ['1.2.3.4','1.2.3.5']
+      ) }
 
-    context("with mandatory parameters set") do
-      it { is_expected.to contain_ceilometer_config('DEFAULT/rpc_backend').with_value('ceilometer.openstack.common.rpc.impl_qpid') }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_hostname').with_value( params[:qpid_hostname] ) }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_port').with_value( params[:qpid_port] ) }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_username').with_value( params[:qpid_username]) }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_password').with_value(params[:qpid_password]) }
-      it { is_expected.to contain_ceilometer_config('DEFAULT/qpid_password').with_value( params[:qpid_password] ).with_secret(true) }
-    end
-
-    context("failing if the rpc_backend is not present") do
-      before { params.delete( :rpc_backend) }
-      it { expect { is_expected.to raise_error(Puppet::Error) } }
+      it { is_expected.to contain_ceilometer_config('DEFAULT/memcached_servers').with_value('1.2.3.4,1.2.3.5') }
     end
   end
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
     end
 
     let :platform_params do
@@ -316,7 +288,7 @@ describe 'ceilometer' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :platform_params do

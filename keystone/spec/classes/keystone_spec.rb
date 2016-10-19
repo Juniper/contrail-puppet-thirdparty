@@ -11,135 +11,142 @@ describe 'keystone' do
   end
 
   let :facts do
-    global_facts.merge({
+    @default_facts.merge(global_facts.merge({
       :osfamily               => 'Debian',
       :operatingsystem        => 'Debian',
       :operatingsystemrelease => '7.0',
       :processorcount         => '1'
-    })
+    }))
   end
 
   default_params = {
-      'admin_token'           => 'service_token',
-      'package_ensure'        => 'present',
-      'client_package_ensure' => 'present',
-      'public_bind_host'      => '0.0.0.0',
-      'admin_bind_host'       => '0.0.0.0',
-      'public_port'           => '5000',
-      'admin_port'            => '35357',
-      'verbose'               => false,
-      'debug'                 => false,
-      'catalog_type'          => 'sql',
-      'catalog_driver'        => false,
-      'token_provider'        => 'keystone.token.providers.uuid.Provider',
-      'token_driver'          => 'keystone.token.persistence.backends.sql.Token',
-      'revoke_driver'         => 'keystone.contrib.revoke.backends.sql.Revoke',
-      'cache_dir'             => '/var/cache/keystone',
-      'enable_ssl'            => false,
-      'ssl_certfile'          => '/etc/keystone/ssl/certs/keystone.pem',
-      'ssl_keyfile'           => '/etc/keystone/ssl/private/keystonekey.pem',
-      'ssl_ca_certs'          => '/etc/keystone/ssl/certs/ca.pem',
-      'ssl_ca_key'            => '/etc/keystone/ssl/private/cakey.pem',
-      'ssl_cert_subject'      => '/C=US/ST=Unset/L=Unset/O=Unset/CN=localhost',
-      'enabled'               => true,
-      'manage_service'        => true,
-      'database_connection'   => 'sqlite:////var/lib/keystone/keystone.db',
-      'database_idle_timeout' => '200',
-      'enable_pki_setup'      => true,
-      'signing_certfile'      => '/etc/keystone/ssl/certs/signing_cert.pem',
-      'signing_keyfile'       => '/etc/keystone/ssl/private/signing_key.pem',
-      'signing_ca_certs'      => '/etc/keystone/ssl/certs/ca.pem',
-      'signing_ca_key'        => '/etc/keystone/ssl/private/cakey.pem',
-      'rabbit_host'           => 'localhost',
-      'rabbit_password'       => 'guest',
-      'rabbit_userid'         => 'guest',
-      'admin_workers'         => 20,
-      'public_workers'        => 20,
-      'sync_db'               => true,
+      'admin_token'                         => 'service_token',
+      'package_ensure'                      => 'present',
+      'client_package_ensure'               => 'present',
+      'public_bind_host'                    => '0.0.0.0',
+      'admin_bind_host'                     => '0.0.0.0',
+      'public_port'                         => '5000',
+      'admin_port'                          => '35357',
+      'verbose'                             => false,
+      'debug'                               => false,
+      'use_stderr'                          => true,
+      'catalog_type'                        => 'sql',
+      'catalog_driver'                      => false,
+      'token_provider'                      => 'uuid',
+      'token_driver'                        => 'sql',
+      'revoke_driver'                       => 'sql',
+      'revoke_by_id'                        => true,
+      'cache_dir'                           => '/var/cache/keystone',
+      'memcache_servers'                    => '<SERVICE DEFAULT>',
+      'cache_backend'                       => '<SERVICE DEFAULT>',
+      'cache_backend_argument'              => '<SERVICE DEFAULT>',
+      'cache_enabled'                       => '<SERVICE DEFAULT>',
+      'cache_memcache_servers'              => '<SERVICE DEFAULT>',
+      'enable_ssl'                          => false,
+      'ssl_certfile'                        => '/etc/keystone/ssl/certs/keystone.pem',
+      'ssl_keyfile'                         => '/etc/keystone/ssl/private/keystonekey.pem',
+      'ssl_ca_certs'                        => '/etc/keystone/ssl/certs/ca.pem',
+      'ssl_ca_key'                          => '/etc/keystone/ssl/private/cakey.pem',
+      'ssl_cert_subject'                    => '/C=US/ST=Unset/L=Unset/O=Unset/CN=localhost',
+      'enabled'                             => true,
+      'manage_service'                      => true,
+      'database_connection'                 => 'sqlite:////var/lib/keystone/keystone.db',
+      'database_idle_timeout'               => '200',
+      'enable_pki_setup'                    => false,
+      'signing_certfile'                    => '/etc/keystone/ssl/certs/signing_cert.pem',
+      'signing_keyfile'                     => '/etc/keystone/ssl/private/signing_key.pem',
+      'signing_ca_certs'                    => '/etc/keystone/ssl/certs/ca.pem',
+      'signing_ca_key'                      => '/etc/keystone/ssl/private/cakey.pem',
+      'rabbit_host'                         => '<SERVICE DEFAULT>',
+      'rabbit_password'                     => '<SERVICE DEFAULT>',
+      'rabbit_userid'                       => '<SERVICE DEFAULT>',
+      'rabbit_heartbeat_timeout_threshold'  => '<SERVICE DEFAULT>',
+      'rabbit_heartbeat_rate'               => '<SERVICE DEFAULT>',
+      'admin_workers'                       => 20,
+      'public_workers'                      => 20,
+      'paste_config'                        => '<SERVICE DEFAULT>',
+      'sync_db'                             => true,
     }
 
   override_params = {
-      'package_ensure'        => 'latest',
-      'client_package_ensure' => 'latest',
-      'public_bind_host'      => '0.0.0.0',
-      'admin_bind_host'       => '0.0.0.0',
-      'public_port'           => '5001',
-      'admin_port'            => '35358',
-      'admin_token'           => 'service_token_override',
-      'verbose'               => true,
-      'debug'                 => true,
-      'catalog_type'          => 'template',
-      'token_provider'        => 'keystone.token.providers.uuid.Provider',
-      'token_driver'          => 'keystone.token.backends.kvs.Token',
-      'revoke_driver'         => 'keystone.contrib.revoke.backends.kvs.Revoke',
-      'public_endpoint'       => 'https://localhost:5000/v2.0/',
-      'admin_endpoint'        => 'https://localhost:35357/v2.0/',
-      'enable_ssl'            => true,
-      'ssl_certfile'          => '/etc/keystone/ssl/certs/keystone.pem',
-      'ssl_keyfile'           => '/etc/keystone/ssl/private/keystonekey.pem',
-      'ssl_ca_certs'          => '/etc/keystone/ssl/certs/ca.pem',
-      'ssl_ca_key'            => '/etc/keystone/ssl/private/cakey.pem',
-      'ssl_cert_subject'      => '/C=US/ST=Unset/L=Unset/O=Unset/CN=localhost',
-      'enabled'               => false,
-      'manage_service'        => true,
-      'database_connection'   => 'mysql://a:b@c/d',
-      'database_idle_timeout' => '300',
-      'enable_pki_setup'      => true,
-      'signing_certfile'      => '/etc/keystone/ssl/certs/signing_cert.pem',
-      'signing_keyfile'       => '/etc/keystone/ssl/private/signing_key.pem',
-      'signing_ca_certs'      => '/etc/keystone/ssl/certs/ca.pem',
-      'signing_ca_key'        => '/etc/keystone/ssl/private/cakey.pem',
-      'rabbit_host'           => '127.0.0.1',
-      'rabbit_password'       => 'openstack',
-      'rabbit_userid'         => 'admin',
-      'default_domain'        => 'other_domain',
+      'package_ensure'                      => 'latest',
+      'client_package_ensure'               => 'latest',
+      'public_bind_host'                    => '0.0.0.0',
+      'admin_bind_host'                     => '0.0.0.0',
+      'public_port'                         => '5001',
+      'admin_port'                          => '35358',
+      'admin_token'                         => 'service_token_override',
+      'verbose'                             => true,
+      'debug'                               => true,
+      'use_stderr'                          => false,
+      'catalog_type'                        => 'template',
+      'token_provider'                      => 'uuid',
+      'token_driver'                        => 'kvs',
+      'revoke_driver'                       => 'kvs',
+      'revoke_by_id'                        => false,
+      'public_endpoint'                     => 'https://localhost:5000/v2.0/',
+      'admin_endpoint'                      => 'https://localhost:35357/v2.0/',
+      'enable_ssl'                          => true,
+      'ssl_certfile'                        => '/etc/keystone/ssl/certs/keystone.pem',
+      'ssl_keyfile'                         => '/etc/keystone/ssl/private/keystonekey.pem',
+      'ssl_ca_certs'                        => '/etc/keystone/ssl/certs/ca.pem',
+      'ssl_ca_key'                          => '/etc/keystone/ssl/private/cakey.pem',
+      'ssl_cert_subject'                    => '/C=US/ST=Unset/L=Unset/O=Unset/CN=localhost',
+      'enabled'                             => false,
+      'manage_service'                      => true,
+      'database_connection'                 => 'mysql://a:b@c/d',
+      'database_idle_timeout'               => '300',
+      'enable_pki_setup'                    => true,
+      'signing_certfile'                    => '/etc/keystone/ssl/certs/signing_cert.pem',
+      'signing_keyfile'                     => '/etc/keystone/ssl/private/signing_key.pem',
+      'signing_ca_certs'                    => '/etc/keystone/ssl/certs/ca.pem',
+      'signing_ca_key'                      => '/etc/keystone/ssl/private/cakey.pem',
+      'rabbit_host'                         => '127.0.0.1',
+      'rabbit_password'                     => 'openstack',
+      'rabbit_userid'                       => 'admin',
+      'rabbit_heartbeat_timeout_threshold'  => '60',
+      'rabbit_heartbeat_rate'               => '10',
+      'rabbit_ha_queues'                    => true,
+      'default_domain'                      => 'other_domain',
+      'paste_config'                        => '/usr/share/keystone/keystone-paste.ini',
+      'using_domain_config'                 => false
     }
 
   httpd_params = {'service_name' => 'httpd'}.merge(default_params)
 
   shared_examples_for 'core keystone examples' do |param_hash|
+    it { is_expected.to contain_class('keystone::logging') }
     it { is_expected.to contain_class('keystone::params') }
 
     it { is_expected.to contain_package('keystone').with(
       'ensure' => param_hash['package_ensure'],
-      'tag'    => 'openstack'
+      'tag'    => ['openstack', 'keystone-package'],
     ) }
 
-    it { is_expected.to contain_package('python-openstackclient').with(
+    it { is_expected.to contain_class('keystone::client').with(
       'ensure' => param_hash['client_package_ensure'],
-      'tag'    => 'openstack'
     ) }
-
-    it { is_expected.to contain_group('keystone').with(
-      'ensure' => 'present',
-      'system' => true
-    ) }
-
-    it { is_expected.to contain_user('keystone').with(
-      'ensure' => 'present',
-      'gid'    => 'keystone',
-      'system' => true
-    ) }
-
-    it 'should contain the expected directories' do
-      ['/etc/keystone', '/var/log/keystone', '/var/lib/keystone'].each do |d|
-        is_expected.to contain_file(d).with(
-          'ensure'     => 'directory',
-          'owner'      => 'keystone',
-          'group'      => 'keystone',
-          'mode'       => '0750',
-          'require'    => 'Package[keystone]'
-        )
-      end
-    end
 
     it 'should synchronize the db if $sync_db is true' do
       if param_hash['sync_db']
         is_expected.to contain_exec('keystone-manage db_sync').with(
+          :command     => 'keystone-manage  db_sync',
           :user        => 'keystone',
           :refreshonly => true,
-          :subscribe   => ['Package[keystone]', 'Keystone_config[database/connection]'],
-          :require     => 'User[keystone]'
+          :subscribe   => ['Anchor[keystone::install::end]',
+                           'Anchor[keystone::config::end]',
+                           'Anchor[keystone::dbsync::begin]'],
+          :notify      => 'Anchor[keystone::dbsync::end]',
+        )
+      end
+    end
+
+    it 'should bootstrap $enable_bootstrap is true' do
+      if param_hash['enable_bootstrap']
+        is_expected.to contain_exec('keystone-manage bootstrap').with(
+          :command     => 'keystone-manage bootstrap --bootstrap-password service_token',
+          :user        => 'keystone',
+          :refreshonly => true
         )
       end
     end
@@ -151,7 +158,8 @@ describe 'keystone' do
        'public_port',
        'admin_port',
        'verbose',
-       'debug'
+       'debug',
+       'use_stderr'
       ].each do |config|
         is_expected.to contain_keystone_config("DEFAULT/#{config}").with_value(param_hash[config])
       end
@@ -178,38 +186,60 @@ describe 'keystone' do
       is_expected.to contain_keystone_config('revoke/driver').with_value(param_hash['revoke_driver'])
     end
 
+    it 'should contain default revoke_by_id value ' do
+      is_expected.to contain_keystone_config('token/revoke_by_id').with_value(param_hash['revoke_by_id'])
+    end
+
+    it 'should contain default paste_config' do
+      is_expected.to contain_keystone_config('paste_deploy/config_file').with_value(param_hash['paste_config'])
+    end
+
     it 'should ensure proper setting of admin_endpoint and public_endpoint' do
       if param_hash['admin_endpoint']
         is_expected.to contain_keystone_config('DEFAULT/admin_endpoint').with_value(param_hash['admin_endpoint'])
       else
-        is_expected.to contain_keystone_config('DEFAULT/admin_endpoint').with_ensure('absent')
+        is_expected.to contain_keystone_config('DEFAULT/admin_endpoint').with_value('<SERVICE DEFAULT>')
       end
       if param_hash['public_endpoint']
         is_expected.to contain_keystone_config('DEFAULT/public_endpoint').with_value(param_hash['public_endpoint'])
       else
-        is_expected.to contain_keystone_config('DEFAULT/public_endpoint').with_ensure('absent')
+        is_expected.to contain_keystone_config('DEFAULT/public_endpoint').with_value('<SERVICE DEFAULT>')
       end
     end
 
     it 'should contain correct rabbit_password' do
-      is_expected.to contain_keystone_config('DEFAULT/rabbit_password').with_value(param_hash['rabbit_password']).with_secret(true)
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/rabbit_password').with_value(param_hash['rabbit_password']).with_secret(true)
+    end
+
+    it 'should contain correct rabbit heartbeat configuration' do
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value(param_hash['rabbit_heartbeat_timeout_threshold'])
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/heartbeat_rate').with_value(param_hash['rabbit_heartbeat_rate'])
     end
 
     it 'should remove max_token_size param by default' do
-      is_expected.to contain_keystone_config('DEFAULT/max_token_size').with_ensure('absent')
+      is_expected.to contain_keystone_config('DEFAULT/max_token_size').with_value('<SERVICE DEFAULT>')
     end
 
     it 'should ensure proper setting of admin_workers and public_workers' do
       if param_hash['admin_workers']
-        is_expected.to contain_keystone_config('DEFAULT/admin_workers').with_value(param_hash['admin_workers'])
+        is_expected.to contain_keystone_config('eventlet_server/admin_workers').with_value(param_hash['admin_workers'])
       else
-        is_expected.to contain_keystone_config('DEFAULT/admin_workers').with_value('2')
+        is_expected.to contain_keystone_config('eventlet_server/admin_workers').with_value('2')
       end
       if param_hash['public_workers']
-        is_expected.to contain_keystone_config('DEFAULT/public_workers').with_value(param_hash['public_workers'])
+        is_expected.to contain_keystone_config('eventlet_server/public_workers').with_value(param_hash['public_workers'])
       else
-        is_expected.to contain_keystone_config('DEFAULT/public_workers').with_value('2')
+        is_expected.to contain_keystone_config('eventlet_server/public_workers').with_value('2')
       end
+    end
+
+    it 'should ensure rabbit_ha_queues' do
+      if param_hash['rabbit_ha_queues']
+        is_expected.to contain_keystone_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value(param_hash['rabbit_ha_queues'])
+      else
+        is_expected.to contain_keystone_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value(false)
+      end
+
     end
 
     if param_hash['default_domain']
@@ -231,10 +261,11 @@ describe 'keystone' do
         'ensure'     => (param_hash['manage_service'] && param_hash['enabled']) ? 'running' : 'stopped',
         'enable'     => param_hash['enabled'],
         'hasstatus'  => true,
-        'hasrestart' => true
+        'hasrestart' => true,
+        'tag'        => 'keystone-service',
       ) }
 
-      it { is_expected.to contain_anchor('keystone_started') }
+      it { is_expected.to contain_anchor('keystone::service::end') }
 
     end
   end
@@ -245,7 +276,7 @@ describe 'keystone' do
     end
 
     let :pre_condition do
-      'include ::apache'
+      'include ::keystone::wsgi::apache'
     end
 
     it_configures 'core keystone examples', httpd_params
@@ -262,6 +293,10 @@ describe 'keystone' do
       'enable'          => false,
       'validate'        => false
     )}
+    it { is_expected.to contain_service('httpd').with_before(/Anchor\[keystone::service::end\]/) }
+    it { is_expected.to contain_exec('restart_keystone').with(
+      'command' => "service #{platform_parameters[:httpd_service_name]} restart",
+    ) }
   end
 
   describe 'when using invalid service name for keystone' do
@@ -283,7 +318,7 @@ describe 'keystone' do
       'hasstatus'  => true,
       'hasrestart' => true
     ) }
-    it { is_expected.to contain_anchor('keystone_started') }
+    it { is_expected.to contain_anchor('keystone::service::end') }
   end
 
   describe 'when configuring signing token provider' do
@@ -295,36 +330,22 @@ describe 'keystone' do
           'token_provider' => 'keystone.token.providers.uuid.Provider'
         }
       end
-      it { is_expected.to contain_exec('keystone-manage pki_setup').with(
-        :creates => '/etc/keystone/ssl/private/signing_key.pem'
-      ) }
-      it { is_expected.to contain_file('/var/cache/keystone').with_ensure('directory') }
 
-      describe 'when overriding the cache dir' do
-        before do
-          params.merge!(:cache_dir => '/var/lib/cache/keystone')
-        end
-        it { is_expected.to contain_file('/var/lib/cache/keystone') }
-      end
-
-      describe 'when disable pki_setup' do
-        before do
-          params.merge!(:enable_pki_setup => false)
-        end
+      describe 'pki_setup is disabled by default' do
         it { is_expected.to_not contain_exec('keystone-manage pki_setup') }
+        it { is_expected.to_not contain_file('/var/cache/keystone').with_ensure('directory') }
       end
     end
 
     describe 'when configuring as PKI' do
       let :params do
         {
-          'admin_token'    => 'service_token',
-          'token_provider' => 'keystone.token.providers.pki.Provider'
+          'enable_pki_setup' => true,
+          'admin_token'      => 'service_token',
+          'token_provider'   => 'pki'
         }
       end
-      it { is_expected.to contain_exec('keystone-manage pki_setup').with(
-        :creates => '/etc/keystone/ssl/private/signing_key.pem'
-      ) }
+
       it { is_expected.to contain_file('/var/cache/keystone').with_ensure('directory') }
 
       describe 'when overriding the cache dir' do
@@ -334,11 +355,17 @@ describe 'keystone' do
         it { is_expected.to contain_file('/var/lib/cache/keystone') }
       end
 
-      describe 'when disable pki_setup' do
+      it { is_expected.to contain_exec('keystone-manage pki_setup').with(
+        :command => 'keystone-manage pki_setup --keystone-user keystone --keystone-group keystone',
+        :creates => '/etc/keystone/ssl/private/signing_key.pem'
+      ) }
+      it { is_expected.to contain_file('/var/cache/keystone').with_ensure('directory') }
+
+      describe 'when overriding the cache dir' do
         before do
-          params.merge!(:enable_pki_setup => false)
+          params.merge!(:cache_dir => '/var/lib/cache/keystone')
         end
-        it { is_expected.to_not contain_exec('keystone-manage pki_setup') }
+        it { is_expected.to contain_file('/var/lib/cache/keystone') }
       end
     end
 
@@ -346,7 +373,7 @@ describe 'keystone' do
       let :params do
         {
           'admin_token'          => 'service_token',
-          'token_provider'       => 'keystone.token.providers.uuid.Provider',
+          'token_provider'       => 'uuid',
           'enable_pki_setup'     => false,
           'signing_certfile'     => 'signing_certfile',
           'signing_keyfile'      => 'signing_keyfile',
@@ -388,7 +415,7 @@ describe 'keystone' do
       let :params do
         {
           'admin_token'          => 'service_token',
-          'token_provider'       => 'keystone.token.providers.pki.Provider',
+          'token_provider'       => 'pki',
           'enable_pki_setup'     => false,
           'signing_certfile'     => 'signing_certfile',
           'signing_keyfile'      => 'signing_keyfile',
@@ -438,7 +465,7 @@ describe 'keystone' do
     describe 'when configuring catalog driver' do
       let :params do
         { :admin_token    => 'service_token',
-          :catalog_driver => 'keystone.catalog.backends.alien.AlienCatalog' }
+          :catalog_driver => 'alien' }
       end
 
       it { is_expected.to contain_keystone_config('catalog/driver').with_value(params[:catalog_driver]) }
@@ -477,112 +504,157 @@ describe 'keystone' do
     it { is_expected.not_to contain_exec('keystone-manage db_sync') }
   end
 
+  describe 'when enable_bootstrap is set to false' do
+    let :params do
+      {
+        'admin_token' => 'service_token',
+        'enable_bootstrap'     => false,
+      }
+    end
+
+    it { is_expected.not_to contain_exec('keystone-manage bootstrap') }
+  end
+
   describe 'configure memcache servers if set' do
     let :params do
       {
-        'admin_token'            => 'service_token',
-        'memcache_servers'       => [ 'SERVER1:11211', 'SERVER2:11211' ],
-        'token_driver'           => 'keystone.token.backends.memcache.Token',
-        'cache_backend'          => 'dogpile.cache.memcached',
-        'cache_backend_argument' => ['url:SERVER1:12211'],
+        'admin_token'                  => 'service_token',
+        'memcache_servers'             => [ 'SERVER1:11211', 'SERVER2:11211' ],
+        'token_driver'                 => 'memcache',
+        'cache_backend'                => 'dogpile.cache.memcached',
+        'cache_backend_argument'       => ['url:SERVER1:12211'],
+        'memcache_dead_retry'          => '60',
+        'memcache_socket_timeout'      => '2',
+        'memcache_pool_maxsize'        => '1000',
+        'memcache_pool_unused_timeout' => '60',
       }
     end
 
     it { is_expected.to contain_keystone_config("memcache/servers").with_value('SERVER1:11211,SERVER2:11211') }
     it { is_expected.to contain_keystone_config('cache/enabled').with_value(true) }
-    it { is_expected.to contain_keystone_config('token/caching').with_value(true) }
+    it { is_expected.to contain_keystone_config('token/caching').with_value('<SERVICE DEFAULT>') }
     it { is_expected.to contain_keystone_config('cache/backend').with_value('dogpile.cache.memcached') }
     it { is_expected.to contain_keystone_config('cache/backend_argument').with_value('url:SERVER1:12211') }
+    it { is_expected.to contain_keystone_config('memcache/dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('memcache/socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('memcache/pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('memcache/pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_servers').with_value('SERVER1:11211,SERVER2:11211') }
     it { is_expected.to contain_package('python-memcache').with(
       :name   => 'python-memcache',
       :ensure => 'present'
     ) }
   end
 
+  describe 'configure cache memcache servers if set' do
+    let :params do
+      {
+        'admin_token'                  => 'service_token',
+        'memcache_servers'             => [ 'SERVER1:11211', 'SERVER2:11211' ],
+        'token_driver'                 => 'memcache',
+        'cache_backend'                => 'dogpile.cache.memcached',
+        'cache_backend_argument'       => ['url:SERVER3:12211'],
+        'cache_memcache_servers'       => [ 'SERVER3:11211', 'SERVER4:11211' ],
+        'memcache_dead_retry'          => '60',
+        'memcache_socket_timeout'      => '2',
+        'memcache_pool_maxsize'        => '1000',
+        'memcache_pool_unused_timeout' => '60',
+      }
+    end
+
+    it { is_expected.to contain_keystone_config("memcache/servers").with_value('SERVER1:11211,SERVER2:11211') }
+    it { is_expected.to contain_keystone_config('cache/enabled').with_value(true) }
+    it { is_expected.to contain_keystone_config('token/caching').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/backend').with_value('dogpile.cache.memcached') }
+    it { is_expected.to contain_keystone_config('cache/backend_argument').with_value('url:SERVER3:12211') }
+    it { is_expected.to contain_keystone_config('memcache/dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('memcache/socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('memcache/pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('memcache/pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_servers').with_value('SERVER3:11211,SERVER4:11211') }
+    it { is_expected.to contain_package('python-memcache').with(
+      :name   => 'python-memcache',
+      :ensure => 'present'
+    ) }
+  end
+
+  describe 'configure cache enabled if set' do
+    let :params do
+      {
+        'admin_token'                  => 'service_token',
+        'memcache_servers'             => [ 'SERVER1:11211', 'SERVER2:11211' ],
+        'token_driver'                 => 'memcache',
+        'cache_backend'                => 'dogpile.cache.memcached',
+        'cache_backend_argument'       => ['url:SERVER3:12211'],
+        'cache_enabled'                => false,
+        'cache_memcache_servers'       => [ 'SERVER3:11211', 'SERVER4:11211' ],
+        'memcache_dead_retry'          => '60',
+        'memcache_socket_timeout'      => '2',
+        'memcache_pool_maxsize'        => '1000',
+        'memcache_pool_unused_timeout' => '60',
+      }
+    end
+
+    it { is_expected.to contain_keystone_config("memcache/servers").with_value('SERVER1:11211,SERVER2:11211') }
+    it { is_expected.to contain_keystone_config('cache/enabled').with_value(false) }
+    it { is_expected.to contain_keystone_config('token/caching').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/backend').with_value('dogpile.cache.memcached') }
+    it { is_expected.to contain_keystone_config('cache/backend_argument').with_value('url:SERVER3:12211') }
+    it { is_expected.to contain_keystone_config('memcache/dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('memcache/socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('memcache/pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('memcache/pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_dead_retry').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_socket_timeout').with_value('2') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_maxsize').with_value('1000') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_unused_timeout').with_value('60') }
+    it { is_expected.to contain_keystone_config('cache/memcache_servers').with_value('SERVER3:11211,SERVER4:11211') }
+    it { is_expected.to contain_package('python-memcache').with(
+      :name   => 'python-memcache',
+      :ensure => 'present'
+    ) }
+  end
+
+  describe 'configure memcache servers with a string' do
+    let :params do
+      default_params.merge({
+        'memcache_servers'       => 'SERVER1:11211,SERVER2:11211',
+        'cache_memcache_servers' => 'SERVER3:11211,SERVER4:11211'
+      })
+    end
+
+    it { is_expected.to contain_keystone_config("memcache/servers").with_value('SERVER1:11211,SERVER2:11211') }
+    it { is_expected.to contain_keystone_config('cache/memcache_servers').with_value('SERVER3:11211,SERVER4:11211') }
+  end
+
+
   describe 'do not configure memcache servers when not set' do
     let :params do
       default_params
     end
 
-    it { is_expected.to contain_keystone_config("cache/enabled").with_ensure('absent') }
-    it { is_expected.to contain_keystone_config("token/caching").with_ensure('absent') }
-    it { is_expected.to contain_keystone_config("cache/backend").with_ensure('absent') }
-    it { is_expected.to contain_keystone_config("cache/backend_argument").with_ensure('absent') }
-    it { is_expected.to contain_keystone_config("cache/debug_cache_backend").with_ensure('absent') }
-    it { is_expected.to contain_keystone_config("memcache/servers").with_ensure('absent') }
-  end
-
-  describe 'raise error if memcache_servers is not an array' do
-    let :params do
-      {
-        'admin_token'      => 'service_token',
-        'memcache_servers' => 'ANY_SERVER:11211'
-      }
-    end
-
-    it { expect { is_expected.to contain_class('keystone::params') }.to \
-      raise_error(Puppet::Error, /is not an Array/) }
-  end
-
-  describe 'with syslog disabled by default' do
-    let :params do
-      default_params
-    end
-
-    it { is_expected.to contain_keystone_config('DEFAULT/use_syslog').with_value(false) }
-    it { is_expected.to_not contain_keystone_config('DEFAULT/syslog_log_facility') }
-  end
-
-  describe 'with syslog enabled' do
-    let :params do
-      default_params.merge({
-        :use_syslog   => 'true',
-      })
-    end
-
-    it { is_expected.to contain_keystone_config('DEFAULT/use_syslog').with_value(true) }
-    it { is_expected.to contain_keystone_config('DEFAULT/syslog_log_facility').with_value('LOG_USER') }
-  end
-
-  describe 'with syslog enabled and custom settings' do
-    let :params do
-      default_params.merge({
-        :use_syslog   => 'true',
-        :log_facility => 'LOG_LOCAL0'
-     })
-    end
-
-    it { is_expected.to contain_keystone_config('DEFAULT/use_syslog').with_value(true) }
-    it { is_expected.to contain_keystone_config('DEFAULT/syslog_log_facility').with_value('LOG_LOCAL0') }
-  end
-
-  describe 'with log_file disabled by default' do
-    let :params do
-      default_params
-    end
-    it { is_expected.to contain_keystone_config('DEFAULT/log_file').with_ensure('absent') }
-  end
-
-  describe 'with log_file and log_dir enabled' do
-    let :params do
-      default_params.merge({
-        :log_file   => 'keystone.log',
-        :log_dir    => '/var/lib/keystone'
-     })
-    end
-    it { is_expected.to contain_keystone_config('DEFAULT/log_file').with_value('keystone.log') }
-    it { is_expected.to contain_keystone_config('DEFAULT/log_dir').with_value('/var/lib/keystone') }
-  end
-
-    describe 'with log_file and log_dir disabled' do
-    let :params do
-      default_params.merge({
-        :log_file   => false,
-        :log_dir    => false
-     })
-    end
-    it { is_expected.to contain_keystone_config('DEFAULT/log_file').with_ensure('absent') }
-    it { is_expected.to contain_keystone_config('DEFAULT/log_dir').with_ensure('absent') }
+    it { is_expected.to contain_keystone_config("cache/enabled").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config("token/caching").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config("cache/backend").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config("cache/backend_argument").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config("cache/debug_cache_backend").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config("memcache/servers").with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('memcache/dead_retry').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('memcache/pool_maxsize').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('memcache/pool_unused_timeout').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/memcache_dead_retry').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/memcache_socket_timeout').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_maxsize').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/memcache_pool_unused_timeout').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('cache/memcache_servers').with_value('<SERVICE DEFAULT>') }
   end
 
   describe 'when enabling SSL' do
@@ -611,18 +683,18 @@ describe 'keystone' do
       }
     end
     it {is_expected.to contain_keystone_config('ssl/enable').with_value(false)}
-    it {is_expected.to contain_keystone_config('DEFAULT/public_endpoint').with_ensure('absent')}
-    it {is_expected.to contain_keystone_config('DEFAULT/admin_endpoint').with_ensure('absent')}
+    it {is_expected.to contain_keystone_config('DEFAULT/public_endpoint').with_value('<SERVICE DEFAULT>')}
+    it {is_expected.to contain_keystone_config('DEFAULT/admin_endpoint').with_value('<SERVICE DEFAULT>')}
   end
   describe 'not setting notification settings by default' do
     let :params do
       default_params
     end
 
-    it { is_expected.to contain_keystone_config('DEFAULT/notification_driver').with_value(nil) }
-    it { is_expected.to contain_keystone_config('DEFAULT/notification_topics').with_value(nil) }
-    it { is_expected.to contain_keystone_config('DEFAULT/notification_format').with_value(nil) }
-    it { is_expected.to contain_keystone_config('DEFAULT/control_exchange').with_value(nil) }
+    it { is_expected.to contain_keystone_config('DEFAULT/notification_driver').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('DEFAULT/notification_topics').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('DEFAULT/notification_format').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_keystone_config('DEFAULT/control_exchange').with_value('<SERVICE DEFAULT>') }
   end
 
   describe 'with RabbitMQ communication SSLed' do
@@ -637,31 +709,31 @@ describe 'keystone' do
     end
 
     it do
-      is_expected.to contain_keystone_config('DEFAULT/rabbit_use_ssl').with_value('true')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_ca_certs').with_value('/path/to/ssl/ca/certs')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_certfile').with_value('/path/to/ssl/cert/file')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_keyfile').with_value('/path/to/ssl/keyfile')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_version').with_value('TLSv1')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('true')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('/path/to/ssl/ca/certs')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('/path/to/ssl/cert/file')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('/path/to/ssl/keyfile')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('TLSv1')
     end
   end
 
   describe 'with RabbitMQ communication not SSLed' do
     let :params do
       default_params.merge!({
-        :rabbit_use_ssl     => false,
-        :kombu_ssl_ca_certs => 'undef',
-        :kombu_ssl_certfile => 'undef',
-        :kombu_ssl_keyfile  => 'undef',
-        :kombu_ssl_version  => 'TLSv1'
+        :rabbit_use_ssl     => '<SERVICE DEFAULT>',
+        :kombu_ssl_ca_certs => '<SERVICE DEFAULT>',
+        :kombu_ssl_certfile => '<SERVICE DEFAULT>',
+        :kombu_ssl_keyfile  => '<SERVICE DEFAULT>',
+        :kombu_ssl_version  => '<SERVICE DEFAULT>'
       })
     end
 
     it do
-      is_expected.to contain_keystone_config('DEFAULT/rabbit_use_ssl').with_value('false')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_keystone_config('DEFAULT/kombu_ssl_version').with_ensure('absent')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_keystone_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
     end
   end
 
@@ -689,12 +761,20 @@ describe 'keystone' do
     it { is_expected.to contain_keystone_config('DEFAULT/control_exchange').with_value('keystone') }
   end
 
+  describe 'setting sql policy driver' do
+    let :params do
+      default_params.merge({:policy_driver => 'sql' })
+    end
+
+    it { is_expected.to contain_keystone_config('policy/driver').with_value('sql') }
+  end
+
   describe 'setting sql (default) catalog' do
     let :params do
       default_params
     end
 
-    it { is_expected.to contain_keystone_config('catalog/driver').with_value('keystone.catalog.backends.sql.Catalog') }
+    it { is_expected.to contain_keystone_config('catalog/driver').with_value('sql') }
   end
 
   describe 'setting default template catalog' do
@@ -705,7 +785,7 @@ describe 'keystone' do
       }
     end
 
-    it { is_expected.to contain_keystone_config('catalog/driver').with_value('keystone.catalog.backends.templated.Catalog') }
+    it { is_expected.to contain_keystone_config('catalog/driver').with_value('templated') }
     it { is_expected.to contain_keystone_config('catalog/template_file').with_value('/etc/keystone/default_catalog.templates') }
   end
 
@@ -750,16 +830,16 @@ describe 'keystone' do
       }
     end
 
-    it { is_expected.to contain_keystone_config('catalog/driver').with_value('keystone.catalog.backends.templated.Catalog') }
+    it { is_expected.to contain_keystone_config('catalog/driver').with_value('templated') }
     it { is_expected.to contain_keystone_config('catalog/template_file').with_value('/some/template_file') }
   end
 
   describe 'setting service_provider' do
     let :facts do
-      global_facts.merge({
+      @default_facts.merge(global_facts.merge({
         :osfamily               => 'RedHat',
         :operatingsystemrelease => '6.0'
-      })
+      }))
     end
 
     describe 'with default service_provider' do
@@ -792,13 +872,18 @@ describe 'keystone' do
         default_params.merge({
           'enable_fernet_setup'    => true,
           'fernet_max_active_keys' => 5,
+          'revoke_by_id'           => false,
+          'keystone_user'          => 'keystone',
+          'keystone_group'         => 'keystone'
         })
       end
 
       it { is_expected.to contain_exec('keystone-manage fernet_setup').with(
+        :command => 'keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone',
         :creates => '/etc/keystone/fernet-keys/0'
       ) }
       it { is_expected.to contain_keystone_config('fernet_tokens/max_active_keys').with_value(5)}
+      it { is_expected.to contain_keystone_config('token/revoke_by_id').with_value(false)}
     end
 
     describe 'when overriding the fernet key directory' do
@@ -815,51 +900,7 @@ describe 'keystone' do
     end
   end
 
-  describe 'when configuring paste_deploy' do
-    describe 'with default paste config on Debian' do
-      let :params do
-        default_params
-      end
-
-      it { is_expected.to contain_keystone_config('paste_deploy/config_file').with_ensure('absent')}
-    end
-
-    describe 'with default paste config on RedHat' do
-      let :facts do
-        global_facts.merge({
-          :osfamily               => 'RedHat',
-          :operatingsystemrelease => '6.0'
-        })
-      end
-      let :params do
-        default_params
-      end
-
-      it { is_expected.to contain_keystone_config('paste_deploy/config_file').with_value(
-          '/usr/share/keystone/keystone-dist-paste.ini'
-      )}
-    end
-
-    describe 'with overrided paste_deploy' do
-      let :params do
-        default_params.merge({
-          'paste_config'    => '/usr/share/keystone/keystone-paste.ini',
-        })
-      end
-
-      it { is_expected.to contain_keystone_config('paste_deploy/config_file').with_value(
-          '/usr/share/keystone/keystone-paste.ini'
-      )}
-    end
-  end
-
   shared_examples_for "when configuring default domain" do
-    describe 'with default config' do
-      let :params do
-        default_params
-      end
-      it { is_expected.to_not contain_exec('restart_keystone') }
-    end
     describe 'with default domain and eventlet service is managed and enabled' do
       let :params do
         default_params.merge({
@@ -881,9 +922,6 @@ describe 'keystone' do
           'service_name'  => 'httpd',
         })
       end
-      it { is_expected.to contain_exec('restart_keystone').with(
-        'command' => "service #{platform_parameters[:httpd_service_name]} restart",
-      ) }
       it { is_expected.to contain_anchor('default_domain_created') }
     end
     describe 'with default domain and service is not managed' do
@@ -900,10 +938,10 @@ describe 'keystone' do
 
   context 'on RedHat platforms' do
     let :facts do
-      global_facts.merge({
+      @default_facts.merge(global_facts.merge({
         :osfamily               => 'RedHat',
         :operatingsystemrelease => '7.0'
-      })
+      }))
     end
 
     let :platform_parameters do
@@ -919,11 +957,11 @@ describe 'keystone' do
 
   context 'on Debian platforms' do
     let :facts do
-      global_facts.merge({
+      @default_facts.merge(global_facts.merge({
         :osfamily               => 'Debian',
         :operatingsystem        => 'Debian',
         :operatingsystemrelease => '7.0'
-      })
+      }))
     end
 
     let :platform_parameters do
@@ -935,5 +973,67 @@ describe 'keystone' do
 
     it_configures 'when using default class parameters for httpd'
     it_configures 'when configuring default domain'
+  end
+
+  describe "when configuring using_domain_config" do
+    describe 'with default config' do
+      let :params do
+        default_params
+      end
+      it { is_expected.to_not contain_file('/etc/keystone/domains') }
+    end
+    describe 'when using domain config' do
+      let :params do
+        default_params.merge({
+          'using_domain_config'=> true,
+        })
+      end
+      it { is_expected.to contain_file('/etc/keystone/domains').with(
+        'ensure' => "directory",
+      ) }
+      it { is_expected
+          .to contain_keystone_config('identity/domain_specific_drivers_enabled')
+          .with('value' => true,
+      ) }
+      it { is_expected
+          .to contain_keystone_config('identity/domain_config_dir')
+          .with('value' => '/etc/keystone/domains',
+      ) }
+    end
+    describe 'when using domain config and a wrong directory' do
+      let :params do
+        default_params.merge({
+          'using_domain_config'=> true,
+          'domain_config_directory' => 'this/is/not/an/absolute/path'
+        })
+      end
+      it 'should raise an error' do
+        expect { should contain_file('/etc/keystone/domains') }
+          .to raise_error(Puppet::Error, %r(this/is/not/an/absolute/path" is not))
+      end
+    end
+    describe 'when setting domain directory and not using domain config' do
+      let :params do
+        default_params.merge({
+          'using_domain_config'=> false,
+          'domain_config_directory' => '/this/is/an/absolute/path'
+        })
+      end
+      it 'should raise an error' do
+        expect { should contain_file('/etc/keystone/domains') }
+          .to raise_error(Puppet::Error, %r(You must activate domain))
+      end
+    end
+    describe 'when setting domain directory and using domain config' do
+      let :params do
+        default_params.merge({
+          'using_domain_config'=> true,
+          'domain_config_directory' => '/this/is/an/absolute/path'
+        })
+      end
+      it { is_expected.to contain_file('/this/is/an/absolute/path').with(
+        'ensure' => "directory",
+      ) }
+    end
   end
 end

@@ -31,6 +31,14 @@
 #   (optional) Project that network should be associated with
 #   Defaults to undef
 #
+# [*dns1*]
+#   (optional) First DNS server
+#   Defaults to undef
+#
+# [*dns2*]
+#   (optional) Second DNS server
+#   Defaults to undef
+#
 define nova::manage::network (
   $network,
   $label         = 'novanetwork',
@@ -40,10 +48,11 @@ define nova::manage::network (
   $project       = undef,
   $allowed_start = undef,
   $allowed_end   = undef,
+  $dns1          = undef,
+  $dns2          = undef
 ) {
 
-  File['/etc/nova/nova.conf'] -> Nova_network[$name]
-  Exec<| title == 'nova-db-sync' |> -> Nova_network[$name]
+  include ::nova::deps
 
   nova_network { $name:
     ensure        => present,
@@ -55,6 +64,8 @@ define nova::manage::network (
     vlan_start    => $vlan_start,
     allowed_start => $allowed_start,
     allowed_end   => $allowed_end,
+    dns1          => $dns1,
+    dns2          => $dns2,
   }
 
 }

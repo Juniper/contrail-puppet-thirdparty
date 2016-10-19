@@ -1,7 +1,7 @@
 # The keystone::db::mysql class implements mysql backend for keystone
 #
 # This class can be used to create tables, users and grant
-# privelege for a mysql keystone database.
+# privilege for a mysql keystone database.
 #
 # == parameters
 #
@@ -36,9 +36,6 @@
 #
 # === Deprecated Parameters
 #
-# [*mysql_module*]
-#   (Optional) Does nothing.
-#
 # == Dependencies
 #   Class['mysql::server']
 #
@@ -58,13 +55,10 @@ class keystone::db::mysql(
   $host          = '127.0.0.1',
   $charset       = 'utf8',
   $collate       = 'utf8_general_ci',
-  $mysql_module  = undef,
   $allowed_hosts = undef
 ) {
 
-  if $mysql_module {
-    warning('The mysql_module parameter is deprecated. The latest 2.x mysql module will be used.')
-  }
+  include ::keystone::deps
 
   validate_string($password)
 
@@ -78,5 +72,7 @@ class keystone::db::mysql(
     allowed_hosts => $allowed_hosts,
   }
 
-  ::Openstacklib::Db::Mysql['keystone'] ~> Exec<| title == 'keystone-manage db_sync' |>
+  Anchor['keystone::db::begin']
+  ~> Class['keystone::db::mysql']
+  ~> Anchor['keystone::db::end']
 }

@@ -13,18 +13,22 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 #
-# Author: David Gurtner <david@nine.ch>
+# Author: David Gurtner <aldavud@crimson.ch>
+# Author: David Moreau Simard <dmsimard@iweb.com>
+#
+# == Class: ceph::profile::client
 #
 # Profile for a Ceph client
 #
-class ceph::profile::client inherits ceph::profile::base {
-  # if this is also a mon, the key is already defined
-  if ! defined(Ceph::Key['client.admin']) {
-    if $ceph::profile::params::admin_key {
-      ceph::key { 'client.admin':
-        keyring_path => '/etc/ceph/ceph.client.admin.keyring',
-        secret       => $ceph::profile::params::admin_key,
-        mode         => $ceph::profile::params::admin_key_mode,
+class ceph::profile::client {
+  require ::ceph::profile::base
+
+  # If the same server is hosting a mon, osd and client, the key resource is
+  # ultimately handled by the mon class.
+  if ! defined(Class['ceph::keys']) {
+    if !empty($ceph::profile::params::client_keys) {
+      class { '::ceph::keys':
+        args => $ceph::profile::params::client_keys
       }
     }
   }

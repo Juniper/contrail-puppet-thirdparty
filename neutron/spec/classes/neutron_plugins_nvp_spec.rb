@@ -11,10 +11,11 @@ describe 'neutron::plugins::nvp' do
   let :default_params do
     {
         :metadata_mode  => 'access_network',
-        :package_ensure => 'present'}
+        :package_ensure => 'present',
+        :purge_config   => false,}
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -59,6 +60,12 @@ describe 'neutron::plugins::nvp' do
       )
     end
 
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_plugin_nvp').with({
+        :purge => false
+      })
+    end
+
     it 'should configure nvp.ini' do
       is_expected.to contain_neutron_plugin_nvp('DEFAULT/default_tz_uuid').with_value(p[:default_tz_uuid])
       is_expected.to contain_neutron_plugin_nvp('nvp/metadata_mode').with_value(p[:metadata_mode])
@@ -93,7 +100,9 @@ describe 'neutron::plugins::nvp' do
   begin
     context 'on Debian platforms' do
       let :facts do
-        default_facts.merge({:osfamily => 'Debian'})
+        @default_facts.merge(test_facts.merge({
+           :osfamily => 'Debian'
+        }))
       end
 
       let :platform_params do
@@ -105,7 +114,10 @@ describe 'neutron::plugins::nvp' do
 
     context 'on RedHat platforms' do
       let :facts do
-        default_facts.merge({:osfamily => 'RedHat'})
+        @default_facts.merge(test_facts.merge({
+           :osfamily               => 'RedHat',
+           :operatingsystemrelease => '7'
+        }))
       end
 
       let :platform_params do

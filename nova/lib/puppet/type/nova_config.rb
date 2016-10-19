@@ -3,6 +3,7 @@ Puppet::Type.newtype(:nova_config) do
   ensurable
 
   newparam(:name, :namevar => true) do
+    desc 'Section/setting name to manage from nova.conf'
     newvalues(/\S+\/\S+/)
   end
 
@@ -39,4 +40,14 @@ Puppet::Type.newtype(:nova_config) do
 
     defaultto false
   end
+
+  newparam(:ensure_absent_val) do
+    desc 'A value that is specified as the value property will behave as if ensure => absent was specified'
+    defaultto('<SERVICE DEFAULT>')
+  end
+
+  autorequire(:package) do
+    'nova-common'
+  end
+
 end

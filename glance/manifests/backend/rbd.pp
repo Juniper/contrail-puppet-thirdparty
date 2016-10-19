@@ -26,7 +26,19 @@
 #      accepts latest or specific versions.
 #      Defaults to present.
 #
-
+#  [*rados_connect_timeout*]
+#      Optinal. Timeout value (in seconds) used when connecting
+#      to ceph cluster. If value <= 0, no timeout is set and
+#      default librados value is used.
+#
+# [*multi_store*]
+#   (optional) Boolean describing if multiple backends will be configured
+#   Defaults to false
+#
+# [*glare_enabled*]
+#   (optional) Whether enabled Glance Glare API.
+#   Defaults to false
+#
 class glance::backend::rbd(
   $rbd_store_user         = undef,
   $rbd_store_ceph_conf    = '/etc/ceph/ceph.conf',
@@ -34,6 +46,9 @@ class glance::backend::rbd(
   $rbd_store_chunk_size   = '8',
   $show_image_direct_url  = undef,
   $package_ensure         = 'present',
+  $rados_connect_timeout  = '0',
+  $multi_store            = false,
+  $glare_enabled          = false,
 ) {
   include ::glance::params
 
@@ -42,11 +57,28 @@ class glance::backend::rbd(
   }
 
   glance_api_config {
-    'glance_store/default_store':         value => 'rbd';
-    'glance_store/rbd_store_ceph_conf':   value => $rbd_store_ceph_conf;
-    'glance_store/rbd_store_user':        value => $rbd_store_user;
-    'glance_store/rbd_store_pool':        value => $rbd_store_pool;
-    'glance_store/rbd_store_chunk_size':  value => $rbd_store_chunk_size;
+    'glance_store/rbd_store_ceph_conf':    value => $rbd_store_ceph_conf;
+    'glance_store/rbd_store_user':         value => $rbd_store_user;
+    'glance_store/rbd_store_pool':         value => $rbd_store_pool;
+    'glance_store/rbd_store_chunk_size':   value => $rbd_store_chunk_size;
+    'glance_store/rados_connect_timeout':  value => $rados_connect_timeout;
+  }
+
+  if $glare_enabled {
+    glance_glare_config {
+      'glance_store/rbd_store_ceph_conf':    value => $rbd_store_ceph_conf;
+      'glance_store/rbd_store_user':         value => $rbd_store_user;
+      'glance_store/rbd_store_pool':         value => $rbd_store_pool;
+      'glance_store/rbd_store_chunk_size':   value => $rbd_store_chunk_size;
+      'glance_store/rados_connect_timeout':  value => $rados_connect_timeout;
+    }
+  }
+
+  if !$multi_store {
+    glance_api_config { 'glance_store/default_store': value => 'rbd'; }
+    if $glare_enabled {
+      glance_glare_config { 'glance_store/default_store': value => 'rbd'; }
+    }
   }
 
   package { 'python-ceph':

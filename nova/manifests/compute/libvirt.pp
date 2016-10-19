@@ -5,6 +5,10 @@
 #
 # === Parameters:
 #
+# [*ensure_package*]
+#   (optional) The state of nova packages
+#   Defaults to 'present'
+#
 # [*libvirt_virt_type*]
 #   (optional) Libvirt domain type. Options are: kvm, lxc, qemu, uml, xen
 #   Defaults to 'kvm'
@@ -23,12 +27,23 @@
 #   Defaults to 'host-model' if libvirt_virt_type is set to either
 #   kvm or qemu, otherwise defaults to 'none'.
 #
+# [*libvirt_cpu_model*]
+#   (optional) The named libvirt CPU model (see names listed in
+#   /usr/share/libvirt/cpu_map.xml). Only has effect if
+#   cpu_mode="custom" and virt_type="kvm|qemu".
+#   Defaults to undef
+#
 # [*libvirt_disk_cachemodes*]
 #   (optional) A list of cachemodes for different disk types, e.g.
 #   ["file=directsync", "block=none"]
 #   If an empty list is specified, the disk_cachemodes directive
 #   will be removed from nova.conf completely.
 #   Defaults to an empty list
+#
+# [*libvirt_hw_disk_discard*]
+#   (optional) Discard option for nova managed disks. Need Libvirt(1.0.6)
+#   Qemu1.5 (raw format) Qemu1.6(qcow2 format).
+#   Defaults to $::os_service_default
 #
 # [*libvirt_inject_password*]
 #   (optional) Inject the admin password at boot time, without an agent.
@@ -83,11 +98,14 @@
 #   Defaults to 'libvirt.LibvirtDriver'
 #
 class nova::compute::libvirt (
+  $ensure_package                             = 'present',
   $libvirt_virt_type                          = 'kvm',
   $vncserver_listen                           = '127.0.0.1',
   $migration_support                          = false,
   $libvirt_cpu_mode                           = false,
+  $libvirt_cpu_model                          = undef,
   $libvirt_disk_cachemodes                    = [],
+  $libvirt_hw_disk_discard                    = $::os_service_default,
   $libvirt_inject_password                    = false,
   $libvirt_inject_key                         = false,
   $libvirt_inject_partition                   = -2,
@@ -99,6 +117,7 @@ class nova::compute::libvirt (
   $compute_driver                             = 'libvirt.LibvirtDriver'
 ) inherits nova::params {
 
+  include ::nova::deps
   include ::nova::params
 
   Service['libvirt'] -> Service['nova-compute']
@@ -119,10 +138,8 @@ class nova::compute::libvirt (
 
   if($::osfamily == 'Debian') {
     package { "nova-compute-${libvirt_virt_type}":
-      ensure  => present,
-      before  => Package['nova-compute'],
-      require => Package['nova-common'],
-      tag     => ['openstack'],
+      ensure => $ensure_package,
+      tag    => ['openstack', 'nova-package'],
     }
   }
 
@@ -140,7 +157,7 @@ class nova::compute::libvirt (
     if $vncserver_listen != '0.0.0.0' and $vncserver_listen != '::0' {
       fail('For migration support to work, you MUST set vncserver_listen to \'0.0.0.0\' or \'::0\'')
     } else {
-      class { '::nova::migration::libvirt': }
+      include ::nova::migration::libvirt
     }
   }
 
@@ -149,6 +166,7 @@ class nova::compute::libvirt (
       ensure => present,
       name   => $::nova::params::libvirt_nwfilter_package_name,
       before => Service['libvirt'],
+      tag    => ['openstack', 'nova-support-package'],
     }
     case $libvirt_virt_type {
       'qemu': {
@@ -165,6 +183,7 @@ class nova::compute::libvirt (
   package { 'libvirt':
     ensure => present,
     name   => $libvirt_package_name_real,
+    tag    => ['openstack', 'nova-support-package'],
   }
 
   service { 'libvirt' :
@@ -177,12 +196,29 @@ class nova::compute::libvirt (
 
   nova_config {
     'DEFAULT/compute_driver':   value => $compute_driver;
-    'DEFAULT/vncserver_listen': value => $vncserver_listen;
+    'vnc/vncserver_listen':     value => $vncserver_listen;
     'libvirt/virt_type':        value => $libvirt_virt_type;
     'libvirt/cpu_mode':         value => $libvirt_cpu_mode_real;
     'libvirt/inject_password':  value => $libvirt_inject_password;
     'libvirt/inject_key':       value => $libvirt_inject_key;
     'libvirt/inject_partition': value => $libvirt_inject_partition;
+    'libvirt/hw_disk_discard':  value => $libvirt_hw_disk_discard;
+  }
+
+  # cpu_model param is only valid if cpu_mode=custom
+  # otherwise it should be commented out
+  if $libvirt_cpu_mode_real == 'custom' {
+    validate_string($libvirt_cpu_model)
+    nova_config {
+      'libvirt/cpu_model': value => $libvirt_cpu_model;
+    }
+  } else {
+    nova_config {
+      'libvirt/cpu_model': ensure => absent;
+    }
+    if $libvirt_cpu_model {
+      warning('$libvirt_cpu_model requires that $libvirt_cpu_mode => "custom" and will be ignored')
+    }
   }
 
   if size($libvirt_disk_cachemodes) > 0 {

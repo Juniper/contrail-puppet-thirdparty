@@ -41,6 +41,13 @@ describe 'nova::compute::rbd' do
         is_expected.to contain_nova_config('libvirt/rbd_user').with_value('nova')
     end
 
+    it 'installs client package' do
+      is_expected.to contain_package('ceph-client-package').with(
+        'name'   => platform_params[:ceph_client_package],
+        'ensure' => 'present'
+      )
+    end
+
     context 'when overriding default parameters' do
       before :each do
         params.merge!(
@@ -82,8 +89,8 @@ describe 'nova::compute::rbd' do
         ])
         is_expected.to contain_exec('get-or-set virsh secret').with(
           :command =>  '/usr/bin/virsh secret-define --file /etc/nova/secret.xml | /usr/bin/awk \'{print $2}\' | sed \'/^$/d\' > /etc/nova/virsh.secret',
-          :creates => '/etc/nova/virsh.secret',
-          :require => 'File[/etc/nova/secret.xml]'
+          :unless  => '/usr/bin/virsh secret-list | grep UUID',
+          :require => ['File[/etc/nova/secret.xml]', 'Service[libvirt]'],
         )
         is_expected.to contain_exec('set-secret-value virsh').with(
           :command => "/usr/bin/virsh secret-set-value --secret UUID --base64 $(ceph auth get-key client.rbd_test)"
@@ -116,10 +123,10 @@ describe 'nova::compute::rbd' do
       end
 
       it 'should only set user and secret_uuid in nova.conf ' do
-          should_not contain_nova_config('libvirt/images_rbd_pool').with_value('rbd')
-          should_not contain_nova_config('libvirt/images_rbd_ceph_conf').with_value('/etc/ceph/ceph.conf')
-          should contain_nova_config('libvirt/rbd_user').with_value('nova')
-          should contain_nova_config('libvirt/rbd_secret_uuid').with_value('UUID')
+          is_expected.to_not contain_nova_config('libvirt/images_rbd_pool').with_value('rbd')
+          is_expected.to_not contain_nova_config('libvirt/images_rbd_ceph_conf').with_value('/etc/ceph/ceph.conf')
+          is_expected.to contain_nova_config('libvirt/rbd_user').with_value('nova')
+          is_expected.to contain_nova_config('libvirt/rbd_secret_uuid').with_value('UUID')
       end
 
       it 'configure ceph on compute nodes' do
@@ -133,8 +140,8 @@ describe 'nova::compute::rbd' do
         ])
         is_expected.to contain_exec('get-or-set virsh secret').with(
           :command =>  '/usr/bin/virsh secret-define --file /etc/nova/secret.xml | /usr/bin/awk \'{print $2}\' | sed \'/^$/d\' > /etc/nova/virsh.secret',
-          :creates => '/etc/nova/virsh.secret',
-          :require => 'File[/etc/nova/secret.xml]'
+          :unless  => '/usr/bin/virsh secret-list | grep UUID',
+          :require => ['File[/etc/nova/secret.xml]', 'Service[libvirt]'],
         )
         is_expected.to contain_exec('set-secret-value virsh').with(
           :command => "/usr/bin/virsh secret-set-value --secret UUID --base64 $(ceph auth get-key client.rbd_test)"
@@ -142,11 +149,24 @@ describe 'nova::compute::rbd' do
       end
     end
 
+    context 'when not managing ceph client' do
+      before :each do
+        params.merge!(
+          :manage_ceph_client => false
+        )
+      end
+
+      it { is_expected.to_not contain_package('ceph-client-package') }
+    end
   end
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
+    end
+
+    let :platform_params do
+      { :ceph_client_package => 'ceph'}
     end
 
     it_configures 'nova compute rbd'
@@ -154,7 +174,11 @@ describe 'nova::compute::rbd' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
+    end
+
+    let :platform_params do
+      { :ceph_client_package => 'ceph-common' }
     end
 
     it_configures 'nova compute rbd'

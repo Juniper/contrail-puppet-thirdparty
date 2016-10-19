@@ -39,13 +39,17 @@ class Puppet::Provider::Nova < Puppet::Provider
 
   def self.get_nova_credentials
     #needed keys for authentication
-    auth_keys = ['auth_host', 'auth_port', 'auth_protocol',
-                 'admin_tenant_name', 'admin_user', 'admin_password']
+    auth_keys = ['auth_uri', 'admin_tenant_name', 'admin_user',
+                 'admin_password']
     conf = nova_conf
     if conf and conf['keystone_authtoken'] and
         auth_keys.all?{|k| !conf['keystone_authtoken'][k].nil?}
-      return Hash[ auth_keys.map \
+      creds = Hash[ auth_keys.map \
                    { |k| [k, conf['keystone_authtoken'][k].strip] } ]
+      if conf['neutron'] and conf['neutron']['region_name']
+        creds['region_name'] = conf['neutron']['region_name'].strip
+      end
+      return creds
     else
       raise(Puppet::Error, "File: #{conf_filename} does not contain all " +
             "required sections.  Nova types will not work if nova is not " +
@@ -55,7 +59,7 @@ class Puppet::Provider::Nova < Puppet::Provider
 
   def self.get_auth_endpoint
     q = nova_credentials
-    "#{q['auth_protocol']}://#{q['auth_host']}:#{q['auth_port']}/v2.0/"
+    "#{q['auth_uri']}"
   end
 
   def self.auth_endpoint
@@ -70,6 +74,9 @@ class Puppet::Provider::Nova < Puppet::Provider
       :OS_TENANT_NAME => q['admin_tenant_name'],
       :OS_PASSWORD    => q['admin_password']
     }
+    if q.key?('region_name')
+      authenv[:OS_REGION_NAME] = q['region_name']
+    end
     begin
       withenv authenv do
         nova(args)
@@ -114,12 +121,23 @@ class Puppet::Provider::Nova < Puppet::Provider
       else
         new = []
       end
-      s.split(",").each do |el|
-        ret = str2hash(el.strip())
-        if s.include? "="
-          new.update(ret)
-        else
-          new.push(ret)
+      if s =~ /^'.+'$/
+        s.split("', '").each do |el|
+          ret = str2hash(el.strip())
+          if s.include? "="
+            new.update(ret)
+          else
+            new.push(ret)
+          end
+        end
+      else
+        s.split(",").each do |el|
+          ret = str2hash(el.strip())
+          if s.include? "="
+            new.update(ret)
+          else
+            new.push(ret)
+          end
         end
       end
       return new
@@ -158,22 +176,50 @@ class Puppet::Provider::Nova < Puppet::Provider
     return hash_list
   end
 
-  def self.nova_aggregate_resources_ids
+  def self.nova_hosts
+    return @nova_hosts if @nova_hosts
+    cmd_output = auth_nova("host-list")
+    @nova_hosts = cliout2list(cmd_output)
+    @nova_hosts
+  end
+
+  def self.nova_get_host_by_name_and_type(host_name, service_type)
+    #find the host by name and service type
+    nova_hosts.each do |entry|
+      # (mdorman) Support api!cell_name@host_name -style output of nova host-list under nova cells
+      if entry["host_name"] =~ /^([a-zA-Z0-9\-_]+![a-zA-Z0-9\-_]+@)?#{Regexp.quote(host_name)}$/
+        if entry["service"] == service_type
+            return host_name
+        end
+      end
+    end
+    #name/service combo not found
+    return nil
+  end
+
+  def self.nova_aggregate_resources_ids(force_refresh=false)
+    # return the cached list unless requested
+    if not force_refresh
+      return @nova_aggregate_resources_ids if @nova_aggregate_resources_ids
+    end
     #produce a list of hashes with Id=>Name pairs
     lines = []
     #run command
     cmd_output = auth_nova("aggregate-list")
     #parse output
-    hash_list = cliout2list(cmd_output)
+    @nova_aggregate_resources_ids = cliout2list(cmd_output)
     #only interessted in Id and Name
-    hash_list.map{ |e| e.delete("Availability Zone")}
-    hash_list.map{ |e| e['Id'] = e['Id'].to_i}
-  return hash_list
+    @nova_aggregate_resources_ids.map{ |e| e.delete("Availability Zone")}
+    @nova_aggregate_resources_ids.map{ |e|
+      if e['Id'] =~ /^[0-9]+$/
+        e['Id'] = e['Id'].to_i
+      end }
+    @nova_aggregate_resources_ids
   end
 
-  def self.nova_aggregate_resources_get_name_by_id(name)
+  def self.nova_aggregate_resources_get_name_by_id(name, force_refresh=false)
     #find the id by the given name
-    nova_aggregate_resources_ids.each do |entry|
+    nova_aggregate_resources_ids(force_refresh).each do |entry|
       if entry["Name"] == name
         return entry["Id"]
       end
@@ -195,5 +241,4 @@ class Puppet::Provider::Nova < Puppet::Provider
     end
     return list
   end
-
 end

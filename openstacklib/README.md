@@ -1,8 +1,6 @@
 openstacklib
 ============
 
-6.1.0 - 2015.1 - Kilo
-
 #### Table of Contents
 
 1. [Overview - What is the openstacklib module?](#overview)
@@ -16,7 +14,7 @@ openstacklib
 Overview
 --------
 
-The openstacklib module is a part of [Stackforge](https://github.com/stackforge),
+The openstacklib module is a part of [OpenStack](https://github.com/openstack),
 an effort by the Openstack infrastructure team to provide continuous integration
 testing and code review for Openstack and Openstack community projects not part
 of the core software.  The module itself is used to expose common functionality
@@ -30,15 +28,14 @@ The openstacklib module is a library module for other Openstack modules to
 utilize. A thorough description will be added later.
 
 This module is tested in combination with other modules needed to build and
-leverage an entire Openstack software stack.  These modules can be found, all
-pulled together in the [openstack module](https://github.com/stackforge/puppet-openstack).
+leverage an entire Openstack software stack.
 
 Setup
 -----
 
 ### Installing openstacklib
 
-    example% puppet module install puppetlabs/openstacklib
+    puppet module install openstack/openstacklib
 
 Usage
 -----
@@ -216,61 +213,6 @@ string; optional; default to '10'
 Number of seconds between validation attempts;
 string; optional; default to '2'
 
-### Types and Providers
-
-#### Aviator
-
-#####`Puppet::add_aviator_params`
-
-The aviator type is not a real type, but it serves to simulate a mixin model,
-whereby other types can call out to the Puppet::add\_aviator\_params method in
-order to add aviator-specific parameters to themselves. Currently this adds the
-auth parameter to the given type. The method must be called after the type is
-declared, e.g.:
-
-```puppet
-require 'puppet/type/aviator'
-Puppet::Type.newtype(:my_type) do
-# ...
-end
-Puppet::add_aviator_params(:my_type)
-```
-
-#####`Puppet::Provider::Aviator`
-
-The aviator provider is a parent provider intended to serve as a base for other
-providers that need to authenticate against keystone in order to accomplish a
-task.
-
-**`Puppet::Provider::Aviator#authenticate`**
-
-Either creates an authenticated session or sets up an unauthenticated session
-with instance variables initialized with a token to inject into the next request.
-It takes as arguments a set of authentication parameters as a hash and a path
-to a log file. Puppet::Provider::Aviator#authencate looks for five different
-possible methods of authenticating, in the following order:
-
-1) Username and password credentials in the auth parameters
-2) The path to an openrc file containing credentials to read in the auth
-   parameters
-3) A service token in the auth parameters
-4) Environment variables set for the environment in which Puppet is running
-5) A service token in /etc/keystone/keystone.conf. This option provides
-   backwards compatibility with earlier keystone providers.
-
-If the provider has password credentials, it can create an authenticated
-session. If it only has a service token, it initializes an unauthenciated
-session and a hash of session data that can be injected into a future request.
-
-**`Puppet::Provider::Aviator#make_request`**
-
-After creating a session, the make\_request method provides an interface that
-providers can use to make requests without worrying about whether they have an
-authenticated or unauthenticated session. It takes as arguments the
-Aviator::Service it is making a request at (for example, keystone), a symbol for
-the request (for example, :list\_tenants), and optionally a block to execute
-that will set parameters for an update request.
-
 Implementation
 --------------
 
@@ -324,4 +266,6 @@ Puppet Module :: OpenStack Version :: OpenStack Codename
 3.0.0         -> 2013.2.0          -> Havana
 4.0.0         -> 2014.1.0          -> Icehouse
 5.0.0         -> 2014.2.0          -> Juno
+6.0.0         -> 2015.1.0          -> Kilo
+7.0.0         -> 2015.2.0          -> Liberty
 ```

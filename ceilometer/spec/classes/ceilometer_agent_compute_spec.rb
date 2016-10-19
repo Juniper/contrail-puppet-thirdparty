@@ -23,7 +23,7 @@ describe 'ceilometer::agent::compute' do
         :ensure => 'installed',
         :name   => platform_params[:agent_package_name],
         :before => ['Service[ceilometer-agent-compute]'],
-        :tag    => 'openstack'
+        :tag    => ['openstack', 'ceilometer-package'],
       )
     end
 
@@ -47,19 +47,6 @@ describe 'ceilometer::agent::compute' do
         )
     end
 
-    it 'configures nova notification driver' do
-      is_expected.to contain_file_line_after('nova-notification-driver-common').with(
-        :line   => 'notification_driver=nova.openstack.common.notifier.rpc_notifier',
-        :path   => '/etc/nova/nova.conf',
-        :notify => 'Service[nova-compute]'
-      )
-      is_expected.to contain_file_line_after('nova-notification-driver-ceilometer').with(
-        :line   => 'notification_driver=ceilometer.compute.nova_notifier',
-        :path   => '/etc/nova/nova.conf',
-        :notify => 'Service[nova-compute]'
-      )
-    end
-
     [{:enabled => true}, {:enabled => false}].each do |param_hash|
       context "when service should be #{param_hash[:enabled] ? 'enabled' : 'disabled'}" do
         before do
@@ -73,7 +60,8 @@ describe 'ceilometer::agent::compute' do
             :name       => platform_params[:agent_service_name],
             :enable     => params[:enabled],
             :hasstatus  => true,
-            :hasrestart => true
+            :hasrestart => true,
+            :tag        => 'ceilometer-service',
           )
         end
       end
@@ -92,7 +80,8 @@ describe 'ceilometer::agent::compute' do
           :name       => platform_params[:agent_service_name],
           :enable     => false,
           :hasstatus  => true,
-          :hasrestart => true
+          :hasrestart => true,
+          :tag        => 'ceilometer-service',
         )
       end
     end
@@ -101,7 +90,7 @@ describe 'ceilometer::agent::compute' do
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
     end
 
     let :platform_params do
@@ -129,7 +118,7 @@ describe 'ceilometer::agent::compute' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :platform_params do

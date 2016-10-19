@@ -52,13 +52,11 @@ describe 'heat::api_cfn' do
       let :params do
         {
           :use_ssl   => false,
-          :cert_file => false,
-          :key_file  => false
         }
       end
 
-      it { is_expected.to contain_heat_config('heat_api_cfn/cert_file').with_ensure('absent') }
-      it { is_expected.to contain_heat_config('heat_api_cfn/key_file').with_ensure('absent') }
+      it { is_expected.to contain_heat_config('heat_api_cfn/cert_file').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_heat_config('heat_api_cfn/key_file').with_value('<SERVICE DEFAULT>') }
     end
 
     [{:enabled => true}, {:enabled => false}].each do |param_hash|
@@ -74,9 +72,10 @@ describe 'heat::api_cfn' do
             :name       => platform_params[:api_service_name],
             :enable     => params[:enabled],
             :hasstatus  => true,
-            :hasrestart => true
+            :hasrestart => true,
+            :tag        => 'heat-service',
           )
-          is_expected.to contain_service('heat-api-cfn').that_subscribes_to('Exec[heat-dbsync]')
+          is_expected.to contain_service('heat-api-cfn').that_subscribes_to(nil)
         end
       end
     end
@@ -95,9 +94,10 @@ describe 'heat::api_cfn' do
           :name       => platform_params[:api_service_name],
           :enable     => false,
           :hasstatus  => true,
-          :hasrestart => true
+          :hasrestart => true,
+          :tag        => 'heat-service',
         )
-        is_expected.to contain_service('heat-api-cfn').that_subscribes_to('Exec[heat-dbsync]')
+        is_expected.to contain_service('heat-api-cfn').that_subscribes_to(nil)
       end
     end
 
@@ -116,7 +116,9 @@ describe 'heat::api_cfn' do
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({
+        :osfamily => 'Debian',
+      })
     end
 
     let :platform_params do
@@ -128,7 +130,9 @@ describe 'heat::api_cfn' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({
+        :osfamily => 'RedHat',
+      })
     end
 
     let :platform_params do

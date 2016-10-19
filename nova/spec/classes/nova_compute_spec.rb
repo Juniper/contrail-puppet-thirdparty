@@ -13,41 +13,50 @@ describe 'nova::compute' do
       it 'installs nova-compute package and service' do
         is_expected.to contain_service('nova-compute').with({
           :name      => platform_params[:nova_compute_service],
-          :ensure    => 'stopped',
+          :ensure    => 'running',
           :hasstatus => true,
-          :enable    => false
+          :enable    => true,
+          :tag       => 'nova-service'
         })
         is_expected.to contain_package('nova-compute').with({
           :name => platform_params[:nova_compute_package],
-          :tag  => ['openstack']
+          :tag  => ['openstack', 'nova-package']
         })
       end
 
       it { is_expected.to contain_nova_config('DEFAULT/network_device_mtu').with(:ensure => 'absent') }
-      it { is_expected.to_not contain_nova_config('DEFAULT/novncproxy_base_url') }
+      it { is_expected.to contain_nova_config('DEFAULT/allow_resize_to_same_host').with(:value => 'false') }
+      it { is_expected.to contain_nova_config('DEFAULT/vcpu_pin_set').with(:value => '<SERVICE DEFAULT>') }
+      it { is_expected.to_not contain_nova_config('vnc/novncproxy_base_url') }
+
 
       it { is_expected.to_not contain_package('bridge-utils').with(
         :ensure => 'present',
-        :before => 'Nova::Generic_service[compute]'
-      ) }
-
-      it { is_expected.to contain_package('pm-utils').with(
-        :ensure => 'present'
       ) }
 
       it { is_expected.to contain_nova_config('DEFAULT/force_raw_images').with(:value => true) }
 
       it 'configures availability zones' do
-        is_expected.to contain_nova_config('DEFAULT/default_availability_zone').with_value('nova')
-        is_expected.to contain_nova_config('DEFAULT/internal_service_availability_zone').with_value('internal')
+        is_expected.to contain_nova_config('DEFAULT/default_availability_zone').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/default_schedule_zone').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/internal_service_availability_zone').with_value('<SERVICE DEFAULT>')
       end
 
       it { is_expected.to contain_nova_config('DEFAULT/heal_instance_info_cache_interval').with_value('60') }
+
+      it 'installs genisoimage package and sets config_drive_format' do
+        is_expected.to contain_nova_config('DEFAULT/config_drive_format').with(:value => '<SERVICE DEFAULT>')
+        is_expected.to contain_package('genisoimage').with(
+          :ensure => 'present',
+        )
+        is_expected.to contain_package('genisoimage').that_requires('Anchor[nova::install::begin]')
+        is_expected.to contain_package('genisoimage').that_comes_before('Anchor[nova::install::end]')
+      end
     end
 
     context 'with overridden parameters' do
       let :params do
-        { :enabled                            => true,
+        { :enabled                            => false,
           :ensure_package                     => '2012.1-2',
           :vncproxy_host                      => '127.0.0.1',
           :network_device_mtu                 => 9999,
@@ -58,21 +67,24 @@ describe 'nova::compute' do
           :default_schedule_zone              => 'az2',
           :internal_service_availability_zone => 'az_int1',
           :heal_instance_info_cache_interval  => '120',
-          :pci_passthrough                    => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"physical_network\":\"physnet1\"}]"
+          :pci_passthrough                    => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"physical_network\":\"physnet1\"}]",
+          :config_drive_format                => 'vfat',
+          :vcpu_pin_set                       => ['4-12','^8','15'],
         }
       end
 
       it 'installs nova-compute package and service' do
         is_expected.to contain_service('nova-compute').with({
           :name      => platform_params[:nova_compute_service],
-          :ensure    => 'running',
+          :ensure    => 'stopped',
           :hasstatus => true,
-          :enable    => true
+          :enable    => false,
+          :tag       => 'nova-service'
         })
         is_expected.to contain_package('nova-compute').with({
           :name   => platform_params[:nova_compute_package],
           :ensure => '2012.1-2',
-          :tag    => ['openstack']
+          :tag    => ['openstack', 'nova-package']
         })
       end
 
@@ -86,9 +98,10 @@ describe 'nova::compute' do
       end
 
       it 'configures vnc in nova.conf' do
-        is_expected.to contain_nova_config('DEFAULT/vnc_enabled').with_value(true)
-        is_expected.to contain_nova_config('DEFAULT/vncserver_proxyclient_address').with_value('127.0.0.1')
-        is_expected.to contain_nova_config('DEFAULT/novncproxy_base_url').with_value(
+        is_expected.to contain_nova_config('vnc/enabled').with_value(true)
+        is_expected.to contain_nova_config('vnc/vncserver_proxyclient_address').with_value('127.0.0.1')
+        is_expected.to contain_nova_config('vnc/keymap').with_value('en-us')
+        is_expected.to contain_nova_config('vnc/novncproxy_base_url').with_value(
           'http://127.0.0.1:6080/vnc_auto.html'
         )
       end
@@ -103,9 +116,17 @@ describe 'nova::compute' do
 
       it { is_expected.to contain_nova_config('DEFAULT/force_raw_images').with(:value => false) }
 
+      it { is_expected.to contain_nova_config('DEFAULT/vcpu_pin_set').with(:value => '4-12,^8,15') }
+
       it 'configures nova pci_passthrough_whitelist entries' do
         is_expected.to contain_nova_config('DEFAULT/pci_passthrough_whitelist').with(
           'value' => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"physical_network\":\"physnet1\"}]"
+        )
+      end
+      it 'configures nova config_drive_format to vfat' do
+        is_expected.to contain_nova_config('DEFAULT/config_drive_format').with_value('vfat')
+        is_expected.to_not contain_package('genisoimage').with(
+          :ensure => 'present',
         )
       end
     end
@@ -118,8 +139,9 @@ describe 'nova::compute' do
       it 'installs bridge-utils package for nova-network' do
         is_expected.to contain_package('bridge-utils').with(
           :ensure => 'present',
-          :before => 'Nova::Generic_service[compute]'
         )
+        is_expected.to contain_package('bridge-utils').that_requires('Anchor[nova::install::begin]')
+        is_expected.to contain_package('bridge-utils').that_comes_before('Anchor[nova::install::end]')
       end
 
     end
@@ -132,7 +154,6 @@ describe 'nova::compute' do
       it 'does not install bridge-utils package for nova-network' do
         is_expected.to_not contain_package('bridge-utils').with(
           :ensure => 'present',
-          :before => 'Nova::Generic_service[compute]'
         )
       end
 
@@ -144,9 +165,10 @@ describe 'nova::compute' do
       end
 
       it 'disables vnc in nova.conf' do
-        is_expected.to contain_nova_config('DEFAULT/vnc_enabled').with_value(false)
-        is_expected.to contain_nova_config('DEFAULT/vncserver_proxyclient_address').with_value('127.0.0.1')
-        is_expected.to_not contain_nova_config('DEFAULT/novncproxy_base_url')
+        is_expected.to contain_nova_config('vnc/enabled').with_value(false)
+        is_expected.to contain_nova_config('vnc/vncserver_proxyclient_address').with_ensure('absent')
+        is_expected.to contain_nova_config('vnc/keymap').with_ensure('absent')
+        is_expected.to_not contain_nova_config('vnc/novncproxy_base_url')
       end
     end
 
@@ -201,14 +223,14 @@ describe 'nova::compute' do
         { :vnc_keymap => 'fr', }
       end
 
-      it { is_expected.to contain_nova_config('DEFAULT/vnc_keymap').with_value('fr') }
+      it { is_expected.to contain_nova_config('vnc/keymap').with_value('fr') }
     end
   end
 
 
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({ :osfamily => 'Debian' })
     end
 
     let :platform_params do
@@ -221,7 +243,7 @@ describe 'nova::compute' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({ :osfamily => 'RedHat' })
     end
 
     let :platform_params do

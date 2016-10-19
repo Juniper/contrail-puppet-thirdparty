@@ -6,7 +6,7 @@
 #
 # [*scheduler_driver*]
 #   (Optional) Default scheduler driver to use
-#   Defaults to 'false'.
+#   Defaults to $::os_service_default.
 #
 # [*package_ensure*]
 #   (Optioanl) The state of the package.
@@ -22,7 +22,7 @@
 #
 #
 class cinder::scheduler (
-  $scheduler_driver = false,
+  $scheduler_driver = $::os_service_default,
   $package_ensure   = 'present',
   $enabled          = true,
   $manage_service   = true
@@ -34,24 +34,14 @@ class cinder::scheduler (
   Cinder_api_paste_ini<||> ~> Service['cinder-scheduler']
   Exec<| title == 'cinder-manage db_sync' |> ~> Service['cinder-scheduler']
 
-  if $scheduler_driver {
-    cinder_config {
-      'DEFAULT/scheduler_driver': value => $scheduler_driver;
-    }
-  } else {
-    cinder_config {
-      'DEFAULT/scheduler_driver': ensure => absent;
-    }
-  }
+  cinder_config { 'DEFAULT/scheduler_driver': value => $scheduler_driver; }
 
   if $::cinder::params::scheduler_package {
-    Package['cinder-scheduler'] -> Cinder_config<||>
-    Package['cinder-scheduler'] -> Cinder_api_paste_ini<||>
     Package['cinder-scheduler'] -> Service['cinder-scheduler']
     package { 'cinder-scheduler':
       ensure => $package_ensure,
       name   => $::cinder::params::scheduler_package,
-      tag    => 'openstack',
+      tag    => ['openstack', 'cinder-package'],
     }
   }
 
@@ -69,5 +59,6 @@ class cinder::scheduler (
     enable    => $enabled,
     hasstatus => true,
     require   => Package['cinder'],
+    tag       => 'cinder-service',
   }
 }

@@ -29,6 +29,10 @@
 #     The host/ip address Apache will listen on.
 #     Optional. Defaults to undef (listen on all ip addresses).
 #
+#   [*admin_bind_host*]
+#     The host/ip address Apache will listen on for admin API connections.
+#     Optional. Defaults to undef or bind_host if only that setting is used.
+#
 #   [*public_path*]
 #     The prefix for the public endpoint.
 #     Optional. Defaults to '/'
@@ -81,9 +85,49 @@
 #     (optional) The number of threads for the vhost.
 #     Defaults to $::processorcount
 #
+#   [*wsgi_application_group*]
+#     (optional) The application group of the WSGI script.
+#     Defaults to '%{GLOBAL}'
+#
+#   [*wsgi_pass_authorization*]
+#     (optional) Whether HTTP authorisation headers are passed through to a WSGI
+#     script when the equivalent HTTP request headers are present.
+#     Defaults to 'On'
+#
 #   [*wsgi_script_ensure*]
 #     (optional) File ensure parameter for wsgi scripts.
-#     Defaults to 'file'.
+#     Defaults to undef.
+#
+#   [*wsgi_admin_script_source*]
+#     (optional) Wsgi script source for the admin endpoint. If set to undef
+#     $::keystone::params::keystone_wsgi_admin_script_path is used. This source
+#     is copied to the apache cgi-bin path as keystone-admin.
+#     Defaults to undef.
+#
+#   [*wsgi_public_script_source*]
+#     (optional) Wsgi script source for the public endpoint. If set to undef
+#     $::keystone::params::keystone_wsgi_public_script_path is used. This source
+#     is copied to the apache cgi-bin path as keystone-admin.
+#     Defaults to undef.
+#
+#   [*access_log_format*]
+#     The log format for the virtualhost.
+#     Optional. Defaults to false.
+#
+#   [*headers*]
+#     (optional) Headers for the vhost.
+#     Defaults to undef.
+#
+#   [*vhost_custom_fragment*]
+#     (optional) Passes a string of custom configuration
+#     directives to be placed at the end of the vhost configuration.
+#     Defaults to undef.
+#
+#   [*wsgi_chunked_request*]
+#     (optional) apache::vhost wsgi_chunked_request parameter.
+#     Defaults to undef
+#
+#  DEPRECATED OPTIONS
 #
 #   [*wsgi_script_source*]
 #     (optional) Wsgi script source.
@@ -113,27 +157,38 @@
 #   Copyright 2013 eNovance <licensing@enovance.com>
 #
 class keystone::wsgi::apache (
-  $servername         = $::fqdn,
-  $public_port        = 5000,
-  $admin_port         = 35357,
-  $bind_host          = undef,
-  $public_path        = '/',
-  $admin_path         = '/',
-  $ssl                = true,
-  $workers            = 1,
-  $ssl_cert           = undef,
-  $ssl_key            = undef,
-  $ssl_chain          = undef,
-  $ssl_ca             = undef,
-  $ssl_crl_path       = undef,
-  $ssl_crl            = undef,
-  $ssl_certs_dir      = undef,
-  $threads            = $::processorcount,
-  $priority           = '10',
-  $wsgi_script_ensure = 'file',
-  $wsgi_script_source = undef,
+  $servername                = $::fqdn,
+  $public_port               = 5000,
+  $admin_port                = 35357,
+  $bind_host                 = undef,
+  $admin_bind_host           = undef,
+  $public_path               = '/',
+  $admin_path                = '/',
+  $ssl                       = true,
+  $workers                   = 1,
+  $ssl_cert                  = undef,
+  $ssl_key                   = undef,
+  $ssl_chain                 = undef,
+  $ssl_ca                    = undef,
+  $ssl_crl_path              = undef,
+  $ssl_crl                   = undef,
+  $ssl_certs_dir             = undef,
+  $threads                   = $::processorcount,
+  $priority                  = '10',
+  $wsgi_application_group    = '%{GLOBAL}',
+  $wsgi_pass_authorization   = 'On',
+  $wsgi_chunked_request      = undef,
+  $wsgi_admin_script_source  = undef,
+  $wsgi_public_script_source = undef,
+  $wsgi_script_ensure        = undef,
+  $access_log_format         = false,
+  $headers                   = undef,
+  $vhost_custom_fragment     = undef,
+  #DEPRECATED
+  $wsgi_script_source        = undef,
 ) {
 
+  include ::keystone::deps
   include ::keystone::params
   include ::apache
   include ::apache::mod::wsgi
@@ -141,15 +196,25 @@ class keystone::wsgi::apache (
     include ::apache::mod::ssl
   }
 
-  Package['keystone'] -> Package['httpd']
-  Package['keystone'] ~> Service['httpd']
-  Keystone_config <| |> ~> Service['httpd']
-  Service['httpd'] -> Keystone_endpoint <| |>
-  Service['httpd'] -> Keystone_role <| |>
-  Service['httpd'] -> Keystone_service <| |>
-  Service['httpd'] -> Keystone_tenant <| |>
-  Service['httpd'] -> Keystone_user <| |>
-  Service['httpd'] -> Keystone_user_role <| |>
+  # The httpd package is untagged, but needs to have ordering enforced,
+  # so handle it here rather than in the deps class.
+  Anchor['keystone::install::begin']
+  -> Package['httpd']
+  -> Anchor['keystone::install::end']
+
+  # Configure apache during the config phase
+  Anchor['keystone::config::begin']
+  -> Apache::Vhost<||>
+  ~> Anchor['keystone::config::end']
+
+  # Start the service during the service phase
+  Anchor['keystone::service::begin']
+  -> Service['httpd']
+  -> Anchor['keystone::service::end']
+
+  # Notify the service when config changes
+  Anchor['keystone::config::end']
+  ~> Service['httpd']
 
   ## Sanitize parameters
 
@@ -166,16 +231,13 @@ class keystone::wsgi::apache (
     ensure  => directory,
     owner   => 'keystone',
     group   => 'keystone',
-    require => Package['httpd'],
+    require => Anchor['keystone::install::end'],
   }
 
-  $wsgi_files = {
-    'keystone_wsgi_admin' => {
-      'path' => "${::keystone::params::keystone_wsgi_script_path}/admin",
-    },
-    'keystone_wsgi_main'  => {
-      'path' => "${::keystone::params::keystone_wsgi_script_path}/main",
-    },
+
+  $wsgi_file_target = $wsgi_script_ensure ? {
+    'link'  => 'target',
+    default => 'source'
   }
 
   $wsgi_file_defaults = {
@@ -183,20 +245,30 @@ class keystone::wsgi::apache (
     'owner'   => 'keystone',
     'group'   => 'keystone',
     'mode'    => '0644',
-    'require' => [File[$::keystone::params::keystone_wsgi_script_path], Package['keystone']],
+    'require' => File[$::keystone::params::keystone_wsgi_script_path],
   }
 
-  $wsgi_script_source_real = $wsgi_script_source ? {
-    default => $wsgi_script_source,
-    undef   => $::keystone::params::keystone_wsgi_script_source,
+  if $wsgi_script_source {
+    warning('The single wsgi script source has been deprecated as part of the Mitaka cycle, please switch to $wsgi_admin_script_source and $wsgi_public_script_source')
+    $wsgi_admin_source = $wsgi_script_source
+    $wsgi_public_source = $wsgi_script_source
+  } else {
+    $wsgi_admin_source = $::keystone::params::keystone_wsgi_admin_script_path
+    $wsgi_public_source = $::keystone::params::keystone_wsgi_public_script_path
   }
 
-  case $wsgi_script_ensure {
-    'link':  { $wsgi_file_source = { 'target' => $wsgi_script_source_real } }
-    default: { $wsgi_file_source = { 'source' => $wsgi_script_source_real } }
+  $wsgi_files = {
+    'keystone_wsgi_admin' => {
+      'path'                => "${::keystone::params::keystone_wsgi_script_path}/keystone-admin",
+      "${wsgi_file_target}" => $wsgi_admin_source,
+    },
+    'keystone_wsgi_main'  => {
+      'path'                => "${::keystone::params::keystone_wsgi_script_path}/keystone-public",
+      "${wsgi_file_target}" => $wsgi_public_source,
+    },
   }
 
-  create_resources('file', $wsgi_files, merge($wsgi_file_defaults, $wsgi_file_source))
+  create_resources('file', $wsgi_files, $wsgi_file_defaults)
 
   $wsgi_daemon_process_options_main = {
     user         => 'keystone',
@@ -214,13 +286,20 @@ class keystone::wsgi::apache (
     display-name => 'keystone-admin',
   }
 
-  $wsgi_script_aliases_main = hash([$public_path_real,"${::keystone::params::keystone_wsgi_script_path}/main"])
-  $wsgi_script_aliases_admin = hash([$admin_path_real, "${::keystone::params::keystone_wsgi_script_path}/admin"])
+  $wsgi_script_aliases_main = hash([$public_path_real,"${::keystone::params::keystone_wsgi_script_path}/keystone-public"])
+  $wsgi_script_aliases_admin = hash([$admin_path_real, "${::keystone::params::keystone_wsgi_script_path}/keystone-admin"])
 
   if $public_port == $admin_port {
     $wsgi_script_aliases_main_real = merge($wsgi_script_aliases_main, $wsgi_script_aliases_admin)
   } else {
     $wsgi_script_aliases_main_real = $wsgi_script_aliases_main
+  }
+
+  if $admin_bind_host {
+    $real_admin_bind_host = $admin_bind_host
+  } else {
+    # backwards compat before we had admin_bind_host
+    $real_admin_bind_host = $bind_host
   }
 
   ::apache::vhost { 'keystone_wsgi_main':
@@ -244,14 +323,20 @@ class keystone::wsgi::apache (
     wsgi_daemon_process_options => $wsgi_daemon_process_options_main,
     wsgi_process_group          => 'keystone_main',
     wsgi_script_aliases         => $wsgi_script_aliases_main_real,
+    wsgi_application_group      => $wsgi_application_group,
+    wsgi_pass_authorization     => $wsgi_pass_authorization,
+    headers                     => $headers,
+    custom_fragment             => $vhost_custom_fragment,
+    wsgi_chunked_request        => $wsgi_chunked_request,
     require                     => File['keystone_wsgi_main'],
+    access_log_format           => $access_log_format,
   }
 
   if $public_port != $admin_port {
     ::apache::vhost { 'keystone_wsgi_admin':
       ensure                      => 'present',
       servername                  => $servername,
-      ip                          => $bind_host,
+      ip                          => $real_admin_bind_host,
       port                        => $admin_port,
       docroot                     => $::keystone::params::keystone_wsgi_script_path,
       docroot_owner               => 'keystone',
@@ -269,7 +354,13 @@ class keystone::wsgi::apache (
       wsgi_daemon_process_options => $wsgi_daemon_process_options_admin,
       wsgi_process_group          => 'keystone_admin',
       wsgi_script_aliases         => $wsgi_script_aliases_admin,
+      wsgi_application_group      => $wsgi_application_group,
+      wsgi_pass_authorization     => $wsgi_pass_authorization,
+      headers                     => $headers,
+      custom_fragment             => $vhost_custom_fragment,
+      wsgi_chunked_request        => $wsgi_chunked_request,
       require                     => File['keystone_wsgi_admin'],
+      access_log_format           => $access_log_format,
     }
   }
 }

@@ -9,6 +9,7 @@ class Puppet::Provider::Keystone < Puppet::Provider::Openstack
   extend Puppet::Provider::Openstack::Auth
 
   INI_FILENAME = '/etc/keystone/keystone.conf'
+  DEFAULT_DOMAIN = 'Default'
 
   @@default_domain_id = nil
 
@@ -37,22 +38,102 @@ class Puppet::Provider::Keystone < Puppet::Provider::Openstack
     end
   end
 
-  def self.default_domain
-    domain_name_from_id(default_domain_id)
+  def self.default_domain_from_ini_file
+    default_domain_from_conf = Puppet::Resource.indirection
+      .find('Keystone_config/identity/default_domain_id')
+    if default_domain_from_conf[:ensure] == :present
+      # get from ini file
+      default_domain_from_conf[:value]
+    else
+      nil
+    end
+  rescue
+    nil
   end
 
   def self.default_domain_id
     if @@default_domain_id
+      # cached
       @@default_domain_id
-    elsif keystone_file and keystone_file['identity'] and keystone_file['identity']['default_domain_id']
-      keystone_file['identity']['default_domain_id'].strip
     else
-      'default'
+      @@default_domain_id = default_domain_from_ini_file
     end
+    @@default_domain_id = @@default_domain_id.nil? ? 'default' : @@default_domain_id
   end
 
-  def self.default_domain_id=(id)
-    @@default_domain_id = id
+  def self.default_domain_changed
+    default_domain_id != 'default'
+  end
+
+  def self.default_domain_deprecation_message
+    'Support for a resource without the domain ' \
+      'set is deprecated in Liberty cycle. ' \
+      'It will be dropped in the M-cycle. ' \
+      "Currently using '#{default_domain}' as default domain name " \
+      "while the default domain id is '#{default_domain_id}'."
+  end
+
+  def self.default_domain
+    DEFAULT_DOMAIN
+  end
+
+  def self.resource_to_name(domain, name, check_for_default = true)
+    raise Puppet::Error, "Domain cannot be nil for project '#{name}'. " \
+      'Please report a bug.' if domain.nil?
+    join_str = '::'
+    name_display = [name]
+    unless check_for_default && domain == default_domain
+      name_display << domain
+    end
+    name_display.join(join_str)
+  end
+
+  def self.name_to_resource(name)
+    uniq = name.split('::')
+    if uniq.count == 1
+      uniq.insert(0, default_domain)
+    else
+      uniq.reverse!
+    end
+    uniq
+  end
+
+  # Prefix with default domain if missing from the name.
+  def self.make_full_name(name)
+    resource_to_name(*name_to_resource(name), false)
+  end
+
+#  def self.roles_assignement_for_userid(user_id)
+#    unless @role_assignement_table
+#      @role_assignement_table = request('role assignment', 'list')
+#    end
+#    roles_id = []
+#    @role_assignement_table.each do |row|
+#      roles_id << row[:role] if row[:user] == user_id
+#    end
+#    roles_id
+#  end
+
+  def self.user_id_from_name_and_domain_name(name, domain_name)
+    @users_name ||= {}
+    id_str = "#{name}_#{domain_name}"
+    unless @users_name.keys.include?(id_str)
+      user = fetch_user(name, domain_name)
+      err("Could not find user with name [#{name}] and domain [#{domain_name}]") unless user
+      @users_name[id_str] = user[:id]
+    end
+    @users_name[id_str]
+  end
+
+  def self.project_id_from_name_and_domain_name(name, domain_name)
+    @projects_name ||= {}
+    id_str = "#{name}_#{domain_name}"
+    unless @projects_name.keys.include?(id_str)
+      project = fetch_project(name, domain_name)
+      err("Could not find project with name [#{name}] and domain [#{domain_name}]") unless project
+      @projects_name[id_str] = project[:id]
+    end
+    @projects_name[id_str]
   end
 
   def self.domain_name_from_id(id)
@@ -62,12 +143,37 @@ class Puppet::Provider::Keystone < Puppet::Provider::Openstack
     end
     unless @domain_hash.include?(id)
       name = request('domain', 'show', id)[:name]
-      @domain_hash[id] = name if name
-    end
-    unless @domain_hash.include?(id)
-      err("Could not find domain with id [#{id}]")
+      err("Could not find domain with id [#{id}]") unless name
+      @domain_hash[id] = name
     end
     @domain_hash[id]
+  end
+
+  def self.domain_id_from_name(name)
+    unless @domain_hash_name
+      list = request('domain', 'list')
+      @domain_hash_name = Hash[list.collect{|domain| [domain[:name], domain[:id]]}]
+    end
+    unless @domain_hash_name.include?(name)
+      id = request('domain', 'show', name)[:id]
+      err("Could not find domain with name [#{name}]") unless id
+      @domain_hash_name[name] = id
+    end
+    @domain_hash_name[name]
+  end
+
+  def self.fetch_project(name, domain)
+    domain ||= default_domain
+    request('project', 'show', [name, '--domain', domain])
+  rescue Puppet::ExecutionFailure => e
+    raise e unless e.message =~ /No project with a name or ID/
+  end
+
+  def self.fetch_user(name, domain)
+    domain ||= default_domain
+    request('user', 'show', [name, '--domain', domain])
+  rescue Puppet::ExecutionFailure => e
+    raise e unless e.message =~ /No user with a name or ID/
   end
 
   def self.get_admin_endpoint
@@ -131,34 +237,9 @@ class Puppet::Provider::Keystone < Puppet::Provider::Openstack
     end
   end
 
-  # use the domain in this order:
-  # 1 - the domain name specified in the resource definition - resource[:domain]
-  # 2 - the domain name part of the resource name/title e.g. user_name::user_domain
-  #     if passed in by name_and_domain above
-  # 3 - use the specified default_domain_name
-  # 4 - lookup the default domain
-  # 5 - use 'Default' - the "default" default domain if no other one is configured
-  # Usage: name_and_domain(resource[:name], resource[:domain], default_domain_name)
-  def self.name_and_domain(namedomstr, domain_from_resource=nil, default_domain_name=nil)
-    name, domain = Util.split_domain(namedomstr)
-    ret = [name]
-    if domain_from_resource
-      ret << domain_from_resource
-    elsif domain
-      ret << domain
-    elsif default_domain_name
-      ret << default_domain_name
-    elsif default_domain
-      ret << default_domain
-    else
-      ret << 'Default'
-    end
-    ret
-  end
-
   def self.request(service, action, properties=nil)
     super
-  rescue Puppet::Error::OpenstackAuthInputError => error
+  rescue Puppet::Error::OpenstackAuthInputError, Puppet::Error::OpenstackUnauthorizedError => error
     request_by_service_token(service, action, error, properties)
   end
 
@@ -172,6 +253,21 @@ class Puppet::Provider::Keystone < Puppet::Provider::Openstack
 
   def self.service_url
     @service_url ||= get_service_url
+  end
+
+  def self.set_domain_for_name(name, domain_name)
+    if domain_name.nil? || domain_name.empty?
+      raise(Puppet::Error, "Missing domain name for resource #{name}")
+    end
+    domain_id = self.domain_id_from_name(domain_name)
+    case domain_id
+    when default_domain_id
+      name
+    when nil
+      name
+    else
+      name << "::#{domain_name}"
+    end
   end
 
   def self.ssl?

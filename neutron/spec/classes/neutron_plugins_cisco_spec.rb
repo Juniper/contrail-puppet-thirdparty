@@ -29,11 +29,12 @@ describe 'neutron::plugins::cisco' do
       :max_ports         => '100',
       :max_port_profiles => '65568',
       :max_networks      => '65568',
-      :manager_class     => 'neutron.plugins.cisco.segmentation.l2network_vlan_mgr_v2.L2NetworkVLANMgr'
+      :manager_class     => 'neutron.plugins.cisco.segmentation.l2network_vlan_mgr_v2.L2NetworkVLANMgr',
+      :purge_config      => false,
     }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -69,6 +70,30 @@ describe 'neutron::plugins::cisco' do
         :group  => 'neutron',
         :mode   => '0640'
       )
+    end
+
+    it 'passes purge to resource plugin_cisco' do
+      is_expected.to contain_resources('neutron_plugin_cisco').with({
+        :purge => false
+      })
+    end
+
+    it 'passes purge to resource cisco_db_conn' do
+      is_expected.to contain_resources('neutron_plugin_cisco_db_conn').with({
+        :purge => false
+      })
+    end
+
+    it 'passes purge to resource cisco_l2network' do
+      is_expected.to contain_resources('neutron_plugin_cisco_l2network').with({
+        :purge => false
+      })
+    end
+
+    it 'passes purge to resource cisco_credentials' do
+      is_expected.to contain_resources('neutron_plugin_cisco_credentials').with({
+        :purge => false
+      })
     end
 
     it 'should perform default l2 configuration' do
@@ -137,7 +162,9 @@ describe 'neutron::plugins::cisco' do
   end
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     context 'on Ubuntu operating systems' do
@@ -168,7 +195,10 @@ describe 'neutron::plugins::cisco' do
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily               => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
 
     it_configures 'default cisco plugin'

@@ -7,28 +7,19 @@ describe 'heat' do
       :package_ensure        => 'present',
       :verbose               => 'False',
       :debug                 => 'False',
+      :use_stderr            => 'True',
       :log_dir               => '/var/log/heat',
-      :rabbit_host           => '127.0.0.1',
+      :rabbit_host           => '<SERVICE DEFAULT>',
       :rabbit_port           => 5672,
-      :rabbit_userid         => 'guest',
-      :rabbit_password       => '',
-      :rabbit_virtual_host   => '/',
-      :database_connection   => 'mysql://user@host/database',
+      :rabbit_userid         => '<SERVICE DEFAULT>',
+      :rabbit_password       => '<SERVICE DEFAULT>',
+      :rabbit_virtual_host   => '<SERVICE DEFAULT>',
+      :database_connection   => 'mysql+pymysql://user@host/database',
       :database_idle_timeout => 3600,
-      :auth_uri              => 'http://127.0.0.1:5000/v2.0',
       :keystone_ec2_uri      => 'http://127.0.0.1:5000/v2.0/ec2tokens',
       :flavor                => 'keystone',
       :keystone_password     => 'secretpassword',
-    }
-  end
-
-  let :qpid_params do
-    {
-      :rpc_backend   => "heat.openstack.common.rpc.impl_qpid",
-      :qpid_hostname => 'localhost',
-      :qpid_port     => 5672,
-      :qpid_username => 'guest',
-      :qpid_password  => 'guest',
+      :heat_clients_url      => '<SERVICE DEFAULT>',
     }
   end
 
@@ -55,114 +46,74 @@ describe 'heat' do
       end
     end
 
-    context 'with qpid instance' do
-      before {params.merge!(qpid_params) }
-
+    context 'with rabbit heartbeat configured' do
+      before { params.merge!(
+        :rabbit_heartbeat_timeout_threshold => '60',
+        :rabbit_heartbeat_rate => '10' ) }
       it_configures 'a heat base installation'
-      it_configures 'qpid as rpc backend'
+      it_configures 'rabbit with heartbeat configured'
     end
 
-    it_configures 'with syslog disabled'
-    it_configures 'with syslog enabled'
-    it_configures 'with syslog enabled and custom settings'
     it_configures 'with SSL enabled with kombu'
     it_configures 'with SSL enabled without kombu'
     it_configures 'with SSL disabled'
     it_configures 'with SSL wrongly configured'
-    it_configures "with custom keystone identity_uri"
-    it_configures "with custom keystone identity_uri and auth_uri"
+    it_configures "with auth_plugin"
     it_configures 'with enable_stack_adopt and enable_stack_abandon set'
+    it_configures 'with notification_driver set to a string'
   end
 
   shared_examples_for 'a heat base installation' do
 
+    it { is_expected.to contain_class('heat::logging') }
     it { is_expected.to contain_class('heat::params') }
-
-    it 'configures heat group' do
-      is_expected.to contain_group('heat').with(
-        :name    => 'heat',
-        :require => 'Package[heat-common]'
-      )
-    end
-
-    it 'configures heat user' do
-      is_expected.to contain_user('heat').with(
-        :name    => 'heat',
-        :gid     => 'heat',
-        :groups  => ['heat'],
-        :system  => true,
-        :require => 'Package[heat-common]'
-      )
-    end
-
-    it 'configures heat configuration folder' do
-      is_expected.to contain_file('/etc/heat/').with(
-        :ensure  => 'directory',
-        :owner   => 'heat',
-        :group   => 'heat',
-        :mode    => '0750',
-        :require => 'Package[heat-common]'
-      )
-    end
-
-    it 'configures heat configuration file' do
-      is_expected.to contain_file('/etc/heat/heat.conf').with(
-        :owner   => 'heat',
-        :group   => 'heat',
-        :mode    => '0640',
-        :require => 'Package[heat-common]'
-      )
-    end
 
     it 'installs heat common package' do
       is_expected.to contain_package('heat-common').with(
         :ensure => 'present',
         :name   => platform_params[:common_package_name],
-        :tag    => 'openstack'
+        :tag    => ['openstack', 'heat-package'],
       )
     end
 
     it 'has db_sync enabled' do
-      is_expected.to contain_exec('heat-dbsync').with(
-        :subscribe => 'Package[heat-common]',
-      )
+      is_expected.to contain_class('heat::db::sync')
     end
 
-    it 'configures debug and verbose' do
-      is_expected.to contain_heat_config('DEFAULT/debug').with_value( params[:debug] )
-      is_expected.to contain_heat_config('DEFAULT/verbose').with_value( params[:verbose] )
+    it 'configures max_template_size' do
+      is_expected.to contain_heat_config('DEFAULT/max_template_size').with_value('<SERVICE DEFAULT>')
     end
 
-    it 'configures auth_uri' do
-      is_expected.to contain_heat_config('keystone_authtoken/auth_uri').with_value( params[:auth_uri] )
+    it 'configures max_json_body_size' do
+      is_expected.to contain_heat_config('DEFAULT/max_json_body_size').with_value('<SERVICE DEFAULT>')
     end
 
-    it 'configures logging directory by default' do
-      is_expected.to contain_heat_config('DEFAULT/log_dir').with_value( params[:log_dir] )
+    it 'configures project_domain_id' do
+      is_expected.to contain_heat_config('trustee/project_domain_id').with_value( 'Default' )
     end
 
-    context 'with logging directory disabled' do
-      before { params.merge!( :log_dir => false) }
-
-      it { is_expected.to contain_heat_config('DEFAULT/log_dir').with_ensure('absent') }
+    it 'configures user_domain_id' do
+      is_expected.to contain_heat_config('trustee/user_domain_id').with_value( 'Default' )
     end
 
-    it 'configures database_connection' do
-      is_expected.to contain_heat_config('database/connection').with_value( params[:database_connection] )
+    it 'configures auth_plugin' do
+      is_expected.to contain_heat_config('trustee/auth_plugin').with_value( 'password' )
     end
 
-    it 'configures database_idle_timeout' do
-      is_expected.to contain_heat_config('database/idle_timeout').with_value( params[:database_idle_timeout] )
+    it 'configures auth_url' do
+      is_expected.to contain_heat_config('trustee/auth_url').with_value( 'http://127.0.0.1:35357/' )
     end
 
-    context("failing if database_connection is invalid") do
-      before { params[:database_connection] = 'foo://foo:bar@baz/moo' }
-      it { expect { is_expected.to raise_error(Puppet::Error) } }
+    it 'configures username' do
+      is_expected.to contain_heat_config('trustee/username').with_value( 'heat' )
     end
 
-    context("with deprecated sql_connection parameter") do
-      before { params[:sql_connection] = 'mysql://a:b@c/d' }
-      it { is_expected.to contain_heat_config('database/connection').with_value( params[:sql_connection] )}
+    it 'configures ' do
+      is_expected.to contain_heat_config('trustee/password').with_secret( true )
+    end
+
+    it 'configures auth_uri for clients_keystone' do
+      is_expected.to contain_heat_config('clients_keystone/auth_uri').with_value( 'http://127.0.0.1:35357/' )
     end
 
     it 'configures keystone_ec2_uri' do
@@ -171,11 +122,15 @@ describe 'heat' do
 
     it { is_expected.to contain_heat_config('paste_deploy/flavor').with_value('keystone') }
 
-    it 'keeps keystone secrets secret' do
-      is_expected.to contain_heat_config('keystone_authtoken/admin_password').with_secret(true)
+    it 'configures notification_driver' do
+        is_expected.to contain_heat_config('DEFAULT/notification_driver').with_value('<SERVICE DEFAULT>')
     end
 
+    it 'sets clients_heat url' do
+      is_expected.to contain_heat_config('clients_heat/url').with_value('<SERVICE DEFAULT>')
+    end
 
+    it_configures "with default auth method"
   end
 
   shared_examples_for 'rabbit without HA support (with backward compatibility)' do
@@ -184,17 +139,20 @@ describe 'heat' do
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_secret( true )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value(false)
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_ensure('absent')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_rate').with_value('<SERVICE DEFAULT>')
     end
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_host').with_value( params[:rabbit_host] ) }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_port').with_value( params[:rabbit_port] ) }
-    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_hosts').with_value( "#{params[:rabbit_host]}:#{params[:rabbit_port]}" ) }
-    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('false') }
-    it { is_expected.to contain_heat_config('DEFAULT/amqp_durable_queues').with_value(false) }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_hosts').with_ensure('absent') }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_heat_config('DEFAULT/rpc_response_timeout').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/amqp_durable_queues').with_value('<SERVICE DEFAULT>') }
   end
 
   shared_examples_for 'rabbit without HA support (without backward compatibility)' do
@@ -203,17 +161,19 @@ describe 'heat' do
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_secret( true )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value(false)
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_ensure('absent')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_rate').with_value('<SERVICE DEFAULT>')
     end
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_host').with_ensure('absent') }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_port').with_ensure('absent') }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_hosts').with_value( params[:rabbit_hosts].join(',') ) }
-    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('false') }
-    it { is_expected.to contain_heat_config('DEFAULT/amqp_durable_queues').with_value(false) }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/amqp_durable_queues').with_value('<SERVICE DEFAULT>') }
   end
 
   shared_examples_for 'rabbit with HA support' do
@@ -222,47 +182,45 @@ describe 'heat' do
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_secret( true )
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value(false)
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_ensure('absent')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_rate').with_value('<SERVICE DEFAULT>')
     end
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_host').with_ensure('absent') }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_port').with_ensure('absent') }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_hosts').with_value( params[:rabbit_hosts].join(',') ) }
     it { is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('true') }
-    it { is_expected.to contain_heat_config('DEFAULT/amqp_durable_queues').with_value(true) }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/amqp_durable_queues').with_value(true) }
   end
 
-
-  shared_examples_for 'qpid as rpc backend' do
-    context("with default parameters") do
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect').with_value(true) }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect_timeout').with_value('0') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect_limit').with_value('0') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect_interval_min').with_value('0') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect_interval_max').with_value('0') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_reconnect_interval').with_value('0') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_heartbeat').with_value('60') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_protocol').with_value('tcp') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_tcp_nodelay').with_value(true) }
-      it { is_expected.to contain_heat_config('DEFAULT/amqp_durable_queues').with_value(false) }
+  shared_examples_for 'single rabbit_host with ha queues' do
+    let :params do
+      req_params.merge({'rabbit_ha_queues' => true})
     end
 
-    context("with mandatory parameters set") do
-      it { is_expected.to contain_heat_config('DEFAULT/rpc_backend').with_value('heat.openstack.common.rpc.impl_qpid') }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_hostname').with_value( params[:qpid_hostname] ) }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_port').with_value( params[:qpid_port] ) }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_username').with_value( params[:qpid_username]) }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_password').with_value(params[:qpid_password]) }
-      it { is_expected.to contain_heat_config('DEFAULT/qpid_password').with_secret( true ) }
+    it 'should contain rabbit_ha_queues' do
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value('true')
     end
+  end
 
-    context("failing if the rpc_backend is not present") do
-      before { params.delete( :rpc_backend) }
-      it { expect { is_expected.to raise_error(Puppet::Error) } }
+  shared_examples_for 'rabbit with heartbeat configured' do
+    it 'configures rabbit' do
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_userid').with_value( params[:rabbit_userid] )
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_password').with_secret( true )
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
     end
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('60') }
+    it { is_expected.to contain_heat_config('oslo_messaging_rabbit/heartbeat_rate').with_value('10') }
   end
 
   shared_examples_for 'with SSL enabled with kombu' do
@@ -294,10 +252,10 @@ describe 'heat' do
 
     it do
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('true')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('TLSv1')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
     end
   end
 
@@ -305,16 +263,15 @@ describe 'heat' do
     before do
       params.merge!(
         :rabbit_use_ssl     => false,
-        :kombu_ssl_version  => 'TLSv1'
       )
     end
 
     it do
       is_expected.to contain_heat_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('false')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
-      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_ensure('absent')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_heat_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('<SERVICE DEFAULT>')
     end
   end
 
@@ -327,65 +284,36 @@ describe 'heat' do
 
     context 'without required parameters' do
 
-      context 'with rabbit_use_ssl => false and  kombu_ssl_ca_certs parameter' do
-        before { params.merge!(:kombu_ssl_ca_certs => '/path/to/ssl/ca/certs') }
+      context 'with rabbit_use_ssl => false and kombu_ssl_ca_certs parameter' do
+        before { params.merge!(:kombu_ssl_ca_certs => '/path/to/ssl/ca/certs')}
         it_raises 'a Puppet::Error', /The kombu_ssl_ca_certs parameter requires rabbit_use_ssl to be set to true/
       end
 
       context 'with rabbit_use_ssl => false and kombu_ssl_certfile parameter' do
-        before { params.merge!(:kombu_ssl_certfile => '/path/to/ssl/cert/file') }
+        before { params.merge!(:kombu_ssl_certfile => '/path/to/ssl/cert/file')}
         it_raises 'a Puppet::Error', /The kombu_ssl_certfile parameter requires rabbit_use_ssl to be set to true/
       end
 
       context 'with rabbit_use_ssl => false and kombu_ssl_keyfile parameter' do
-        before { params.merge!(:kombu_ssl_keyfile => '/path/to/ssl/keyfile') }
+        before { params.merge!(:kombu_ssl_keyfile => '/path/to/ssl/keyfile')}
         it_raises 'a Puppet::Error', /The kombu_ssl_keyfile parameter requires rabbit_use_ssl to be set to true/
+      end
+      context 'with kombu_ssl_certfile set to default and custom kombu_ssl_keyfile parameter' do
+        before { params.merge!(
+          :rabbit_use_ssl    => true,
+          :kombu_ssl_keyfile => '/path/to/ssl/keyfile',
+        )}
+        it_raises 'a Puppet::Error', /The kombu_ssl_certfile and kombu_ssl_keyfile parameters must be used together/
+      end
+      context 'with kombu_ssl_keyfile set to default and custom kombu_ssl_certfile parameter' do
+        before { params.merge!(
+          :rabbit_use_ssl    => true,
+          :kombu_ssl_certfile => '/path/to/ssl/cert/file',
+        )}
+        it_raises 'a Puppet::Error', /The kombu_ssl_certfile and kombu_ssl_keyfile parameters must be used together/
       end
     end
 
-  end
-
-  shared_examples_for 'with syslog disabled' do
-    it { is_expected.to contain_heat_config('DEFAULT/use_syslog').with_value(false) }
-  end
-
-  shared_examples_for 'with syslog enabled' do
-    before do
-      params.merge!(
-        :use_syslog => 'true'
-      )
-    end
-
-    it do
-      is_expected.to contain_heat_config('DEFAULT/use_syslog').with_value(true)
-      is_expected.to contain_heat_config('DEFAULT/syslog_log_facility').with_value('LOG_USER')
-    end
-  end
-
-  shared_examples_for 'with syslog enabled and custom settings' do
-    before do
-      params.merge!(
-        :use_syslog    => 'true',
-        :log_facility  => 'LOG_LOCAL0'
-      )
-    end
-
-    it do
-      is_expected.to contain_heat_config('DEFAULT/use_syslog').with_value(true)
-      is_expected.to contain_heat_config('DEFAULT/syslog_log_facility').with_value('LOG_LOCAL0')
-    end
-  end
-
-  shared_examples_for 'with database_idle_timeout modified' do
-    before do
-      params.merge!(
-        :database_idle_timeout => 69
-      )
-    end
-
-    it do
-      is_expected.to contain_heat_config('database/idle_timeout').with_value(69)
-    end
   end
 
   shared_examples_for 'with ec2authtoken auth uri set' do
@@ -397,18 +325,6 @@ describe 'heat' do
 
     it do
       is_expected.to contain_heat_config('ec2authtoken/auth_uri').with_value('http://1.2.3.4:35357/v2.0/ec2tokens')
-    end
-  end
-
-  shared_examples_for 'with auth uri set' do
-    before do
-      params.merge!(
-        :auth_uri => 'http://1.2.3.4:35357/v2.0'
-      )
-    end
-
-    it do
-      is_expected.to contain_heat_config('keystone_authtoken/auth_uri').with_value('http://1.2.3.4:35357/v2.0')
     end
   end
 
@@ -426,38 +342,51 @@ describe 'heat' do
 
   shared_examples_for 'without region_name set' do
     it 'doesnt have region_name set by default' do
-      is_expected.to contain_heat_config('DEFAULT/region_name_for_services').with_enure('absent')
+      is_expected.to contain_heat_config('DEFAULT/region_name_for_services').with_value('<SERVICE DEFAULT>')
     end
   end
 
-  shared_examples_for "with custom keystone identity_uri" do
+  shared_examples_for "with default auth method" do
+    it 'configures auth_uri, identity_uri, admin_tenant_name, admin_user, admin_password' do
+      is_expected.to contain_heat_config('keystone_authtoken/auth_uri').with_value("http://127.0.0.1:5000/")
+      is_expected.to contain_heat_config('keystone_authtoken/identity_uri').with_value("http://127.0.0.1:35357/")
+      is_expected.to contain_heat_config('keystone_authtoken/admin_tenant_name').with_value("services")
+      is_expected.to contain_heat_config('keystone_authtoken/admin_user').with_value("heat")
+      is_expected.to contain_heat_config('keystone_authtoken/admin_password').with_secret( true )
+    end
+  end
+
+  shared_examples_for "with auth_plugin" do
     before do
       params.merge!({
-        :identity_uri => 'https://foo.bar:1234/',
+        :auth_plugin => 'password',
       })
     end
-    it 'configures identity_uri' do
-      is_expected.to contain_heat_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:1234/");
+    it 'configures ' do
+      is_expected.to contain_heat_config('keystone_authtoken/auth_plugin').with_value("password")
+      is_expected.to contain_heat_config('keystone_authtoken/auth_url').with_value("http://127.0.0.1:35357/")
+      is_expected.to contain_heat_config('keystone_authtoken/username').with_value("heat")
+      is_expected.to contain_heat_config('keystone_authtoken/password').with_secret( true )
+      is_expected.to contain_heat_config('keystone_authtoken/project_name').with_value("services")
+      is_expected.to contain_heat_config('keystone_authtoken/user_domain_id').with_value('Default')
+      is_expected.to contain_heat_config('keystone_authtoken/project_domain_id').with_value('Default')
     end
   end
 
-  shared_examples_for "with custom keystone identity_uri and auth_uri" do
+  shared_examples_for "with custom keystone project_domain_id and user_domain_id" do
     before do
       params.merge!({
-        :identity_uri => 'https://foo.bar:35357/',
-        :auth_uri => 'https://foo.bar:5000/v2.0/',
+        :keystone_project_domain_id => 'domain1',
+        :keystone_user_domain_id => 'domain1',
       })
     end
-    it 'configures identity_uri and auth_uri but deprecates old auth settings' do
-      is_expected.to contain_heat_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:35357/");
-      is_expected.to contain_heat_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/v2.0/");
-      is_expected.to contain_heat_config('keystone_authtoken/auth_port').with(:ensure => 'absent')
-      is_expected.to contain_heat_config('keystone_authtoken/auth_protocol').with(:ensure => 'absent')
-      is_expected.to contain_heat_config('keystone_authtoken/auth_host').with(:ensure => 'absent')
+    it 'configures project_domain_id and user_domain_id' do
+      is_expected.to contain_heat_config('trustee/project_domain_id').with_value("domain1");
+      is_expected.to contain_heat_config('trustee/user_domain_id').with_value("domain1");
     end
   end
 
-  shared_examples_for 'with instance_user set' do
+  shared_examples_for 'with instance_user set to a string' do
     before do
       params.merge!(
         :instance_user => "fred",
@@ -466,6 +395,18 @@ describe 'heat' do
 
     it 'has instance_user set when specified' do
       is_expected.to contain_heat_config('DEFAULT/instance_user').with_value('fred')
+    end
+  end
+
+  shared_examples_for 'with instance_user set to an empty string' do
+    before do
+      params.merge!(
+        :instance_user => "",
+      )
+    end
+
+    it 'has instance_user set to an empty string when specified' do
+      is_expected.to contain_heat_config('DEFAULT/instance_user').with_value('')
     end
   end
 
@@ -488,9 +429,23 @@ describe 'heat' do
     end
   end
 
+  shared_examples_for 'with notification_driver set to a string' do
+    before do
+      params.merge!(
+        :notification_driver => 'bar.foo.rpc_notifier',
+      )
+    end
+
+    it 'has notification_driver set when specified' do
+      is_expected.to contain_heat_config('DEFAULT/notification_driver').with_value('bar.foo.rpc_notifier')
+    end
+  end
+
   context 'on Debian platforms' do
     let :facts do
-      { :osfamily => 'Debian' }
+      @default_facts.merge({
+        :osfamily => 'Debian',
+      })
     end
 
     let :platform_params do
@@ -502,7 +457,9 @@ describe 'heat' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      @default_facts.merge({
+        :osfamily => 'RedHat',
+      })
     end
 
     let :platform_params do

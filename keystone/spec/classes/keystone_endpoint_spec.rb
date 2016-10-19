@@ -2,18 +2,18 @@ require 'spec_helper'
 
 describe 'keystone::endpoint' do
 
-  it { is_expected.to contain_keystone_service('keystone').with(
+  it { is_expected.to contain_keystone_service('keystone::identity').with(
     :ensure      => 'present',
-    :type        => 'identity',
     :description => 'OpenStack Identity Service'
   )}
 
   describe 'with default parameters' do
-    it { is_expected.to contain_keystone_endpoint('RegionOne/keystone').with(
+    it { is_expected.to contain_keystone_endpoint('RegionOne/keystone::identity').with(
       :ensure       => 'present',
       :public_url   => 'http://127.0.0.1:5000/v2.0',
       :admin_url    => 'http://127.0.0.1:35357/v2.0',
-      :internal_url => 'http://127.0.0.1:5000/v2.0'
+      :internal_url => 'http://127.0.0.1:5000/v2.0',
+      :region       => 'RegionOne'
     )}
   end
 
@@ -23,14 +23,32 @@ describe 'keystone::endpoint' do
       { :version      => 'v42.6',
         :public_url   => 'https://identity.some.tld/the/main/endpoint',
         :admin_url    => 'https://identity-int.some.tld/some/admin/endpoint',
-        :internal_url => 'https://identity-int.some.tld/some/internal/endpoint' }
+        :internal_url => 'https://identity-int.some.tld/some/internal/endpoint',
+        :region       => 'East'
+      }
     end
 
-    it { is_expected.to contain_keystone_endpoint('RegionOne/keystone').with(
+    it { is_expected.to contain_keystone_endpoint('East/keystone::identity').with(
       :ensure       => 'present',
       :public_url   => 'https://identity.some.tld/the/main/endpoint/v42.6',
       :admin_url    => 'https://identity-int.some.tld/some/admin/endpoint/v42.6',
-      :internal_url => 'https://identity-int.some.tld/some/internal/endpoint/v42.6'
+      :internal_url => 'https://identity-int.some.tld/some/internal/endpoint/v42.6',
+      :region       => 'East'
+    )}
+  end
+
+  describe 'without a version' do
+    # We need to test empty value '' to override the default value, using undef
+    # cannot un-set classes parameters.
+    let :params do
+      { :version => '' }
+    end
+
+    it { is_expected.to contain_keystone_endpoint('RegionOne/keystone::identity').with(
+      :ensure       => 'present',
+      :public_url   => 'http://127.0.0.1:5000',
+      :admin_url    => 'http://127.0.0.1:35357',
+      :internal_url => 'http://127.0.0.1:5000'
     )}
   end
 
@@ -41,7 +59,7 @@ describe 'keystone::endpoint' do
     end
 
     it 'internal_url should default to public_url' do
-      is_expected.to contain_keystone_endpoint('RegionOne/keystone').with(
+      is_expected.to contain_keystone_endpoint('RegionOne/keystone::identity').with(
         :ensure       => 'present',
         :public_url   => 'https://identity.some.tld/the/main/endpoint/v2.0',
         :internal_url => 'https://identity.some.tld/the/main/endpoint/v2.0'

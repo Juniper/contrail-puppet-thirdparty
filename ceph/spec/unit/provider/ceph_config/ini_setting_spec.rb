@@ -15,7 +15,7 @@
 # Author: Andrew Woodward <xarses>
 
 # This is aparently one of the few ways to do this load
-# see https://github.com/stackforge/puppet-nova/blob/master/spec/unit/provider/nova_config/ini_setting_spec.rb
+# see https://github.com/openstack/puppet-nova/blob/master/spec/unit/provider/nova_config/ini_setting_spec.rb
 $LOAD_PATH.push(
   File.join(
     File.dirname(__FILE__),
@@ -42,17 +42,17 @@ describe provider_class do
       :path    => tmpfile,
   } }
 
-  def validate(expected, tmpfile = tmpfile)
-    File.read(tmpfile).should == expected
+  def validate(expected)
+    expect(File.read(tmpfile)).to eq(expected)
   end
 
   it 'should create keys = value and ensure space around equals' do
     resource = Puppet::Type::Ceph_config.new(params.merge(
       :name => 'global/ceph_is_foo', :value => 'bar'))
     provider = provider_class.new(resource)
-    provider.exists?.should be_false
+    expect(provider.exists?).to be_falsey
     provider.create
-    provider.exists?.should be_true
+    expect(provider.exists?).to be_truthy
     validate(<<-EOS
 
 [global]
@@ -65,7 +65,7 @@ ceph_is_foo = bar
     resource = Puppet::Type::Ceph_config.new(
       :name => 'global/ceph_is_foo', :value => 'bar')
     provider = provider_class.new(resource)
-    provider.file_path.should == '/etc/ceph/ceph.conf'
+    expect(provider.file_path).to eq('/etc/ceph/ceph.conf')
   end
 
 end

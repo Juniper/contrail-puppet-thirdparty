@@ -4,22 +4,19 @@ describe 'neutron' do
 
   let :params do
     { :package_ensure        => 'present',
-      :verbose               => false,
-      :debug                 => false,
       :core_plugin           => 'linuxbridge',
+      :auth_strategy         => 'keystone',
+      :rabbit_hosts          => false,
       :rabbit_host           => '127.0.0.1',
       :rabbit_port           => 5672,
-      :rabbit_hosts          => false,
       :rabbit_user           => 'guest',
       :rabbit_password       => 'guest',
-      :rabbit_virtual_host   => '/',
-      :kombu_reconnect_delay => '1.0',
       :log_dir               => '/var/log/neutron',
-      :report_interval       => '30',
+      :purge_config          => false,
     }
   end
 
-  let :default_facts do
+  let :test_facts do
     { :operatingsystem           => 'default',
       :operatingsystemrelease    => 'default'
     }
@@ -49,11 +46,28 @@ describe 'neutron' do
         it_configures 'rabbit HA with multiple hosts'
       end
 
+      context 'with rabbit_ha_queues set to false and with rabbit_hosts' do
+        before { params.merge!( :rabbit_ha_queues => 'false',
+                                :rabbit_hosts => ['rabbit:5673'] ) }
+        it_configures 'rabbit_ha_queues set to false'
+      end
+
       it 'configures logging' do
         is_expected.to contain_neutron_config('DEFAULT/log_file').with_ensure('absent')
         is_expected.to contain_neutron_config('DEFAULT/log_dir').with_value(params[:log_dir])
+        is_expected.to contain_neutron_config('DEFAULT/use_stderr').with_value('<SERVICE DEFAULT>')
       end
 
+    end
+
+    context 'with rabbitmq heartbeat configured' do
+      before { params.merge!( :rabbit_heartbeat_timeout_threshold => '60', :rabbit_heartbeat_rate => '10' ) }
+      it_configures 'rabbit with heartbeat configured'
+    end
+
+    context 'with rabbitmq durable queues configured' do
+      before { params.merge!( :amqp_durable_queues => true ) }
+      it_configures 'rabbit with durable queues'
     end
 
     it_configures 'with SSL enabled with kombu'
@@ -63,7 +77,7 @@ describe 'neutron' do
     it_configures 'with SSL and kombu wrongly configured'
     it_configures 'with SSL socket options set'
     it_configures 'with SSL socket options set with wrong parameters'
-    it_configures 'with SSL socket options set to false'
+    it_configures 'with SSL socket options left by default'
     it_configures 'with syslog disabled'
     it_configures 'with syslog enabled'
     it_configures 'with syslog enabled and custom settings'
@@ -73,67 +87,64 @@ describe 'neutron' do
     it_configures 'with service_plugins'
     it_configures 'without memcache_servers'
     it_configures 'with memcache_servers'
+    it_configures 'with dns_domain defined'
+    it_configures 'with rootwrap daemon'
   end
 
   shared_examples_for 'a neutron base installation' do
 
     it { is_expected.to contain_class('neutron::params') }
 
-    it 'configures neutron configuration folder' do
-      is_expected.to contain_file('/etc/neutron/').with(
-        :ensure  => 'directory',
-        :owner   => 'root',
-        :group   => 'neutron',
-        :require => 'Package[neutron]'
-      )
-    end
-
-    it 'configures neutron configuration file' do
-      is_expected.to contain_file('/etc/neutron/neutron.conf').with(
-        :owner   => 'root',
-        :group   => 'neutron',
-        :require => 'Package[neutron]'
-      )
-    end
-
     it 'installs neutron package' do
       is_expected.to contain_package('neutron').with(
         :ensure => 'present',
         :name   => platform_params[:common_package_name],
-        :tag    => 'openstack'
+        :tag    => ['openstack', 'neutron-package'],
       )
+    end
+
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('neutron_config').with({
+        :purge => false
+      })
     end
 
     it 'configures credentials for rabbit' do
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_userid').with_value( params[:rabbit_user] )
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_password').with_value( params[:rabbit_password] )
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_password').with_secret( true )
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( params[:rabbit_virtual_host] )
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_reconnect_delay').with_value( params[:kombu_reconnect_delay] )
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_virtual_host').with_value( '<SERVICE DEFAULT>' )
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/heartbeat_rate').with_value('2')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_reconnect_delay').with_value( '<SERVICE DEFAULT>' )
     end
 
     it 'configures neutron.conf' do
-      is_expected.to contain_neutron_config('DEFAULT/verbose').with_value( params[:verbose] )
-      is_expected.to contain_neutron_config('DEFAULT/bind_host').with_value('0.0.0.0')
-      is_expected.to contain_neutron_config('DEFAULT/bind_port').with_value('9696')
+      is_expected.to contain_neutron_config('DEFAULT/verbose').with_value( '<SERVICE DEFAULT>' )
+      is_expected.to contain_neutron_config('DEFAULT/bind_host').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/bind_port').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_config('DEFAULT/auth_strategy').with_value('keystone')
       is_expected.to contain_neutron_config('DEFAULT/core_plugin').with_value( params[:core_plugin] )
-      is_expected.to contain_neutron_config('DEFAULT/base_mac').with_value('fa:16:3e:00:00:00')
-      is_expected.to contain_neutron_config('DEFAULT/mac_generation_retries').with_value(16)
-      is_expected.to contain_neutron_config('DEFAULT/dhcp_lease_duration').with_value(86400)
-      is_expected.to contain_neutron_config('DEFAULT/dhcp_agents_per_network').with_value(1)
-      is_expected.to contain_neutron_config('DEFAULT/network_device_mtu').with_ensure('absent')
-      is_expected.to contain_neutron_config('DEFAULT/dhcp_agent_notification').with_value(true)
-      is_expected.to contain_neutron_config('DEFAULT/allow_bulk').with_value(true)
-      is_expected.to contain_neutron_config('DEFAULT/allow_pagination').with_value(false)
-      is_expected.to contain_neutron_config('DEFAULT/allow_sorting').with_value(false)
-      is_expected.to contain_neutron_config('DEFAULT/allow_overlapping_ips').with_value(false)
-      is_expected.to contain_neutron_config('DEFAULT/api_extensions_path').with_value(nil)
+      is_expected.to contain_neutron_config('DEFAULT/base_mac').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/mac_generation_retries').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/dhcp_lease_duration').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/dns_domain').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/dhcp_agents_per_network').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/global_physnet_mtu').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/dhcp_agent_notification').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/advertise_mtu').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/allow_bulk').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/allow_pagination').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/allow_sorting').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/allow_overlapping_ips').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('DEFAULT/api_extensions_path').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_config('DEFAULT/control_exchange').with_value('neutron')
-      is_expected.to contain_neutron_config('DEFAULT/state_path').with_value('/var/lib/neutron')
-      is_expected.to contain_neutron_config('DEFAULT/lock_path').with_value('/var/lib/neutron/lock')
+      is_expected.to contain_neutron_config('DEFAULT/state_path').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_concurrency/lock_path').with_value('$state_path/lock')
+      is_expected.to contain_neutron_config('DEFAULT/rpc_response_timeout').with_value( '<SERVICE DEFAULT>' )
       is_expected.to contain_neutron_config('agent/root_helper').with_value('sudo neutron-rootwrap /etc/neutron/rootwrap.conf')
-      is_expected.to contain_neutron_config('agent/report_interval').with_value('30')
+      is_expected.to contain_neutron_config('agent/root_helper_daemon').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('agent/report_interval').with_value('<SERVICE DEFAULT>')
     end
   end
 
@@ -155,6 +166,25 @@ describe 'neutron' do
     end
   end
 
+  shared_examples_for 'rabbit with heartbeat configured' do
+    it 'in neutron.conf' do
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('60')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/heartbeat_rate').with_value('10')
+    end
+  end
+
+  shared_examples_for 'rabbit with durable queues' do
+    it 'in neutron.conf' do
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/amqp_durable_queues').with_value(true)
+    end
+  end
+
+  shared_examples_for 'rabbit_ha_queues set to false' do
+    it 'in neutron.conf' do
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_ha_queues').with_value(false)
+    end
+  end
+
   shared_examples_for 'with SSL socket options set' do
     before do
       params.merge!(
@@ -166,9 +196,9 @@ describe 'neutron' do
     end
 
     it { is_expected.to contain_neutron_config('DEFAULT/use_ssl').with_value('true') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_cert_file').with_value('/path/to/cert') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_key_file').with_value('/path/to/key') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_ca_file').with_value('/path/to/ca') }
+    it { is_expected.to contain_neutron_config('ssl/cert_file').with_value('/path/to/cert') }
+    it { is_expected.to contain_neutron_config('ssl/key_file').with_value('/path/to/key') }
+    it { is_expected.to contain_neutron_config('ssl/ca_file').with_value('/path/to/ca') }
   end
 
   shared_examples_for 'with SSL socket options set with wrong parameters' do
@@ -183,20 +213,12 @@ describe 'neutron' do
     it_raises 'a Puppet::Error', /The cert_file parameter is required when use_ssl is set to true/
   end
 
-  shared_examples_for 'with SSL socket options set to false' do
-    before do
-      params.merge!(
-        :use_ssl         => false,
-        :cert_file       => false,
-        :key_file        => false,
-        :ca_file         => false
-      )
-    end
+  shared_examples_for 'with SSL socket options left by default' do
 
-    it { is_expected.to contain_neutron_config('DEFAULT/use_ssl').with_value('false') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_cert_file').with_ensure('absent') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_key_file').with_ensure('absent') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_ca_file').with_ensure('absent') }
+    it { is_expected.to contain_neutron_config('DEFAULT/use_ssl').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_neutron_config('ssl/cert_file').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_neutron_config('ssl/key_file').with_value('<SERVICE DEFAULT>') }
+    it { is_expected.to contain_neutron_config('ssl/ca_file').with_value('<SERVICE DEFAULT>') }
   end
 
   shared_examples_for 'with SSL socket options set and no ca_file' do
@@ -209,9 +231,9 @@ describe 'neutron' do
     end
 
     it { is_expected.to contain_neutron_config('DEFAULT/use_ssl').with_value('true') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_cert_file').with_value('/path/to/cert') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_key_file').with_value('/path/to/key') }
-    it { is_expected.to contain_neutron_config('DEFAULT/ssl_ca_file').with_ensure('absent') }
+    it { is_expected.to contain_neutron_config('ssl/cert_file').with_value('/path/to/cert') }
+    it { is_expected.to contain_neutron_config('ssl/key_file').with_value('/path/to/key') }
+    it { is_expected.to contain_neutron_config('ssl/ca_file').with_ensure('absent') }
   end
 
   shared_examples_for 'with SSL socket options disabled with ca_file' do
@@ -226,6 +248,11 @@ describe 'neutron' do
   end
 
   shared_examples_for 'with syslog disabled' do
+    before do
+      params.merge!(
+        :use_syslog         => false,
+      )
+    end
     it { is_expected.to contain_neutron_config('DEFAULT/use_syslog').with_value(false) }
   end
 
@@ -258,9 +285,9 @@ describe 'neutron' do
 
     it do
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('true')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_version').with_value('TLSv1')
     end
   end
@@ -268,16 +295,15 @@ describe 'neutron' do
   shared_examples_for 'with SSL disabled' do
     before do
       params.merge!(
-        :rabbit_use_ssl     => false,
         :kombu_ssl_version  => 'TLSv1'
       )
     end
 
     it do
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('false')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_ensure('absent')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_ensure('absent')
-      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_ensure('absent')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/rabbit_use_ssl').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_ca_certs').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_certfile').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_keyfile').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_config('oslo_messaging_rabbit/kombu_ssl_version').with_ensure('absent')
     end
   end
@@ -285,7 +311,7 @@ describe 'neutron' do
   shared_examples_for 'with SSL wrongly configured' do
     before do
       params.merge!(
-        :rabbit_use_ssl     => false
+        :rabbit_use_ssl => false
       )
     end
 
@@ -337,7 +363,7 @@ describe 'neutron' do
 
     it do
       is_expected.to contain_neutron_config('DEFAULT/use_syslog').with_value(true)
-      is_expected.to contain_neutron_config('DEFAULT/syslog_log_facility').with_value('LOG_USER')
+      is_expected.to contain_neutron_config('DEFAULT/syslog_log_facility').with_value('<SERVICE DEFAULT>')
     end
   end
 
@@ -386,7 +412,7 @@ describe 'neutron' do
     )}
     it {
       is_expected.to contain_neutron_config('DEFAULT/state_path').with_value('state_path')
-      is_expected.to contain_neutron_config('DEFAULT/lock_path').with_value('lock_path')
+      is_expected.to contain_neutron_config('oslo_concurrency/lock_path').with_value('lock_path')
     }
   end
 
@@ -397,12 +423,12 @@ describe 'neutron' do
   shared_examples_for 'with service_plugins' do
     before do
       params.merge!(
-        :service_plugins => ['router','firewall','lbaas','vpnaas','metering']
+        :service_plugins => ['router','firewall','lbaas','vpnaas','metering','qos']
       )
     end
 
     it do
-      is_expected.to contain_neutron_config('DEFAULT/service_plugins').with_value('router,firewall,lbaas,vpnaas,metering')
+      is_expected.to contain_neutron_config('DEFAULT/service_plugins').with_value('router,firewall,lbaas,vpnaas,metering,qos')
     end
 
   end
@@ -424,7 +450,19 @@ describe 'neutron' do
 
   end
 
-  shared_examples_for 'with network_device_mtu defined' do
+  shared_examples_for 'with global_physnet_mtu defined' do
+    before do
+      params.merge!(
+        :global_physnet_mtu => 9000
+      )
+    end
+
+    it do
+      is_expected.to contain_neutron_config('DEFAULT/global_physnet_mtu').with_value(params[:global_physnet_mtu])
+    end
+  end
+
+  shared_examples_for 'with deprecated network_device_mtu defined' do
     before do
       params.merge!(
         :network_device_mtu => 9000
@@ -432,13 +470,51 @@ describe 'neutron' do
     end
 
     it do
-      is_expected.to contain_neutron_config('DEFAULT/network_device_mtu').with_value(params[:network_device_mtu])
+      is_expected.to contain_neutron_config('DEFAULT/global_physnet_mtu').with_value(params[:network_device_mtu])
+    end
+  end
+
+  shared_examples_for 'with advertise_mtu defined' do
+    before do
+      params.merge!(
+        :advertise_mtu => true
+      )
+    end
+
+    it do
+      is_expected.to contain_neutron_config('DEFAULT/advertise_mtu').with_value(params[:advertise_mtu])
+    end
+  end
+
+  shared_examples_for 'with dns_domain defined' do
+    before do
+      params.merge!(
+        :dns_domain => 'testlocal'
+      )
+    end
+
+    it do
+      is_expected.to contain_neutron_config('DEFAULT/dns_domain').with_value(params[:dns_domain])
+    end
+  end
+
+  shared_examples_for 'with rootwrap daemon' do
+    before do
+      params.merge!(
+        :root_helper_daemon => 'sudo neutron-rootwrap-daemon /etc/neutron/rootwrap.conf'
+      )
+    end
+
+    it do
+      is_expected.to contain_neutron_config('agent/root_helper_daemon').with_value(params[:root_helper_daemon])
     end
   end
 
   context 'on Debian platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily => 'Debian'
+      }))
     end
 
     let :platform_params do
@@ -450,7 +526,10 @@ describe 'neutron' do
 
   context 'on RedHat platforms' do
     let :facts do
-      default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge(test_facts.merge({
+         :osfamily               => 'RedHat',
+         :operatingsystemrelease => '7'
+      }))
     end
 
     let :platform_params do
