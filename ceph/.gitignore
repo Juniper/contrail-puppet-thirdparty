@@ -1,0 +1,11 @@
+*.swp
+*~
+.project
+spec/fixtures/modules/*
+pkg
+Gemfile.lock
+.bundle
+vendor
+.vagrant/*
+log
+.bundled_gems/
