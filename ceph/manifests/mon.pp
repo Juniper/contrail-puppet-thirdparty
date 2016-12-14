@@ -55,6 +55,7 @@
 #   Optional. Defaults to $::ceph::params::exec_timeout
 #
 define ceph::mon (
+  $package_sku,
   $ensure = present,
   $public_addr = undef,
   $cluster = undef,
@@ -166,11 +167,15 @@ set -ex
 mon_data=\$(ceph-mon ${cluster_option} --id ${id} --show-config-value mon_data)
 if [ ! -d \$mon_data ] ; then
   mkdir -p \$mon_data
+  chown -h ceph:ceph \$mon_data
   if ceph-mon ${cluster_option} \
         --mkfs \
+        --setuser ceph \
+        --setgroup ceph \
         --id ${id} \
         --keyring ${keyring_path} ; then
     touch \$mon_data/done \$mon_data/${init} \$mon_data/keyring
+    chown -h ceph:ceph \$mon_data/done \$mon_data/${init} \$mon_data/keyring
   else
     rm -fr \$mon_data
   fi
