@@ -153,7 +153,23 @@ class ceph (
       'global/cluster_network':             value => $cluster_network;
       'global/public_network':              value => $public_network;
       'global/public_addr':                 value => $public_addr;
-      'osd/osd_journal_size':               value => $osd_journal_size;
+      #'osd/osd_journal_size':               value => $osd_journal_size;
+      'global/rbd_cache':                   value => 'true';
+      'global/rbd_cache_size':              value => '536870912';
+      'global/rbd_default_format':          value => '2';
+    }
+
+    ceph_config {
+      'osd/osd_journal_size':               value => 1024;
+      'osd/osd_mkfs_type':                  value => xfs;
+      'osd/keyring':                        value => '/var/lib/ceph/osd/$cluster-$num/keyring';
+      'osd/osd_op_threads':                 value => '4';
+      'osd/osd_disk_threads':               value => '2';
+    }
+
+    ceph_config {
+      'client.images/keyring':               value => '/etc/ceph/ceph.client.images.keyring';
+      'client.volumes/keyring':              value => '/etc/ceph/ceph.client.volumes.keyring';
     }
 
     if $authentication_type == 'cephx' {

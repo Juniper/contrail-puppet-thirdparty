@@ -48,7 +48,10 @@ define ceph::osd (
   $exec_timeout = $::ceph::params::exec_timeout,
   ) {
 
-    $data = $name
+    $disk_name=split($name, ':')
+
+    $data = $disk_name[0]
+    $journal_disk = $disk_name[1]
 
     if $cluster {
       $cluster_option = "--cluster ${cluster}"
@@ -91,7 +94,7 @@ set -ex
 if ! test -b ${data} ; then
   mkdir -p ${data}
 fi
-ceph-disk prepare ${cluster_option} ${data} ${journal}
+ceph-disk prepare ${cluster_option} ${data} ${journal_disk}
 udevadm settle
 ",
         unless    => "/bin/true # comment to satisfy puppet syntax requirements
