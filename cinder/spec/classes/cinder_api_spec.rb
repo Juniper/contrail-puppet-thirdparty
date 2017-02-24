@@ -19,9 +19,6 @@ describe 'cinder::api' do
       )}
 
       it 'should configure cinder api correctly' do
-        is_expected.to contain_cinder_config('DEFAULT/auth_strategy').with(
-         :value => 'keystone'
-        )
         is_expected.to contain_cinder_config('DEFAULT/osapi_volume_listen').with(
          :value => '0.0.0.0'
         )
@@ -50,26 +47,31 @@ describe 'cinder::api' do
          :value => '<SERVICE DEFAULT>'
         )
         is_expected.to contain_cinder_config('keystone_authtoken/auth_uri').with(
-         :value => 'http://localhost:5000/'
+         :value => 'http://localhost:5000'
         )
-        is_expected.to contain_cinder_config('keystone_authtoken/identity_uri').with(
-         :value => 'http://localhost:35357/'
+        is_expected.to contain_cinder_config('keystone_authtoken/auth_url').with(
+         :value => 'http://localhost:35357'
         )
-        is_expected.to contain_cinder_config('keystone_authtoken/admin_tenant_name').with(
+        is_expected.to contain_cinder_config('keystone_authtoken/project_name').with(
          :value => 'services'
         )
-        is_expected.to contain_cinder_config('keystone_authtoken/admin_user').with(
+        is_expected.to contain_cinder_config('keystone_authtoken/username').with(
          :value => 'cinder'
         )
-        is_expected.to contain_cinder_config('keystone_authtoken/admin_password').with(
+        is_expected.to contain_cinder_config('keystone_authtoken/password').with(
          :value => 'foo'
         )
+        is_expected.to contain_cinder_config('keystone_authtoken/memcached_servers').with_value('<SERVICE DEFAULT>')
 
         is_expected.to contain_cinder_config('DEFAULT/os_privileged_user_name').with_value('<SERVICE DEFAULT>')
         is_expected.to contain_cinder_config('DEFAULT/os_privileged_user_password').with_value('<SERVICE DEFAULT>')
         is_expected.to contain_cinder_config('DEFAULT/os_privileged_user_tenant').with_value('<SERVICE DEFAULT>')
         is_expected.to contain_cinder_config('DEFAULT/os_privileged_user_auth_url').with_value('<SERVICE DEFAULT>')
-        is_expected.to contain_cinder_config('keymgr/encryption_auth_url').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_cinder_config('key_manager/api_class').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_cinder_config('barbican/barbican_endpoint').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_cinder_config('barbican/auth_endpoint').with_value('<SERVICE DEFAULT>')
+        is_expected.to contain_cinder_config('oslo_middleware/enable_proxy_headers_parsing').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_cinder_config('DEFAULT/osapi_volume_listen_port').with('value' => '<SERVICE DEFAULT>')
       end
     end
 
@@ -84,6 +86,22 @@ describe 'cinder::api' do
       it { is_expected.to contain_cinder_config('DEFAULT/nova_catalog_info').with_value('compute:nova:publicURL') }
     end
 
+    describe 'without deprecated keystone_authtoken parameters' do
+      let :params do
+        req_params.merge({
+          'keystone_user'   => 'dummy',
+          'keystone_tenant' => 'mytenant',
+          'identity_uri'    => 'https://127.0.0.1:35357/deprecated',
+          'auth_uri'        => 'https://127.0.0.1:5000/deprecated',
+        })
+      end
+
+      it { is_expected.to contain_cinder_config('keystone_authtoken/auth_url').with_value('https://127.0.0.1:35357/deprecated') }
+      it { is_expected.to contain_cinder_config('keystone_authtoken/username').with_value('dummy') }
+      it { is_expected.to contain_cinder_config('keystone_authtoken/project_name').with_value('mytenant') }
+      it { is_expected.to contain_cinder_config('keystone_authtoken/auth_uri').with_value('https://127.0.0.1:5000/deprecated') }
+    end
+
     describe 'with a custom region for nova' do
       let :params do
         req_params.merge({'os_region_name' => 'MyRegion'})
@@ -91,6 +109,17 @@ describe 'cinder::api' do
       it 'should configure the region for nova' do
         is_expected.to contain_cinder_config('DEFAULT/os_region_name').with(
           :value => 'MyRegion'
+        )
+      end
+    end
+
+    describe 'with a customized port' do
+      let :params do
+        req_params.merge({'osapi_volume_listen_port' => 9999})
+      end
+      it 'should customize the port' do
+        is_expected.to contain_cinder_config('DEFAULT/osapi_volume_listen_port').with(
+          :value => 9999
         )
       end
     end
@@ -190,7 +219,7 @@ describe 'cinder::api' do
       let :params do
         {
           :keystone_password => 'dummy',
-          :enabled           => 'true',
+          :enabled           => true,
           :sync_db           => false,
         }
       end
@@ -236,7 +265,7 @@ describe 'cinder::api' do
         req_params.merge({ :keymgr_encryption_auth_url => 'http://localhost:5000/v3' })
       end
 
-      it { is_expected.to contain_cinder_config('keymgr/encryption_auth_url').with(
+      it { is_expected.to contain_cinder_config('barbican/auth_endpoint').with(
         :value => 'http://localhost:5000/v3'
       )}
     end
@@ -252,7 +281,7 @@ describe 'cinder::api' do
         :provider    => 'shell',
         :tries       => '10',
         :try_sleep   => '2',
-        :command     => 'cinder --os-auth-url http://localhost:5000/ --os-tenant-name services --os-username cinder --os-password foo list',
+        :command     => 'cinder --os-auth-url http://localhost:5000 --os-project-name services --os-username cinder --os-password foo list',
       )}
 
       it { is_expected.to contain_anchor('create cinder-api anchor').with(
@@ -280,16 +309,14 @@ describe 'cinder::api' do
       )}
     end
 
-    describe "with custom keystone identity_uri and auth_uri" do
+    describe "with deprecated memcached servers for keystone authtoken" do
       let :params do
         req_params.merge({
-          :identity_uri         => 'https://localhost:35357/',
-          :auth_uri             => 'https://localhost:5000/',
+          :memcached_servers => '1.1.1.1:11211',
         })
       end
-      it 'configures identity_uri and auth_uri but deprecates old auth settings' do
-        is_expected.to contain_cinder_config('keystone_authtoken/identity_uri').with_value("https://localhost:35357/")
-        is_expected.to contain_cinder_config('keystone_authtoken/auth_uri').with_value("https://localhost:5000/")
+      it 'configures memcached servers' do
+        is_expected.to contain_cinder_config('keystone_authtoken/memcached_servers').with_value('1.1.1.1:11211')
       end
     end
 
@@ -303,6 +330,80 @@ describe 'cinder::api' do
         )
       end
     end
+    describe 'when running cinder-api in wsgi' do
+      let :params do
+        req_params.merge!({ :service_name   => 'httpd' })
+      end
+
+      let :pre_condition do
+        "include ::apache
+         class { 'cinder': rabbit_password => 'secret' }"
+      end
+
+      it 'configures cinder-api service with Apache' do
+        is_expected.to contain_service('cinder-api').with(
+          :ensure     => 'stopped',
+          :enable     => false,
+          :tag        => ['cinder-service'],
+        )
+      end
+    end
+
+    describe 'when service_name is not valid' do
+      let :params do
+        req_params.merge!({ :service_name   => 'foobar' })
+      end
+
+      let :pre_condition do
+        "include ::apache
+         class { 'cinder': rabbit_password => 'secret' }"
+      end
+
+      it_raises 'a Puppet::Error', /Invalid service_name/
+    end
+
+    describe 'with SSL socket options set' do
+      let :params do
+        req_params.merge!({
+          :use_ssl         => true,
+          :cert_file       => '/path/to/cert',
+          :ca_file         => '/path/to/ca',
+          :key_file        => '/path/to/key',
+        })
+      end
+
+      it { is_expected.to contain_cinder_config('ssl/ca_file').with_value('/path/to/ca') }
+      it { is_expected.to contain_cinder_config('ssl/cert_file').with_value('/path/to/cert') }
+      it { is_expected.to contain_cinder_config('ssl/key_file').with_value('/path/to/key') }
+    end
+
+    describe 'with SSL socket options set wrongly configured' do
+      let :params do
+        req_params.merge!({
+          :use_ssl         => true,
+          :ca_file         => '/path/to/ca',
+          :key_file        => '/path/to/key',
+        })
+      end
+
+      it_raises 'a Puppet::Error', /The cert_file parameter is required when use_ssl is set to true/
+    end
+
+    describe 'with barbican parameters' do
+      let :params do
+        req_params.merge!({
+          :keymgr_api_class           => 'castellan.key_manager.barbican_key_manager.BarbicanKeyManager',
+          :keymgr_encryption_api_url  => 'https://localhost:9311/v1',
+          :keymgr_encryption_auth_url => 'https://localhost:5000/v3',
+        })
+      end
+      it 'should set keymgr parameters' do
+        is_expected.to contain_cinder_config('key_manager/api_class').with_value('castellan.key_manager.barbican_key_manager.BarbicanKeyManager')
+        is_expected.to contain_cinder_config('barbican/barbican_endpoint').with_value('https://localhost:9311/v1')
+        is_expected.to contain_cinder_config('barbican/auth_endpoint').with_value('https://localhost:5000/v3')
+      end
+    end
+
   end
 
   on_supported_os({
@@ -310,7 +411,11 @@ describe 'cinder::api' do
   }).each do |os,facts|
     context "on #{os}" do
       let (:facts) do
-        facts.merge(OSDefaults.get_facts({:processorcount => 8}))
+        facts.merge(OSDefaults.get_facts({
+          :processorcount => 8,
+          :fqdn           => 'some.host.tld',
+          :concat_basedir => '/var/lib/puppet/concat',
+        }))
       end
 
       it_configures 'cinder api'

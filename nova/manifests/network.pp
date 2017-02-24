@@ -108,6 +108,8 @@ class nova::network(
   include ::nova::deps
   include ::nova::params
 
+  warning('nova-network is deprecated in Newton and will be removed in the future.')
+
   # forward all ipv4 traffic
   # this is required for the vms to pass through the gateways
   # public interface
@@ -200,7 +202,8 @@ class nova::network(
       create_resources('class', $vlan_resource)
     }
     default: {
-      fail("Unsupported network manager: ${nova::network_manager} The supported network managers are nova.network.manager.FlatManager, nova.network.FlatDHCPManager and nova.network.manager.VlanManager")
+      fail("Unsupported network manager: ${nova::network_manager} The supported network managers are \
+nova.network.manager.FlatManager, nova.network.FlatDHCPManager and nova.network.manager.VlanManager")
     }
   }
 

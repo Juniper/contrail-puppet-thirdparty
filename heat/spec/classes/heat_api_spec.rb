@@ -11,6 +11,11 @@ describe 'heat::api' do
   end
 
   shared_examples_for 'heat-api' do
+    let :pre_condition do
+      "class { 'heat::keystone::authtoken':
+           password => 'a_big_secret',
+       }"
+    end
 
     context 'config params' do
 
@@ -47,18 +52,6 @@ describe 'heat::api' do
 
       it_raises 'a Puppet::Error', /The cert_file parameter is required when use_ssl is set to true/
     end
-
-    context 'with SSL socket options set to false' do
-      let :params do
-        {
-          :use_ssl   => false,
-        }
-      end
-
-      it { is_expected.to contain_heat_config('heat_api/cert_file').with_value('<SERVICE DEFAULT>') }
-      it { is_expected.to contain_heat_config('heat_api/key_file').with_value('<SERVICE DEFAULT>') }
-    end
-
 
     [{:enabled => true}, {:enabled => false}].each do |param_hash|
       context "when service should be #{param_hash[:enabled] ? 'enabled' : 'disabled'}" do
@@ -104,7 +97,10 @@ describe 'heat::api' do
 
     context 'with $sync_db set to false in ::heat' do
       let :pre_condition do
-        "class {'heat': sync_db => false}"
+        "class {'heat':
+           keystone_password => 'password',
+           sync_db => false
+         }"
       end
 
       it 'configures heat-api service to not subscribe to the dbsync resource' do

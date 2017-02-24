@@ -43,10 +43,12 @@ class swift::proxy::gatekeeper(
   $log_address  = '/dev/log'
 ) {
 
+  include ::swift::deps
+
   concat::fragment { 'swift_gatekeeper':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/gatekeeper.conf.erb'),
-    order   => '34',
+    order   => '20',
   }
 
 }

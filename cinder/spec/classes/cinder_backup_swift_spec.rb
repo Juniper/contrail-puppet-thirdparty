@@ -23,12 +23,15 @@ require 'spec_helper'
 describe 'cinder::backup::swift' do
 
   let :default_params do
-    { :backup_swift_url             => 'http://localhost:8080/v1/AUTH_',
-      :backup_swift_auth_url        => 'http://127.0.0.1:5000/v2.0/',
+    { :backup_swift_url             => '<SERVICE DEFAULT>',
+      :backup_swift_auth_url        => '<SERVICE DEFAULT>',
       :backup_swift_container       => 'volumes_backup',
       :backup_swift_object_size     => '<SERVICE DEFAULT>',
       :backup_swift_retry_attempts  => '<SERVICE DEFAULT>',
       :backup_swift_retry_backoff   => '<SERVICE DEFAULT>',
+      :backup_swift_user_domain     => '<SERVICE_DEFAULT>',
+      :backup_swift_project_domain  => '<SERVICE_DEFAULT>',
+      :backup_swift_project         => '<SERVICE_DEFAULT>',
       :backup_compression_algorithm => '<SERVICE DEFAULT>' }
   end
 
@@ -49,6 +52,9 @@ describe 'cinder::backup::swift' do
       is_expected.to contain_cinder_config('DEFAULT/backup_swift_object_size').with_value(p[:backup_swift_object_size])
       is_expected.to contain_cinder_config('DEFAULT/backup_swift_retry_attempts').with_value(p[:backup_swift_retry_attempts])
       is_expected.to contain_cinder_config('DEFAULT/backup_swift_retry_backoff').with_value(p[:backup_swift_retry_backoff])
+      is_expected.to contain_cinder_config('DEFAULT/backup_swift_user_domain').with_value(p[:backup_compression_algorithm])
+      is_expected.to contain_cinder_config('DEFAULT/backup_swift_project_domain').with_value(p[:backup_compression_algorithm])
+      is_expected.to contain_cinder_config('DEFAULT/backup_swift_project').with_value(p[:backup_compression_algorithm])
       is_expected.to contain_cinder_config('DEFAULT/backup_compression_algorithm').with_value(p[:backup_compression_algorithm])
     end
 

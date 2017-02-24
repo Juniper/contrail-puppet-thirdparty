@@ -22,15 +22,18 @@ class cinder::setup_test_volume(
   $loopback_device = '/dev/loop2'
 ) {
 
+  include ::cinder::deps
+
   package { 'lvm2':
-    ensure  => present,
-    require => Package['cinder'],
+    ensure => present,
+    tag    => 'cinder-support-package',
   } ~>
 
   exec { "create_${volume_path}/${volume_name}":
     command => "dd if=/dev/zero of=\"${volume_path}/${volume_name}\" bs=1 count=0 seek=${size}",
     path    => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     unless  => "stat ${volume_path}/${volume_name}",
+    before  => Anchor['cinder::service::begin'],
   } ~>
 
   file { "${volume_path}/${volume_name}":
@@ -38,6 +41,7 @@ class cinder::setup_test_volume(
   } ~>
 
   exec { "losetup ${loopback_device} ${volume_path}/${volume_name}":
+    command     => "losetup ${loopback_device} ${volume_path}/${volume_name} && udevadm settle",
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     unless      => "losetup ${loopback_device}",
     refreshonly => true,
@@ -54,6 +58,4 @@ class cinder::setup_test_volume(
     unless      => "vgdisplay | grep ${volume_name}",
     refreshonly => true,
   }
-
 }
-

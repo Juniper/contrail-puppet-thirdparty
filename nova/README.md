@@ -45,7 +45,6 @@ class { 'nova':
   rabbit_password     => 'an_even_bigger_secret',
   image_service       => 'nova.image.glance.GlanceImageService',
   glance_api_servers  => 'localhost:9292',
-  verbose             => false,
   rabbit_host         => '127.0.0.1',
 }
 
@@ -73,12 +72,12 @@ nova is a combination of Puppet manifest and ruby code to delivery configuration
 The `nova_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/nova/nova.conf` file.
 
 ```puppet
-nova_config { 'DEFAULT/verbose' :
-  value => true,
+nova_config { 'DEFAULT/image_service' :
+  value => nova.image.glance.GlanceImageService,
 }
 ```
 
-This will write `verbose=true` in the `[DEFAULT]` section.
+This will write `image_service=nova.image.glance.GlanceImageService` in the `[DEFAULT]` section.
 
 ##### name
 
@@ -107,8 +106,7 @@ Development
 
 Developer documentation for the entire puppet-openstack project.
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
-
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Beaker-Rspec
 ------------

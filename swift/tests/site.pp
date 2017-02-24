@@ -64,9 +64,6 @@ $keystone_admin_token          = hiera('admin_token', 'service_token')
 $swift_keystone_admin_email    = hiera('admin_email', 'keystone@localhost')
 $swift_keystone_admin_password = hiera('admin_password', 'ChangeMe')
 
-$swift_verbose                 = hiera('verbose', 'True')
-
-
 # This node can be used to deploy a keystone service.
 # This service only contains the credentials for authenticating
 # swift
@@ -92,8 +89,7 @@ node 'swift-keystone' {
   }
 
   class { '::keystone':
-    verbose        => $verbose,
-    debug          => $verbose,
+    debug          => $debug,
     catalog_type   => 'sql',
     admin_token    => $admin_token,
     enabled        => $enabled,
@@ -128,8 +124,8 @@ node /swift-storage/ {
 
   class { '::swift':
     # not sure how I want to deal with this shared secret
-    swift_hash_suffix => $swift_shared_secret,
-    package_ensure    => latest,
+    swift_hash_path_suffix => $swift_shared_secret,
+    package_ensure         => latest,
   }
 
   # create xfs partitions on a loopback device and mount them
@@ -192,8 +188,8 @@ node /swift-proxy/ {
 
   class { '::swift':
     # not sure how I want to deal with this shared secret
-    swift_hash_suffix => $swift_shared_secret,
-    package_ensure    => latest,
+    swift_hash_path_suffix => $swift_shared_secret,
+    package_ensure         => latest,
   }
 
   # curl is only required so that I can run tests
@@ -255,11 +251,9 @@ node /swift-proxy/ {
     operator_roles => ['admin', 'SwiftOperator'],
   }
   class { '::swift::proxy::authtoken':
-    admin_user        => 'swift',
-    admin_tenant_name => 'services',
-    admin_password    => $swift_admin_password,
+    password  => $swift_admin_password,
     # assume that the controller host is the swift api server
-    auth_host         => $swift_keystone_node,
+    auth_host => $swift_keystone_node,
   }
 
   # collect all of the resources that are needed

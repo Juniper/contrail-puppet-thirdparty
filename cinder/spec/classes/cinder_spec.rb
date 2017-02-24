@@ -25,23 +25,32 @@ describe 'cinder' do
     it { is_expected.to contain_class('cinder::params') }
     it { is_expected.to contain_class('mysql::bindings::python') }
 
+    it 'passes purge to resource' do
+      is_expected.to contain_resources('cinder_config').with({
+        :purge => false
+      })
+    end
+
     it 'should contain default config' do
+      is_expected.to contain_cinder_config('DEFAULT/transport_url').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('DEFAULT/rpc_backend').with(:value => 'rabbit')
       is_expected.to contain_cinder_config('DEFAULT/control_exchange').with(:value => 'openstack')
       is_expected.to contain_cinder_config('DEFAULT/report_interval').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('DEFAULT/service_down_time').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_password').with(:value => 'guest', :secret => true)
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => '127.0.0.1')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => '5672')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_hosts').with(:value => '127.0.0.1:5672')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_ha_queues').with(:value => false)
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_virtual_host').with(:value => '/')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('0')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/heartbeat_rate').with_value('2')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_userid').with(:value => 'guest')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_hosts').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_ha_queues').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_virtual_host').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/heartbeat_timeout_threshold').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/heartbeat_rate').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_userid').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('oslo_messaging_rabbit/kombu_reconnect_delay').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/kombu_compression').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('DEFAULT/storage_availability_zone').with(:value => 'nova')
       is_expected.to contain_cinder_config('DEFAULT/default_availability_zone').with(:value => 'nova')
+      is_expected.to contain_cinder_config('DEFAULT/allow_availability_zone_fallback').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('DEFAULT/api_paste_config').with(:value => '/etc/cinder/api-paste.ini')
       is_expected.to contain_cinder_config('oslo_concurrency/lock_path').with(:value => '/var/lock/cinder')
     end
@@ -53,8 +62,8 @@ describe 'cinder' do
     end
 
     it 'should contain many' do
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => nil)
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => nil)
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_hosts').with(:value => 'rabbit1:5672,rabbit2:5672')
       is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_ha_queues').with(:value => true)
     end
@@ -66,10 +75,10 @@ describe 'cinder' do
     end
 
     it 'should contain many' do
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => nil)
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => nil)
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_host').with(:value => '<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_port').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_hosts').with(:value => 'rabbit1:5672')
-      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_ha_queues').with(:value => false)
+      is_expected.to contain_cinder_config('oslo_messaging_rabbit/rabbit_ha_queues').with(:value => '<SERVICE DEFAULT>')
     end
   end
 
@@ -160,7 +169,7 @@ describe 'cinder' do
       req_params
     end
 
-    it { is_expected.to contain_cinder_config('oslo_messaging_rabbit/amqp_durable_queues').with_value(false) }
+    it { is_expected.to contain_cinder_config('oslo_messaging_rabbit/amqp_durable_queues').with_value('<SERVICE DEFAULT>') }
   end
 
   describe 'with amqp_durable_queues enabled' do
@@ -171,6 +180,66 @@ describe 'cinder' do
     end
 
     it { is_expected.to contain_cinder_config('oslo_messaging_rabbit/amqp_durable_queues').with_value(true) }
+  end
+
+  describe 'with amqp rpc_backend defaults' do
+    let :params do
+      { :rpc_backend => 'amqp' }
+    end
+
+    it 'configures amqp' do
+      is_expected.to contain_cinder_config('DEFAULT/rpc_backend').with_value('amqp')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/server_request_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/broadcast_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/group_request_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/container_name').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/idle_timeout').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/trace').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_ca_file').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_cert_file').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_key_file').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_key_password').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/allow_insecure_clients').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_mechanisms').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_config_dir').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_config_name').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/username').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/password').with_value('<SERVICE DEFAULT>')
+    end
+  end
+
+  describe 'with amqp rpc_backend overrides' do
+    let :params do
+    {
+      :rpc_backend        => 'amqp',
+      :amqp_idle_timeout  => '60',
+      :amqp_trace         => true,
+      :amqp_ssl_ca_file   => '/path/to/ca.cert',
+      :amqp_ssl_cert_file => '/path/to/certfile',
+      :amqp_ssl_key_file  => '/path/to/key',
+      :amqp_username      => 'amqp_user',
+      :amqp_password      => 'password',
+    }
+    end
+
+    it do
+      is_expected.to contain_cinder_config('DEFAULT/rpc_backend').with_value('amqp')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/server_request_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/broadcast_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/group_request_prefix').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/container_name').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/idle_timeout').with_value('60')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/trace').with_value('true')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_ca_file').with_value('/path/to/ca.cert')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_cert_file').with_value('/path/to/certfile')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/ssl_key_file').with_value('/path/to/key')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/allow_insecure_clients').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_mechanisms').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_config_dir').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/sasl_config_name').with_value('<SERVICE DEFAULT>')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/username').with_value('amqp_user')
+      is_expected.to contain_cinder_config('oslo_messaging_amqp/password').with_value('password')
+    end
   end
 
   describe 'with postgresql' do
@@ -186,63 +255,14 @@ describe 'cinder' do
     it { is_expected.to_not contain_class('mysql::bindings::python') }
   end
 
-  describe 'with SSL socket options set' do
-    let :params do
-      {
-        :use_ssl         => true,
-        :cert_file       => '/path/to/cert',
-        :ca_file         => '/path/to/ca',
-        :key_file        => '/path/to/key',
-        :rabbit_password => 'guest',
-      }
-    end
-
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_ca_file').with_value('/path/to/ca') }
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_cert_file').with_value('/path/to/cert') }
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_key_file').with_value('/path/to/key') }
-  end
-
-  describe 'with SSL socket options set to false' do
-    let :params do
-      {
-        :use_ssl         => false,
-        :cert_file       => false,
-        :ca_file         => false,
-        :key_file        => false,
-        :rabbit_password => 'guest',
-      }
-    end
-
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_ca_file').with_ensure('absent') }
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_cert_file').with_ensure('absent') }
-    it { is_expected.to contain_cinder_config('DEFAULT/ssl_key_file').with_ensure('absent') }
-  end
-
-  describe 'with SSL socket options set wrongly configured' do
-    let :params do
-      {
-        :use_ssl         => true,
-        :ca_file         => '/path/to/ca',
-        :key_file        => '/path/to/key',
-        :rabbit_password => 'guest',
-      }
-    end
-
-    it_raises 'a Puppet::Error', /The cert_file parameter is required when use_ssl is set to true/
-  end
-
   describe 'with APIs set for Mitaka (proposed)' do
     let :params do
       {
-        :enable_v1_api   => false,
-        :enable_v2_api   => true,
         :enable_v3_api   => true,
         :rabbit_password => 'guest',
       }
     end
 
-    it { is_expected.to contain_cinder_config('DEFAULT/enable_v1_api').with_value(false) }
-    it { is_expected.to contain_cinder_config('DEFAULT/enable_v2_api').with_value(true) }
     it { is_expected.to contain_cinder_config('DEFAULT/enable_v3_api').with_value(true) }
 
   end
@@ -265,5 +285,15 @@ describe 'cinder' do
     end
 
     it { is_expected.to contain_cinder_config('DEFAULT/host').with_value('mystring') }
+  end
+
+  describe 'with transport_url' do
+    let :params do
+      req_params.merge({
+        :default_transport_url => 'rabbit://rabbit_user:password@localhost:5673',
+      })
+    end
+
+    it { is_expected.to contain_cinder_config('DEFAULT/transport_url').with_value('rabbit://rabbit_user:password@localhost:5673') }
   end
 end

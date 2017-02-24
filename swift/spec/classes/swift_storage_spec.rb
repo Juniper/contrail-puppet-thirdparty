@@ -1,18 +1,16 @@
 require 'spec_helper'
 
 describe 'swift::storage' do
-  # TODO I am not testing the upstart code b/c it should be temporary
-
   let :facts do
-    {
+    OSDefaults.get_facts({
       :operatingsystem => 'Ubuntu',
-      :osfamily        => 'Debian'
-    }
+      :osfamily        => 'Debian',
+    })
   end
 
   describe 'when required classes are specified' do
     let :pre_condition do
-      "class { 'swift': swift_hash_suffix => 'changeme' }"
+      "class { 'swift': swift_hash_path_suffix => 'changeme' }"
     end
 
     describe 'when the local net ip is specified' do

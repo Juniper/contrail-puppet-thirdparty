@@ -23,7 +23,7 @@ require 'spec_helper'
 describe 'ceilometer::agent::notification' do
 
   let :pre_condition do
-    "class { 'ceilometer': metering_secret => 's3cr3t' }"
+    "class { 'ceilometer': telemetry_secret => 's3cr3t' }"
   end
 
   let :params do
@@ -110,6 +110,65 @@ describe 'ceilometer::agent::notification' do
           ['rabbit://rabbit_user:password@localhost/nova', 'rabbit://rabbit_user:password@localhost/neutron']
         )
       end
+    end
+
+    context "with event_pipeline management enabled" do
+      before { params.merge!(
+        :manage_event_pipeline => true
+      ) }
+
+      it { is_expected.to contain_file('event_pipeline').with(
+        'path' => '/etc/ceilometer/event_pipeline.yaml',
+      ) }
+
+      it { 'configures event_pipeline with the default notifier'
+        verify_contents(catalogue, 'event_pipeline', [
+          "---",
+          "sources:",
+          "    - name: event_source",
+          "      events:",
+          "          - \"*\"",
+          "      sinks:",
+          "          - event_sink",
+          "sinks:",
+          "    - name: event_sink",
+          "      transformers:",
+          "      triggers:",
+          "      publishers:",
+          "          - notifier://",
+      ])}
+    end
+
+    context "with multiple event_pipeline publishers specified" do
+      before { params.merge!(
+        :manage_event_pipeline => true,
+        :event_pipeline_publishers => ['notifier://', 'notifier://?topic=alarm.all']
+      ) }
+
+      it { 'configures event_pipeline with multiple publishers'
+        verify_contents(catalogue, 'event_pipeline', [
+          "---",
+          "sources:",
+          "    - name: event_source",
+          "      events:",
+          "          - \"*\"",
+          "      sinks:",
+          "          - event_sink",
+          "sinks:",
+          "    - name: event_sink",
+          "      transformers:",
+          "      triggers:",
+          "      publishers:",
+          "          - notifier://",
+          "          - notifier://?topic=alarm.all",
+      ])}
+    end
+
+    context "with event_pipeline management disabled" do
+      before { params.merge!(
+        :manage_event_pipeline => false
+      ) }
+        it { is_expected.not_to contain_file('event_pipeline') }
     end
   end
 

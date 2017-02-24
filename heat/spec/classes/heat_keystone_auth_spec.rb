@@ -77,45 +77,24 @@ describe 'heat::keystone::auth' do
       end
     end
 
-    context 'with deprecated endpoint parameters' do
+    context 'when overriding auth and service name' do
       before do
         params.merge!({
-          :public_protocol   => 'https',
-          :public_address    => '10.10.10.10',
-          :port              => '81',
-          :version           => 'v2',
-          :internal_protocol => 'http',
-          :internal_address  => '10.10.10.11',
-          :admin_protocol    => 'http',
-          :admin_address     => '10.10.10.12'
-        })
-      end
-
-      it { is_expected.to contain_keystone_endpoint('RegionOne/heat::orchestration').with(
-        :ensure       => 'present',
-          :public_url   => "#{params[:public_protocol]}://#{params[:public_address]}:#{params[:port]}/#{params[:version]}/%(tenant_id)s",
-          :admin_url    => "#{params[:admin_protocol]}://#{params[:admin_address]}:#{params[:port]}/#{params[:version]}/%(tenant_id)s",
-          :internal_url => "#{params[:internal_protocol]}://#{params[:internal_address]}:#{params[:port]}/#{params[:version]}/%(tenant_id)s"
-      ) }
-    end
-
-    context 'when overriding service name' do
-      before do
-        params.merge!({
-          :service_name => 'heat_service'
+          :auth_name => 'heaty',
+          :service_name => 'heaty'
         })
       end
       it 'configures correct user name' do
-        is_expected.to contain_keystone_user('heat')
+        is_expected.to contain_keystone_user('heaty')
       end
       it 'configures correct user role' do
-        is_expected.to contain_keystone_user_role('heat@services')
+        is_expected.to contain_keystone_user_role('heaty@services')
       end
       it 'configures correct service name' do
-        is_expected.to contain_keystone_service('heat_service::orchestration')
+        is_expected.to contain_keystone_service('heaty::orchestration')
       end
       it 'configures correct endpoint name' do
-        is_expected.to contain_keystone_endpoint('RegionOne/heat_service::orchestration')
+        is_expected.to contain_keystone_endpoint('RegionOne/heaty::orchestration')
       end
     end
 

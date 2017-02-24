@@ -1,5 +1,5 @@
 cinder
-=======
+======
 
 #### Table of Contents
 
@@ -58,16 +58,12 @@ class { 'cinder':
   database_connection     => 'mysql://cinder:secret_block_password@openstack-controller.example.com/cinder',
   rabbit_password         => 'secret_rpc_password_for_blocks',
   rabbit_host             => 'openstack-controller.example.com',
-  verbose                 => true,
 }
 
 class { 'cinder::api':
   keystone_password       => $keystone_password,
-  keystone_enabled        => $keystone_enabled,
   keystone_user           => $keystone_user,
-  keystone_auth_host      => $keystone_auth_host,
-  keystone_auth_port      => $keystone_auth_port,
-  keystone_auth_protocol  => $keystone_auth_protocol,
+  keystone_auth_uri       => $keystone_auth_uri,
   service_port            => $keystone_service_port,
   package_ensure          => $cinder_api_package_ensure,
   bind_host               => $cinder_bind_host,
@@ -84,7 +80,6 @@ class { 'cinder':
   database_connection     => 'mysql://cinder:secret_block_password@openstack-controller.example.com/cinder',
   rabbit_password         => 'secret_rpc_password_for_blocks',
   rabbit_host             => 'openstack-controller.example.com',
-  verbose                 => true,
 }
 
 class { 'cinder::volume': }
@@ -101,7 +96,6 @@ class { 'cinder':
   database_connection     => 'mysql://cinder:secret_block_password@openstack-controller.example.com/cinder',
   rabbit_password         => 'secret_rpc_password_for_blocks',
   rabbit_host             => 'openstack-controller.example.com',
-  verbose                 => true,
 }
 
 class { 'cinder::volume': }
@@ -173,12 +167,12 @@ The `cinder_config` provider is a children of the ini_setting provider.
 It allows one to write an entry in the `/etc/cinder/cinder.conf` file.
 
 ```puppet
-cinder_config { 'DEFAULT/verbose' :
-  value => true,
+cinder_config { 'DEFAULT/api_paste_config' :
+  value => '/etc/cinder/api-paste.ini',
 }
 ```
 
-This will write `verbose=true` in the `[DEFAULT]` section.
+This will write `api_paste_config=/etc/cinder/api-paste.ini` in the `[DEFAULT]` section.
 
 ##### name
 
@@ -211,17 +205,17 @@ This module has beaker-rspec tests
 
 To run:
 
-``shell
+```shell
 bundle install
 bundle exec rspec spec/acceptance
-``
+```
 
 Development
 -----------
 
 Developer documentation for the entire puppet-openstack project.
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Contributors
 ------------

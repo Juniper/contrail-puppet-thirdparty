@@ -45,7 +45,7 @@ To utilize the swift module's functionality you will need to declare multiple re
 
 ```puppet
 class { 'swift':
-  swift_hash_suffix => 'swift_secret',
+  swift_hash_path_suffix => 'swift_secret',
 }
 
 swift::storage::loopback { ['1', '2']:
@@ -97,10 +97,10 @@ Usage
 Class that will set up the base packages and the base /etc/swift/swift.conf
 
 ```puppet
-class { 'swift': swift_hash_suffix => 'shared_secret', }
+class { 'swift': swift_hash_path_suffix => 'shared_secret', }
 ```
 
-####`swift_hash_suffix`
+####`swift_hash_path_suffix`
 The shared salt used when hashing ring mappings.
 
 ### Class swift::proxy
@@ -371,12 +371,12 @@ puppet-swift is a combination of Puppet manifest and ruby code to deliver config
 The `swift_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/swift/swift.conf` file.
 
 ```puppet
-swift_config { 'DEFAULT/verbose' :
+swift_config { 'DEFAULT/debug' :
   value => true,
 }
 ```
 
-This will write `verbose=true` in the `[DEFAULT]` section.
+This will write `debug=true` in the `[DEFAULT]` section.
 
 ##### name
 
@@ -452,7 +452,7 @@ Development
 
 Developer documentation for the entire puppet-openstack project.
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Contributors
 ------------

@@ -70,6 +70,12 @@
 #   (optional) Utilize volume access groups on a per-tenant basis.
 #   Defaults to $::os_service_default
 #
+# [*manage_volume_type*]
+#   (Optional) Whether or not manage Cinder Volume type.
+#   If set to true, a Cinde Volume type will be created
+#   with volume_backend_name=$volume_backend_name key/value.
+#   Defaults to false.
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
 #   Defaults to: {}
@@ -92,8 +98,11 @@ define cinder::backend::solidfire(
   $sf_svip                   = $::os_service_default,
   $sf_enable_volume_mapping  = $::os_service_default,
   $sf_enable_vag             = $::os_service_default,
+  $manage_volume_type        = false,
   $extra_options             = {},
 ) {
+
+  include ::cinder::deps
 
   cinder_config {
     "${name}/volume_backend_name":         value => $volume_backend_name;
@@ -111,6 +120,13 @@ define cinder::backend::solidfire(
     "${name}/sf_svip":                     value => $sf_svip;
     "${name}/sf_enable_volume_mapping":    value => $sf_enable_volume_mapping;
     "${name}/sf_enable_vag":               value => $sf_enable_vag;
+  }
+
+  if $manage_volume_type {
+    cinder_type { $volume_backend_name:
+      ensure     => present,
+      properties => ["volume_backend_name=${volume_backend_name}"],
+    }
   }
 
   create_resources('cinder_config', $extra_options)

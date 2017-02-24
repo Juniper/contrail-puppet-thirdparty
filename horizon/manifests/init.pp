@@ -8,13 +8,6 @@
 #    (required) Secret key. This is used by Django to provide cryptographic
 #    signing, and should be set to a unique, unpredictable value.
 #
-#  [*fqdn*]
-#    (optional) DEPRECATED, use allowed_hosts and server_aliases instead.
-#    FQDN(s) used to access Horizon. This is used by Django for
-#    security reasons. Can be set to * in environments where security is
-#    deemed unimportant. Also used for Server Aliases in web configs.
-#    Defaults to ::fqdn
-#
 #  [*servername*]
 #    (optional) FQDN used for the Server Name directives
 #    Defaults to ::fqdn.
@@ -57,7 +50,7 @@
 #    the URIDefaults to false. Defaults to false. (no app links)
 #
 #  [*keystone_url*]
-#    (optional) Full url of keystone public endpoint. (Defaults to 'http://127.0.0.1:5000/v2.0')
+#    (optional) Full url of keystone public endpoint. (Defaults to 'http://127.0.0.1:5000')
 #
 #  [*keystone_default_role*]
 #    (optional) Default Keystone role for new users. Defaults to '_member_'.
@@ -115,6 +108,16 @@
 #    Cinder.  These include:
 #    'enable_backup': Boolean to enable or disable Cinders's backup feature.
 #      Defaults to False.
+#
+#  [*keystone_options*]
+#    (optional) A hash of parameters to enable features specific to
+#    Keystone.  These include:
+#    'name': String
+#    'can_edit_user': Boolean
+#    'can_edit_group': Boolean
+#    'can_edit_project': Boolean
+#    'can_edit_domain': Boolean
+#    'can_edit_role': Boolean
 #
 #  [*neutron_options*]
 #    (optional) A hash of parameters to enable features specific to
@@ -184,10 +187,6 @@
 #   (Optional) Policy files
 #   Defaults to undef.
 #
-# [*can_set_mount_point*]
-#   (Optional) DEPRECATED
-#   Defaults to 'undef'.
-#
 #  [*secure_cookies*]
 #    (optional) Enables security settings for cookies. Useful when using
 #    https on public sites. See: http://docs.openstack.org/developer/horizon/topics/deployment.html#secure-site-recommendations
@@ -196,27 +195,6 @@
 #  [*django_session_engine*]
 #    (optional) Selects the session engine for Django to use.
 #    Defaults to undef - will not add entry to local settings.
-#
-#  [*tuskar_ui*]
-#    (optional) Boolean to enable Tuskar-UI related configuration (http://tuskar-ui.readthedocs.org/)
-#    Defaults to false
-#
-#  [*tuskar_ui_ironic_discoverd_url*]
-#    (optional) Tuskar-UI - Ironic Discoverd API endpoint
-#    Defaults to 'http://127.0.0.1:5050'
-#
-#  [*tuskar_ui_undercloud_admin_password*]
-#    (optional) Tuskar-UI - Undercloud admin password used to authenticate admin user in Tuskar-UI.
-#    It is required by Heat to perform certain actions.
-#    Defaults to undef
-#
-#  [*tuskar_ui_deployment_mode*]
-#    (optional) Tuskar-UI - Deployment mode ('poc' or 'scale')
-#    Defaults to 'scale'
-#
-#  [*custom_theme_path*]
-#    (optional) The directory location for the theme (e.g., "static/themes/blue")
-#    Default to undef
 #
 #  [*redirect_type*]
 #    (optional) What type of redirect to use when redirecting an http request
@@ -269,27 +247,90 @@
 #    (optional) The timezone of the server.
 #    Defaults to 'UTC'.
 #
+#  [*available_themes*]
+#    (optional) An array of hashes detailing available themes. Each hash must
+#    have the followings keys for themes to be made available; name, label,
+#    path. Defaults to false
+#
+#    { 'name' => 'theme_name', 'label' => 'theme_label', 'path' => 'theme_path' }
+#
+#    Example:
+#    class { 'horizon':
+#      available_themes => [
+#        { 'name' => 'default', 'label' => 'Default', 'path' => 'themes/default'},
+#        { 'name' => 'material', 'label' => 'Material', 'path' => 'themes/material'},
+#      ]
+#    }
+#
+#   Or in Hiera:
+#   horizon::available_themes:
+#     - { name: 'default', label: 'Default', path: 'themes/default' }
+#     - { name: 'material', label: 'Material', path: 'themes/material' }
+#
+#  [*default_theme*]
+#    (optional) The default theme to use from list of available themes. Value should be theme_name.
+#    Defaults to false
+#
+# [*password_autocomplete*]
+#   (optional) Whether to instruct the client browser to autofill the login form password
+#   Valid values are 'on' and 'off'
+#   Defaults to 'off'
+#
+# [*images_panel*]
+#   (optional) Enabled panel for images.
+#   Valid values are 'legacy' and 'angular'
+#   Defaults to 'legacy'
+#
+# === DEPRECATED group/name
+#
+#  [*fqdn*]
+#    (optional) DEPRECATED, use allowed_hosts and server_aliases instead.
+#    FQDN(s) used to access Horizon. This is used by Django for
+#    security reasons. Can be set to * in environments where security is
+#    deemed unimportant. Also used for Server Aliases in web configs.
+#    Defaults to undef
+#
+#  [*custom_theme_path*]
+#    (optional) The directory location for the theme (e.g., "static/themes/blue")
+#    Default to undef
+#
+#  [*tuskar_ui*]
+#    (optional) Boolean to enable Tuskar-UI related configuration (http://tuskar-ui.readthedocs#
+#    Defaults to undef
+#
+#  [*tuskar_ui_ironic_discoverd_url*]
+#    (optional) Tuskar-UI - Ironic Discoverd API endpoint
+#    Defaults to undef
+#
+#  [*tuskar_ui_undercloud_admin_password*]
+#    (optional) Tuskar-UI - Undercloud admin password used to authenticate admin user in Tuskar#
+#    It is required by Heat to perform certain actions.
+#    Defaults to undef
+#
+#  [*tuskar_ui_deployment_mode*]
+#    (optional) Tuskar-UI - Deployment mode ('poc' or 'scale')
+#    Defaults to undef
+#
 # === Examples
 #
 #  class { 'horizon':
 #    secret_key       => 's3cr3t',
-#    keystone_url => 'https://10.0.0.10:5000/v2.0',
+#    keystone_url => 'https://10.0.0.10:5000',
 #    available_regions => [
-#      ['http://region-1.example.com:5000/v2.0', 'Region-1'],
-#      ['http://region-2.example.com:5000/v2.0', 'Region-2']
+#      ['http://region-1.example.com:5000', 'Region-1'],
+#      ['http://region-2.example.com:5000', 'Region-2']
 #    ]
 #  }
 #
 class horizon(
   $secret_key,
-  $fqdn                                = undef,
   $package_ensure                      = 'present',
   $cache_backend                       = 'django.core.cache.backends.locmem.LocMemCache',
   $cache_options                       = undef,
   $cache_server_ip                     = undef,
   $cache_server_port                   = '11211',
   $horizon_app_links                   = false,
-  $keystone_url                        = 'http://127.0.0.1:5000/v2.0',
+  $keystone_url                        = 'http://127.0.0.1:5000',
   $keystone_default_role               = '_member_',
   $django_debug                        = 'False',
   $openstack_endpoint_type             = undef,
@@ -314,15 +355,11 @@ class horizon(
   $compress_offline                    = true,
   $hypervisor_options                  = {},
   $cinder_options                      = {},
+  $keystone_options                    = {},
   $neutron_options                     = {},
   $file_upload_temp_dir                = '/tmp',
   $policy_files_path                   = undef,
   $policy_files                        = undef,
-  $tuskar_ui                           = false,
-  $tuskar_ui_ironic_discoverd_url      = 'http://127.0.0.1:5050',
-  $tuskar_ui_undercloud_admin_password = undef,
-  $tuskar_ui_deployment_mode           = 'scale',
-  $custom_theme_path                   = undef,
   $redirect_type                       = 'permanent',
   $api_versions                        = {'identity' => '3'},
   $keystone_multidomain_support        = false,
@@ -332,11 +369,20 @@ class horizon(
   $root_url                            = $::horizon::params::root_url,
   $session_timeout                     = 1800,
   $timezone                            = 'UTC',
-  # DEPRECATED PARAMETERS
-  $can_set_mount_point                 = undef,
-  $vhost_extra_params                  = undef,
   $secure_cookies                      = false,
   $django_session_engine               = undef,
+  $vhost_extra_params                  = undef,
+  $available_themes                    = false,
+  $default_theme                       = false,
+  $password_autocomplete               = 'off',
+  $images_panel                        = 'legacy',
+  # DEPRECATED PARAMETERS
+  $custom_theme_path                   = undef,
+  $fqdn                                = undef,
+  $tuskar_ui                           = undef,
+  $tuskar_ui_ironic_discoverd_url      = undef,
+  $tuskar_ui_undercloud_admin_password = undef,
+  $tuskar_ui_deployment_mode           = undef,
 ) inherits ::horizon::params {
 
   $hypervisor_defaults = {
@@ -345,7 +391,10 @@ class horizon(
   }
 
   if $fqdn {
-    warning('Parameter fqdn is deprecated. Please use parameter allowed_hosts for setting ALLOWED_HOSTS in settings_local.py and parameter server_aliases for setting ServerAlias directives in vhost.conf.')
+
+    warning("Parameter fqdn is deprecated. Please use parameter allowed_hosts for setting ALLOWED_HOSTS in \
+settings_local.py and parameter server_aliases for setting ServerAlias directives in vhost.conf.")
+
     $final_allowed_hosts = $fqdn
     $final_server_aliases = $fqdn
   } else {
@@ -353,11 +402,31 @@ class horizon(
     $final_server_aliases = $server_aliases
   }
 
+  if $custom_theme_path {
+    warning('custom_theme_path has been deprecated in mitaka and will be removed in a future release.')
+  }
+
+  if $tuskar_ui or $tuskar_ui_ironic_discoverd_url or $tuskar_ui_undercloud_admin_password or $tuskar_ui_deployment_mode {
+    warning('tuskar module is no longer maintained, all tuskar parameters will be removed after Newton cycle.')
+  }
+
   # Default options for the OPENSTACK_CINDER_FEATURES section. These will
   # be merged with user-provided options when the local_settings.py.erb
   # template is interpolated.
   $cinder_defaults = {
     'enable_backup'         => false,
+  }
+
+  # Default options for the OPENSTACK_KEYSTONE_BACKEND section. These will
+  # be merged with user-provided options when the local_settings.py.erb
+  # template is interpolated.
+  $keystone_defaults = {
+    'name'             => 'native',
+    'can_edit_user'    => true,
+    'can_edit_group'   => true,
+    'can_edit_project' => true,
+    'can_edit_domain'  => true,
+    'can_edit_role'    => true,
   }
 
   # Default options for the OPENSTACK_NEUTRON_NETWORK section.  These will
@@ -378,8 +447,11 @@ class horizon(
 
   $hypervisor_options_real = merge($hypervisor_defaults,$hypervisor_options)
   $cinder_options_real     = merge($cinder_defaults,$cinder_options)
+  $keystone_options_real   = merge($keystone_defaults, $keystone_options)
   $neutron_options_real    = merge($neutron_defaults,$neutron_options)
   validate_hash($api_versions)
+  validate_re($password_autocomplete, ['^on$', '^off$'])
+  validate_re($images_panel, ['^legacy$', '^angular$'])
 
   if $cache_backend =~ /MemcachedCache/ {
     ensure_packages('python-memcache',
@@ -394,7 +466,9 @@ class horizon(
   }
 
   concat { $::horizon::params::config_file:
-    mode    => '0644',
+    mode    => '0640',
+    owner   => $::horizon::params::wsgi_user,
+    group   => $::horizon::params::wsgi_group,
     require => Package['horizon'],
   }
 
@@ -448,8 +522,4 @@ class horizon(
     }
   }
 
-  $tuskar_ui_deployment_mode_allowed_values = ['scale', 'poc']
-  if ! (member($tuskar_ui_deployment_mode_allowed_values, $tuskar_ui_deployment_mode)) {
-    fail("'${$tuskar_ui_deployment_mode}' is not correct value for tuskar_ui_deployment_mode parameter. It must be either 'scale' or 'poc'.")
-  }
 }

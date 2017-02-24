@@ -17,8 +17,7 @@ describe 'nova::logging' do
       :publish_errors => true,
       :default_log_levels => {
         'amqp' => 'WARN', 'amqplib' => 'WARN', 'boto' => 'WARN',
-        'qpid' => 'WARN', 'sqlalchemy' => 'WARN', 'suds' => 'INFO',
-        'iso8601' => 'WARN',
+        'sqlalchemy' => 'WARN', 'suds' => 'INFO', 'iso8601' => 'WARN',
         'requests.packages.urllib3.connectionpool' => 'WARN' },
      :fatal_deprecations => true,
      :instance_format => '[instance: %(uuid)s] ',
@@ -28,7 +27,6 @@ describe 'nova::logging' do
      :use_stderr => false,
      :log_facility => 'LOG_FOO',
      :log_dir => '/var/log',
-     :verbose => true,
      :debug => true,
     }
   end
@@ -60,7 +58,6 @@ describe 'nova::logging' do
       is_expected.to contain_nova_config('DEFAULT/use_syslog').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_nova_config('DEFAULT/use_stderr').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_nova_config('DEFAULT/log_dir').with(:value => '/var/log/nova')
-      is_expected.to contain_nova_config('DEFAULT/verbose').with(:value => '<SERVICE DEFAULT>')
       is_expected.to contain_nova_config('DEFAULT/debug').with(:value => '<SERVICE DEFAULT>')
     end
   end
@@ -71,7 +68,6 @@ describe 'nova::logging' do
       is_expected.to contain_nova_config('DEFAULT/use_stderr').with(:value => 'false')
       is_expected.to contain_nova_config('DEFAULT/syslog_log_facility').with(:value => 'LOG_FOO')
       is_expected.to contain_nova_config('DEFAULT/log_dir').with(:value => '/var/log')
-      is_expected.to contain_nova_config('DEFAULT/verbose').with(:value => 'true')
       is_expected.to contain_nova_config('DEFAULT/debug').with(:value => 'true')
     end
   end
@@ -96,7 +92,7 @@ describe 'nova::logging' do
         true)
 
       is_expected.to contain_nova_config('DEFAULT/default_log_levels').with_value(
-        'amqp=WARN,amqplib=WARN,boto=WARN,iso8601=WARN,qpid=WARN,requests.packages.urllib3.connectionpool=WARN,sqlalchemy=WARN,suds=INFO')
+        'amqp=WARN,amqplib=WARN,boto=WARN,iso8601=WARN,requests.packages.urllib3.connectionpool=WARN,sqlalchemy=WARN,suds=INFO')
 
       is_expected.to contain_nova_config('DEFAULT/fatal_deprecations').with_value(
         true)
@@ -124,20 +120,17 @@ describe 'nova::logging' do
       }
   end
 
-  context 'on Debian platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'Debian' })
+
+  on_supported_os({
+    :supported_os => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts())
+      end
+
+      it_configures 'nova-logging'
     end
-
-    it_configures 'nova-logging'
-  end
-
-  context 'on RedHat platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
-    end
-
-    it_configures 'nova-logging'
   end
 
 end

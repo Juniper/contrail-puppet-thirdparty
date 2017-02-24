@@ -3,31 +3,25 @@ require 'spec_helper'
 describe 'ceilometer::api' do
 
   let :pre_condition do
-    "class { 'ceilometer': metering_secret => 's3cr3t' }
+    "class { 'ceilometer': telemetry_secret => 's3cr3t' }
      include ::ceilometer::db"
   end
 
   let :params do
-    { :enabled           => true,
-      :manage_service    => true,
-      :keystone_user     => 'ceilometer',
+    { :enabled        => true,
+      :manage_service => true,
       :keystone_password => 'ceilometer-passw0rd',
-      :keystone_tenant   => 'services',
-      :host              => '0.0.0.0',
-      :port              => '8777',
-      :package_ensure    => 'latest',
+      :host           => '0.0.0.0',
+      :port           => '8777',
+      :package_ensure => 'latest',
     }
   end
 
   shared_examples_for 'ceilometer-api' do
 
-    context 'without required parameter keystone_password' do
-      before { params.delete(:keystone_password) }
-      it { expect { is_expected.to raise_error(Puppet::Error) } }
-    end
-
     it { is_expected.to contain_class('ceilometer::params') }
     it { is_expected.to contain_class('ceilometer::policy') }
+    it { is_expected.to contain_class('ceilometer::keystone::authtoken') }
 
     it 'installs ceilometer-api package' do
       is_expected.to contain_package('ceilometer-api').with(
@@ -37,13 +31,7 @@ describe 'ceilometer::api' do
       )
     end
 
-    it 'configures keystone authentication middleware' do
-      is_expected.to contain_ceilometer_config('keystone_authtoken/admin_tenant_name').with_value( params[:keystone_tenant] )
-      is_expected.to contain_ceilometer_config('keystone_authtoken/admin_user').with_value( params[:keystone_user] )
-      is_expected.to contain_ceilometer_config('keystone_authtoken/admin_password').with_value( params[:keystone_password] )
-      is_expected.to contain_ceilometer_config('keystone_authtoken/admin_password').with_value( params[:keystone_password] ).with_secret(true)
-      is_expected.to contain_ceilometer_config('keystone_authtoken/auth_uri').with_value("http://127.0.0.1:5000/")
-      is_expected.to contain_ceilometer_config('keystone_authtoken/identity_uri').with_value("http://127.0.0.1:35357/")
+    it 'configures api' do
       is_expected.to contain_ceilometer_config('api/host').with_value( params[:host] )
       is_expected.to contain_ceilometer_config('api/port').with_value( params[:port] )
       is_expected.to contain_ceilometer_config('api/workers').with_value('<SERVICE DEFAULT>')
@@ -66,6 +54,34 @@ describe 'ceilometer::api' do
             :tag        => 'ceilometer-service',
           )
         end
+      end
+    end
+
+    context 'with deprecated parameters' do
+      before do
+        params.merge!({
+          :auth_uri           => 'https://10.0.0.1:5000/deprecated',
+          :keystone_user      => 'myuser',
+          :keystone_password  => 'mypasswd',
+          :identity_uri       => 'http://10.0.0.1:35357/deprecated',
+          :keystone_tenant    => 'service_project',
+          :memcached_servers  => ['memcached01:11211','memcached02:11211'],
+        })
+      end
+
+      it 'configures keystone_authtoken middleware' do
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/auth_uri').with_value(params[:auth_uri])
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/username').with_value(params[:keystone_user])
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/password').with_value(params[:keystone_password]).with_secret(true)
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/auth_url').with_value(params[:identity_uri])
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/project_name').with_value(params[:keystone_tenant])
+        is_expected.to contain_ceilometer_config(
+          'keystone_authtoken/memcached_servers').with_value('memcached01:11211,memcached02:11211')
       end
     end
 
@@ -96,7 +112,7 @@ describe 'ceilometer::api' do
       let :pre_condition do
         "include ::apache
          include ::ceilometer::db
-         class { 'ceilometer': metering_secret => 's3cr3t' }"
+         class { 'ceilometer': telemetry_secret => 's3cr3t' }"
       end
 
       it 'configures ceilometer-api service with Apache' do
@@ -117,7 +133,7 @@ describe 'ceilometer::api' do
       let :pre_condition do
         "include ::apache
          include ::ceilometer::db
-         class { 'ceilometer': metering_secret => 's3cr3t' }"
+         class { 'ceilometer': telemetry_secret => 's3cr3t' }"
       end
 
       it_raises 'a Puppet::Error', /Invalid service_name/
@@ -159,38 +175,6 @@ describe 'ceilometer::api' do
     end
 
     it_configures 'ceilometer-api'
-  end
-
-  describe "with deprecated custom keystone_identity_uri and keystone_auth_uri" do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
-    end
-    before do
-      params.merge!({
-        :keystone_identity_uri => 'https://foo.bar:35357/',
-        :keystone_auth_uri => 'https://foo.bar:5000/',
-      })
-    end
-    it 'configures identity_uri and auth_uri but deprecates old auth settings' do
-      is_expected.to contain_ceilometer_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:35357/");
-      is_expected.to contain_ceilometer_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/");
-    end
-  end
-
-  describe "with custom keystone identity_uri and auth_uri" do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
-    end
-    before do
-      params.merge!({
-        :identity_uri => 'https://foo.bar:35357/',
-        :auth_uri => 'https://foo.bar:5000/',
-      })
-    end
-    it 'configures identity_uri and auth_uri but deprecates old auth settings' do
-      is_expected.to contain_ceilometer_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:35357/");
-      is_expected.to contain_ceilometer_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/");
-    end
   end
 
 end

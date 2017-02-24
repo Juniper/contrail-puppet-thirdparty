@@ -75,17 +75,17 @@ This module has beaker-rspec tests
 
 To run:
 
-``shell
+```shell
 bundle install
 bundle exec rspec spec/acceptance
-``
+```
 
 Development
 -----------
 
 Developer documentation for the entire puppet-openstack project.
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Contributors
 ------------

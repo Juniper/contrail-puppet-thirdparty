@@ -6,7 +6,7 @@ describe 'neutron::db::sync' do
 
     it 'runs neutron-db-sync' do
       is_expected.to contain_exec('neutron-db-sync').with(
-        :command     => 'neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade head',
+        :command     => 'neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade heads',
         :path        => '/usr/bin',
         :refreshonly => 'true',
         :logoutput   => 'on_failure'
@@ -22,7 +22,7 @@ describe 'neutron::db::sync' do
 
     it {
         is_expected.to contain_exec('neutron-db-sync').with(
-          :command     => 'neutron-db-manage --config-file /etc/neutron/neutron.conf upgrade head',
+          :command     => 'neutron-db-manage --config-file /etc/neutron/neutron.conf upgrade heads',
           :path        => '/usr/bin',
           :refreshonly => 'true',
           :logoutput   => 'on_failure'
@@ -32,29 +32,19 @@ describe 'neutron::db::sync' do
 
   end
 
-  context 'on a RedHat osfamily' do
-    let :facts do
-      {
-        :osfamily                 => 'RedHat',
-        :operatingsystemrelease   => '7.0',
-        :concat_basedir => '/var/lib/puppet/concat'
-      }
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge(OSDefaults.get_facts({
+          :processorcount => 8,
+          :concat_basedir => '/var/lib/puppet/concat'
+        }))
+      end
+
+      it_configures 'neutron-dbsync'
     end
-
-    it_configures 'neutron-dbsync'
-  end
-
-  context 'on a Debian osfamily' do
-    let :facts do
-      {
-        :operatingsystemrelease => '7.8',
-        :operatingsystem        => 'Debian',
-        :osfamily               => 'Debian',
-        :concat_basedir => '/var/lib/puppet/concat'
-      }
-    end
-
-    it_configures 'neutron-dbsync'
   end
 
 end

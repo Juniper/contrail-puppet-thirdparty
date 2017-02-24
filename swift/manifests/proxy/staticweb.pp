@@ -1,5 +1,6 @@
 #
-# Configure swift cache_errors.
+# Configure swift staticweb, see documentation for Swift staticweb middleware
+# to understand more about configuration.
 #
 # == Dependencies
 #
@@ -17,10 +18,12 @@
 #
 class swift::proxy::staticweb() {
 
+  include ::swift::deps
+
   concat::fragment { 'swift-proxy-staticweb':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/staticweb.conf.erb'),
-    order   => '32',
+    order   => '190',
   }
 
 }

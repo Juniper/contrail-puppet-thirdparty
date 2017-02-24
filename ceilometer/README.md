@@ -43,7 +43,7 @@ To utilize the ceilometer module's functionality you will need to declare multip
 
 ```puppet
 class { '::ceilometer':
-  metering_secret     => 'secrete',
+  telemetry_secret    => 'secrete',
   rabbit_userid       => 'ceilometer',
   rabbit_password     => 'an_even_bigger_secret',
   rabbit_host         => '127.0.0.1',
@@ -76,12 +76,12 @@ extra functionality through types and providers.
 The `ceilometer_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/ceilometer/ceilometer.conf` file.
 
 ```puppet
-ceilometer_config { 'DEFAULT/verbose' :
-  value => true,
+ceilometer_config { 'DEFAULT/http_timeout' :
+  value => 600,
 }
 ```
 
-This will write `verbose=true` in the `[DEFAULT]` section.
+This will write `http_timeout=600` in the `[DEFAULT]` section.
 
 ##### name
 
@@ -121,7 +121,7 @@ Development
 
 Developer documentation for the entire puppet-openstack project
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Contributors
 ------------

@@ -99,19 +99,19 @@ class nova::cache (
 
   include ::nova::deps
 
-  nova_config {
-    'cache/config_prefix':                        value => $config_prefix;
-    'cache/expiration_time':                      value => $expiration_time;
-    'cache/backend':                              value => $backend;
-    'cache/backend_argument':                     value => join(any2array($backend_argument), ',');
-    'cache/proxies':                              value => join(any2array($proxies), ',');
-    'cache/enabled':                              value => $enabled;
-    'cache/debug_cache_backend':                  value => $debug_cache_backend;
-    'cache/memcache_servers':                     value => join(any2array($memcache_servers), ',');
-    'cache/memcache_dead_retry':                  value => $memcache_dead_retry;
-    'cache/memcache_socket_timeout':              value => $memcache_socket_timeout;
-    'cache/memcache_pool_maxsize':                value => $memcache_pool_maxsize;
-    'cache/memcache_pool_unused_timeout':         value => $memcache_pool_unused_timeout;
-    'cache/memcache_pool_connection_get_timeout': value => $memcache_pool_connection_get_timeout;
+  oslo::cache { 'nova_config':
+    config_prefix                        => $config_prefix,
+    expiration_time                      => $expiration_time,
+    backend                              => $backend,
+    backend_argument                     => $backend_argument,
+    proxies                              => $proxies,
+    enabled                              => $enabled,
+    debug_cache_backend                  => $debug_cache_backend,
+    memcache_servers                     => $memcache_servers,
+    memcache_dead_retry                  => $memcache_dead_retry,
+    memcache_socket_timeout              => $memcache_socket_timeout,
+    memcache_pool_maxsize                => $memcache_pool_maxsize,
+    memcache_pool_unused_timeout         => $memcache_pool_unused_timeout,
+    memcache_pool_connection_get_timeout => $memcache_pool_connection_get_timeout,
   }
 }

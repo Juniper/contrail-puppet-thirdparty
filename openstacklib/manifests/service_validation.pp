@@ -37,6 +37,10 @@
 # The provider to use for the exec command;
 # string; optional; default to 'shell'
 #
+# [*timeout*]
+# The maximum time the command should take;
+# string; optional; default to '60'
+#
 # [*tries*]
 # Number of times to retry validation;
 # string; optional; default to '10'
@@ -45,6 +49,14 @@
 # Number of seconds between validation attempts;
 # string; optional; default to '2'
 #
+# [*onlyif*]
+# Run the exec if all conditions in the array return true.
+# string or array; optional; default to 'undef'
+#
+# [*unless*]
+# Run the exec if all conditions in the array return false.
+# string or array; optional; default to 'undef'
+#
 define openstacklib::service_validation(
   $command,
   $service_name = $name,
@@ -52,14 +64,25 @@ define openstacklib::service_validation(
   $provider     = shell,
   $tries        = '10',
   $try_sleep    = '2',
+  $onlyif       = undef,
+  $unless       = undef,
+  $timeout      = '60',
 ) {
+
+  if $onlyif and $unless {
+    fail ('Only one parameter should be declared: onlyif or unless')
+  }
 
   exec { "execute ${service_name} validation":
     path      => $path,
     provider  => $provider,
     command   => $command,
+    timeout   => $timeout,
     tries     => $tries,
     try_sleep => $try_sleep,
+    onlyif    => $onlyif,
+    unless    => $unless,
+    logoutput => 'on_failure',
   }
 
   anchor { "create ${service_name} anchor":
@@ -67,3 +90,4 @@ define openstacklib::service_validation(
   }
 
 }
+

@@ -51,6 +51,9 @@ define neutron::plugins::ml2::type_driver (
   $vxlan_group,
   $max_header_size
 ){
+
+  include ::neutron::deps
+
   if ($name == 'flat') {
     neutron_plugin_ml2 {
       'ml2_type_flat/flat_networks': value => join(any2array($flat_networks), ',');

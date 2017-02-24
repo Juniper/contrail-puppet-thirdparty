@@ -33,8 +33,8 @@ describe 'cinder::backend::glusterfs' do
         '/cinder_mount_point')
       is_expected.to contain_file('/etc/cinder/other_shares.conf').with(
         :content => "10.10.10.10:/volumes\n10.10.10.11:/volumes\n",
-        :require => 'Package[cinder]',
-        :notify  => 'Service[cinder-volume]'
+        :require => 'Anchor[cinder::install::end]',
+        :notify  => 'Anchor[cinder::service::begin]'
       )
     end
 
@@ -49,6 +49,15 @@ describe 'cinder::backend::glusterfs' do
         })
       end
 
+    end
+
+    context 'glusterfs backend with cinder type' do
+      before do
+        params.merge!({:manage_volume_type => true})
+      end
+      it 'should create type with properties' do
+        should contain_cinder_type('mygluster').with(:ensure => :present, :properties => ['volume_backend_name=mygluster'])
+      end
     end
   end
 

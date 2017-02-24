@@ -10,13 +10,12 @@ describe 'nova::api' do
     { :admin_password => 'passw0rd' }
   end
 
-  let :facts do
-    @default_facts.merge({ :processorcount => 5 })
-  end
-
   shared_examples 'nova-api' do
 
     context 'with default parameters' do
+
+      it { is_expected.to contain_class('nova::keystone::authtoken') }
+      it { is_expected.to contain_class('cinder::client').that_notifies('Nova::Generic_service[api]') }
 
       it 'installs nova-api package and service' do
         is_expected.to contain_service('nova-api').with(
@@ -40,13 +39,13 @@ describe 'nova::api' do
        is_expected.to contain_nova_config(
           'keystone_authtoken/auth_uri').with_value('http://127.0.0.1:5000/')
        is_expected.to contain_nova_config(
-          'keystone_authtoken/identity_uri').with_value('http://127.0.0.1:35357/')
+          'keystone_authtoken/auth_url').with_value('http://127.0.0.1:35357/')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_tenant_name').with_value('services')
+          'keystone_authtoken/project_name').with_value('services')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_user').with_value('nova')
+          'keystone_authtoken/username').with_value('nova')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_password').with_value('passw0rd').with_secret(true)
+          'keystone_authtoken/password').with_value('passw0rd').with_secret(true)
       end
 
       it 'enable metadata in evenlet configuration' do
@@ -56,7 +55,7 @@ describe 'nova::api' do
       it { is_expected.to contain_nova_config('DEFAULT/instance_name_template').with_ensure('absent')}
 
       it 'configures various stuff' do
-        is_expected.to contain_nova_config('DEFAULT/api_paste_config').with('value' => 'api-paste.ini')
+        is_expected.to contain_nova_config('wsgi/api_paste_config').with('value' => 'api-paste.ini')
         is_expected.to contain_nova_config('DEFAULT/osapi_compute_listen').with('value' => '0.0.0.0')
         is_expected.to contain_nova_config('DEFAULT/osapi_compute_listen_port').with('value' => '8774')
         is_expected.to contain_nova_config('DEFAULT/metadata_listen').with('value' => '0.0.0.0')
@@ -66,11 +65,21 @@ describe 'nova::api' do
         is_expected.to contain_nova_config('DEFAULT/metadata_workers').with('value' => '5')
         is_expected.to contain_nova_config('DEFAULT/default_floating_pool').with('value' => 'nova')
         is_expected.to contain_nova_config('DEFAULT/fping_path').with('value' => '/usr/sbin/fping')
-        is_expected.to contain_nova_config('DEFAULT/secure_proxy_ssl_header').with('value' => '<SERVICE DEFAULT>')
-      end
-
-      it 'do not configure v3 api' do
-        is_expected.to contain_nova_config('osapi_v3/enabled').with('value' => false)
+        is_expected.to contain_nova_config('oslo_middleware/enable_proxy_headers_parsing').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/metadata_cache_expiration').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_jsonfile_path').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_providers').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_targets').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_connect_timeout').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_read_timeout').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/osapi_max_limit').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/osapi_compute_link_prefix').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/osapi_glance_link_prefix').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/osapi_hide_server_address_states').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/allow_instance_snapshots').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/enable_network_quota').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/enable_instance_password').with('value' => '<SERVICE DEFAULT>')
+        is_expected.to contain_nova_config('DEFAULT/password_length').with('value' => '<SERVICE DEFAULT>')
       end
 
       it 'unconfigures neutron_metadata proxy' do
@@ -100,9 +109,22 @@ describe 'nova::api' do
           :osapi_compute_workers                => 1,
           :metadata_workers                     => 2,
           :default_floating_pool                => 'public',
-          :osapi_v3                             => true,
-          :pci_alias                            => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\",\"name\":\"graphic_card\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"name\":\"network_card\"}]",
-          :secure_proxy_ssl_header              => "HTTP-X-Forwarded-Proto"
+          :enable_proxy_headers_parsing         => true,
+          :metadata_cache_expiration            => 15,
+          :vendordata_jsonfile_path             => '/tmp',
+          :vendordata_providers                 => ['StaticJSON', 'DynamicJSON'],
+          :vendordata_dynamic_targets           => ['join@http://127.0.0.1:9999/v1/'],
+          :vendordata_dynamic_connect_timeout   => 30,
+          :vendordata_dynamic_read_timeout      => 30,
+          :osapi_max_limit                      => 1000,
+          :osapi_compute_link_prefix            => 'https://10.0.0.1:7777/',
+          :osapi_glance_link_prefix             => 'https://10.0.0.1:6666/',
+          :osapi_hide_server_address_states     => 'building',
+          :allow_instance_snapshots             => true,
+          :enable_network_quota                 => false,
+          :enable_instance_password             => true,
+          :password_length                      => 12,
+          :pci_alias                            => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\",\"name\":\"graphic_card\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"name\":\"network_card\"}]"
         })
       end
 
@@ -125,13 +147,13 @@ describe 'nova::api' do
         is_expected.to contain_nova_config(
           'keystone_authtoken/auth_uri').with_value('https://10.0.0.1:9999/')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/identity_uri').with_value('https://10.0.0.1:8888/')
+          'keystone_authtoken/auth_url').with_value('https://10.0.0.1:8888/')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_tenant_name').with_value('service2')
+          'keystone_authtoken/project_name').with_value('service2')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_user').with_value('nova2')
+          'keystone_authtoken/username').with_value('nova2')
         is_expected.to contain_nova_config(
-          'keystone_authtoken/admin_password').with_value('passw0rd2').with_secret(true)
+          'keystone_authtoken/password').with_value('passw0rd2').with_secret(true)
         is_expected.to contain_nova_paste_api_ini(
           'filter:ratelimit/limits').with_value('(GET, "*", .*, 100, MINUTE);(POST, "*", .*, 200, MINUTE)')
       end
@@ -146,13 +168,23 @@ describe 'nova::api' do
         is_expected.to contain_nova_config('DEFAULT/osapi_compute_workers').with('value' => '1')
         is_expected.to contain_nova_config('DEFAULT/metadata_workers').with('value' => '2')
         is_expected.to contain_nova_config('DEFAULT/default_floating_pool').with('value' => 'public')
-        is_expected.to contain_nova_config('DEFAULT/secure_proxy_ssl_header').with('value' => 'HTTP-X-Forwarded-Proto')
+        is_expected.to contain_nova_config('DEFAULT/metadata_cache_expiration').with('value' => '15')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_jsonfile_path').with('value' => '/tmp')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_providers').with('value' => 'StaticJSON,DynamicJSON')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_targets').with('value' => 'join@http://127.0.0.1:9999/v1/')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_connect_timeout').with('value' => '30')
+        is_expected.to contain_nova_config('DEFAULT/vendordata_dynamic_read_timeout').with('value' => '30')
+        is_expected.to contain_nova_config('DEFAULT/osapi_max_limit').with('value' => '1000')
+        is_expected.to contain_nova_config('DEFAULT/osapi_compute_link_prefix').with('value' => 'https://10.0.0.1:7777/')
+        is_expected.to contain_nova_config('DEFAULT/osapi_glance_link_prefix').with('value' => 'https://10.0.0.1:6666/')
         is_expected.to contain_nova_config('neutron/service_metadata_proxy').with('value' => true)
         is_expected.to contain_nova_config('neutron/metadata_proxy_shared_secret').with('value' => 'secrete')
-      end
-
-      it 'configure nova api v3' do
-        is_expected.to contain_nova_config('osapi_v3/enabled').with('value' => true)
+        is_expected.to contain_nova_config('oslo_middleware/enable_proxy_headers_parsing').with('value' => true)
+        is_expected.to contain_nova_config('DEFAULT/osapi_hide_server_address_states').with('value' => 'building')
+        is_expected.to contain_nova_config('DEFAULT/allow_instance_snapshots').with('value' => true)
+        is_expected.to contain_nova_config('DEFAULT/enable_network_quota').with('value' => false)
+        is_expected.to contain_nova_config('DEFAULT/enable_instance_password').with('value' => true)
+        is_expected.to contain_nova_config('DEFAULT/password_length').with('value' => '12')
       end
 
       it 'configures nova pci_alias entries' do
@@ -173,7 +205,7 @@ describe 'nova::api' do
         :provider    => 'shell',
         :tries       => '10',
         :try_sleep   => '2',
-        :command     => 'nova --os-auth-url http://127.0.0.1:5000/ --os-tenant-name services --os-username nova --os-password passw0rd flavor-list',
+        :command     => 'nova --os-auth-url http://127.0.0.1:5000/ --os-project-name services --os-username nova --os-password passw0rd flavor-list',
       )}
 
       it { is_expected.to contain_anchor('create nova-api anchor').with(
@@ -254,30 +286,6 @@ describe 'nova::api' do
       end
     end
 
-    context 'with custom keystone identity_uri' do
-      before do
-        params.merge!({
-          :identity_uri => 'https://foo.bar:1234/',
-        })
-      end
-      it 'configures identity_uri' do
-        is_expected.to contain_nova_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:1234/");
-      end
-    end
-
-    context 'with custom keystone identity_uri and auth_uri ' do
-      before do
-        params.merge!({
-          :identity_uri => 'https://foo.bar:35357/',
-          :auth_uri => 'https://foo.bar:5000/v2.0/',
-        })
-      end
-      it 'configures identity_uri' do
-        is_expected.to contain_nova_config('keystone_authtoken/identity_uri').with_value("https://foo.bar:35357/");
-        is_expected.to contain_nova_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/v2.0/");
-      end
-    end
-
     context 'when running nova API in wsgi compute, and enabling metadata' do
       before do
         params.merge!({ :service_name => 'httpd' })
@@ -323,27 +331,14 @@ describe 'nova::api' do
       end
     end
 
-    context 'when enabled_apis is not an array' do
+    context 'when disabling cinder client installation' do
       before do
-        params.merge!({
-          :service_name => 'httpd',
-          :enabled_apis => 'osapi_compute' })
+        params.merge!({ :install_cinder_client => false })
       end
 
-      let :pre_condition do
-        "include ::apache
-         include ::nova"
-      end
-
-      it 'disable nova API service' do
-        is_expected.to contain_service('nova-api').with(
-          :ensure     => 'stopped',
-          :name       => platform_params[:nova_api_service],
-          :enable     => false,
-          :tag        => 'nova-service',
-        )
-      end
+      it { is_expected.to_not contain_class('cinder::client') }
     end
+
 
     context 'when service_name is not valid' do
       before do
@@ -360,44 +355,25 @@ describe 'nova::api' do
 
   end
 
-  context 'on Debian platforms' do
-    before do
-      facts.merge!(
-        :osfamily                  => 'Debian',
-        :operatingsystem           => 'Debian',
-        :operatingsystemrelease    => '8.0',
-        :operatingsystemmajrelease => '8',
-        :concat_basedir            => '/var/lib/puppet/concat',
-        :fqdn                      => 'some.host.tld',
-      )
-    end
+  on_supported_os({
+    :supported_os => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts({ :processorcount => 5 }))
+      end
 
-    let :platform_params do
-      { :nova_api_package => 'nova-api',
-        :nova_api_service => 'nova-api' }
+      let (:platform_params) do
+        case facts[:osfamily]
+        when 'Debian'
+          { :nova_api_package => 'nova-api',
+            :nova_api_service => 'nova-api' }
+        when 'RedHat'
+          { :nova_api_package => 'openstack-nova-api',
+            :nova_api_service => 'openstack-nova-api' }
+        end
+      end
+      it_behaves_like 'nova-api'
     end
-
-    it_behaves_like 'nova-api'
   end
-
-  context 'on RedHat platforms' do
-    before do
-      facts.merge!(
-        :osfamily                  => 'RedHat',
-        :operatingsystem           => 'RedHat',
-        :operatingsystemrelease    => '7.0',
-        :operatingsystemmajrelease => '7',
-        :concat_basedir            => '/var/lib/puppet/concat',
-        :fqdn                      => 'some.host.tld',
-      )
-    end
-
-    let :platform_params do
-      { :nova_api_package => 'openstack-nova-api',
-        :nova_api_service => 'openstack-nova-api' }
-    end
-
-    it_behaves_like 'nova-api'
-  end
-
 end

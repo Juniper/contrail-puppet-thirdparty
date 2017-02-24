@@ -3,9 +3,11 @@ require 'spec_helper'
 describe 'neutron::agents::n1kv_vem' do
 
   let :facts do
-    { :operatingsystem           => 'RedHat',
-      :operatingsystemrelease    => '7',
-      :osfamily => 'RedHat' }
+    OSDefaults.get_facts({
+      :operatingsystem        => 'RedHat',
+      :operatingsystemrelease => '7',
+      :osfamily               => 'RedHat',
+    })
   end
 
   it 'should have a n1kv-vem config file' do
@@ -18,7 +20,6 @@ describe 'neutron::agents::n1kv_vem' do
   end
 
   it 'install n1kv-vem' do
-    is_expected.to contain_package('libnl').with_before(['Package[nexus1000v]'])
     is_expected.to contain_service('openvswitch').with_notify(['Package[nexus1000v]'])
     is_expected.to contain_package('nexus1000v').with_notify(['Service[nexus1000v]'])
     is_expected.to contain_service('nexus1000v').with_ensure('running')

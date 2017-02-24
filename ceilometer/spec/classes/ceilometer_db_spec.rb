@@ -6,6 +6,7 @@ describe 'ceilometer::db' do
 
     context 'with default parameters' do
 
+      it { is_expected.to contain_ceilometer_config('database/db_max_retries').with_value('<SERVICE DEFAULT>') }
       it { is_expected.to contain_class('ceilometer::params') }
       it { is_expected.to contain_class('ceilometer::db::sync') }
       it { is_expected.to contain_ceilometer_config('database/connection').with_value('mysql://ceilometer:ceilometer@localhost/ceilometer').with_secret(true) }
@@ -18,7 +19,9 @@ describe 'ceilometer::db' do
 
     context 'with specific parameters' do
       let :params do
-        { :database_connection     => 'mongodb://localhost:1234/ceilometer',
+        {
+          :database_db_max_retries => '-1',
+          :database_connection     => 'mongodb://localhost:1234/ceilometer',
           :database_idle_timeout   => '3601',
           :database_min_pool_size  => '2',
           :database_max_retries    => '11',
@@ -26,7 +29,7 @@ describe 'ceilometer::db' do
           :sync_db                 => false }
       end
 
-      it { is_expected.to contain_class('ceilometer::params') }
+      it { is_expected.to contain_ceilometer_config('database/db_max_retries').with_value('-1') }
       it { is_expected.not_to contain_class('ceilometer::db::sync') }
       it { is_expected.to contain_ceilometer_config('database/connection').with_value('mongodb://localhost:1234/ceilometer').with_secret(true) }
       it { is_expected.to contain_ceilometer_config('database/idle_timeout').with_value('3601') }
@@ -52,7 +55,7 @@ describe 'ceilometer::db' do
       end
 
       it 'install the proper backend package' do
-        is_expected.to contain_package('ceilometer-backend-package').with(
+        is_expected.to contain_package('db_backend_package').with(
           :ensure => 'present',
           :name   => 'python-pymongo',
           :tag    => 'openstack'
@@ -104,7 +107,7 @@ describe 'ceilometer::db' do
       end
 
       it 'install the proper backend package' do
-        is_expected.to contain_package('ceilometer-backend-package').with(
+        is_expected.to contain_package('db_backend_package').with(
           :ensure => 'present',
           :name   => 'python-pymysql',
           :tag    => 'openstack'
@@ -118,7 +121,7 @@ describe 'ceilometer::db' do
       end
 
       it 'install the proper backend package' do
-        is_expected.to contain_package('ceilometer-backend-package').with(
+        is_expected.to contain_package('db_backend_package').with(
           :ensure => 'present',
           :name   => 'python-pysqlite2',
           :tag    => 'openstack'
@@ -142,7 +145,7 @@ describe 'ceilometer::db' do
         { :database_connection     => 'mysql+pymysql:///ceilometer:ceilometer@localhost/ceilometer', }
       end
 
-      it { is_expected.not_to contain_package('ceilometer-backend-package') }
+      it { is_expected.not_to contain_package('db_backend_package') }
     end
   end
 

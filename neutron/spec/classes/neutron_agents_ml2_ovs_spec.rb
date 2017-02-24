@@ -1,7 +1,6 @@
 require 'spec_helper'
 
 describe 'neutron::agents::ml2::ovs' do
-
   let :pre_condition do
     "class { 'neutron': rabbit_password => 'passw0rd' }"
   end
@@ -12,13 +11,14 @@ describe 'neutron::agents::ml2::ovs' do
       :bridge_uplinks             => [],
       :bridge_mappings            => [],
       :integration_bridge         => 'br-int',
-      :enable_tunneling           => false,
       :local_ip                   => false,
+      :tunnel_types               => [],
       :tunnel_bridge              => 'br-tun',
       :drop_flows_on_start        => false,
       :firewall_driver            => 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver',
       :manage_vswitch             => true,
       :purge_config               => false,
+      :enable_dpdk                => false,
       }
   end
 
@@ -59,7 +59,6 @@ describe 'neutron::agents::ml2::ovs' do
       is_expected.to contain_neutron_agent_ovs('ovs/integration_bridge').with_value(p[:integration_bridge])
       is_expected.to contain_neutron_agent_ovs('securitygroup/firewall_driver').\
         with_value(p[:firewall_driver])
-      is_expected.to contain_neutron_agent_ovs('ovs/enable_tunneling').with_value(false)
       is_expected.to contain_neutron_agent_ovs('ovs/tunnel_bridge').with_ensure('absent')
       is_expected.to contain_neutron_agent_ovs('ovs/local_ip').with_ensure('absent')
       is_expected.to contain_neutron_agent_ovs('ovs/int_peer_patch_port').with_ensure('absent')
@@ -82,10 +81,10 @@ describe 'neutron::agents::ml2::ovs' do
         :name    => platform_params[:ovs_agent_service],
         :enable  => true,
         :ensure  => 'running',
-        :require => 'Class[Neutron]',
-        :tag     => 'neutron-service',
+        :tag     => ['neutron-service', 'neutron-db-sync-service'],
       )
-      is_expected.to contain_service('neutron-ovs-agent-service').that_subscribes_to( [ 'Package[neutron]', 'Package[neutron-ovs-agent]' ] )
+      is_expected.to contain_service('neutron-ovs-agent-service').that_subscribes_to('Anchor[neutron::service::begin]')
+      is_expected.to contain_service('neutron-ovs-agent-service').that_notifies('Anchor[neutron::service::end]')
     end
 
     context 'with manage_service as false' do
@@ -210,17 +209,16 @@ describe 'neutron::agents::ml2::ovs' do
     context 'when enabling tunneling' do
       context 'without local ip address' do
         before :each do
-          params.merge!(:enable_tunneling => true)
+          params.merge!(:tunnel_types => ['vxlan'])
         end
 
         it_raises 'a Puppet::Error', /Local ip for ovs agent must be set when tunneling is enabled/
       end
       context 'with default params' do
         before :each do
-          params.merge!(:enable_tunneling => true, :local_ip => '127.0.0.1' )
+          params.merge!(:tunnel_types => ['vxlan'], :local_ip => '127.0.0.1' )
         end
         it 'should configure ovs for tunneling' do
-          is_expected.to contain_neutron_agent_ovs('ovs/enable_tunneling').with_value(true)
           is_expected.to contain_neutron_agent_ovs('ovs/tunnel_bridge').with_value(default_params[:tunnel_bridge])
           is_expected.to contain_neutron_agent_ovs('ovs/local_ip').with_value('127.0.0.1')
           is_expected.to contain_neutron_agent_ovs('ovs/int_peer_patch_port').with_value('<SERVICE DEFAULT>')
@@ -230,8 +228,7 @@ describe 'neutron::agents::ml2::ovs' do
 
       context 'with vxlan tunneling' do
         before :each do
-          params.merge!(:enable_tunneling => true,
-                        :local_ip => '127.0.0.1',
+          params.merge!(:local_ip => '127.0.0.1',
                         :tunnel_types => ['vxlan'],
                         :vxlan_udp_port => '4789')
         end
@@ -246,7 +243,7 @@ describe 'neutron::agents::ml2::ovs' do
         before :each do
           params.merge!(:enable_distributed_routing => true,
                         :l2_population              => false,
-                        :enable_tunneling           => true,
+                        :tunnel_types               => ['vxlan'],
                         :local_ip                   => '127.0.0.1' )
         end
 
@@ -257,7 +254,7 @@ describe 'neutron::agents::ml2::ovs' do
         before :each do
           params.merge!(:enable_distributed_routing => true,
                         :l2_population              => false,
-                        :enable_tunneling           => false )
+                        :tunnel_types               => [] )
         end
 
         it 'should enable DVR without L2 population' do
@@ -302,6 +299,14 @@ describe 'neutron::agents::ml2::ovs' do
         end
       end
     end
+
+    context 'when enabling dpdk with manage vswitch disabled' do
+      before :each do
+        params.merge!(:enable_dpdk => true, :manage_vswitch => false)
+      end
+
+      it_raises 'a Puppet::Error',/Enabling DPDK without manage vswitch does not have any effect/
+    end
   end
 
   context 'on Debian platforms' do
@@ -339,8 +344,24 @@ describe 'neutron::agents::ml2::ovs' do
       is_expected.to contain_service('ovs-cleanup-service').with(
         :name    => platform_params[:ovs_cleanup_service],
         :enable  => true
-      )
-      is_expected.to contain_package('neutron-ovs-agent').with_before(/Service\[ovs-cleanup-service\]/)
+      ).that_requires('Package[neutron]')
+      is_expected.to contain_package('neutron-ovs-agent').that_requires('Anchor[neutron::install::begin]')
+      is_expected.to contain_package('neutron-ovs-agent').that_notifies('Anchor[neutron::install::end]')
+    end
+
+    context 'when enabling dpdk with manage vswitch is default' do
+      let :pre_condition do
+        "class { 'vswitch::dpdk': core_list => '1,2', memory_channels => '1' }"
+      end
+      before :each do
+        params.merge!(:enable_dpdk => true,
+                      :datapath_type => 'netdev',
+                      :vhostuser_socket_dir => '/var/run/openvswitch')
+      end
+
+      it 'should require vswitch::dpdk' do
+        is_expected.to contain_class('vswitch::dpdk')
+      end
     end
   end
 end

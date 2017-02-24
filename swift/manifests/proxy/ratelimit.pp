@@ -48,10 +48,12 @@ class swift::proxy::ratelimit(
   $account_ratelimit = 0
 ) {
 
+  include ::swift::deps
+
   concat::fragment { 'swift_ratelimit':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/ratelimit.conf.erb'),
-    order   => '26',
+    order   => '90',
   }
 
 }

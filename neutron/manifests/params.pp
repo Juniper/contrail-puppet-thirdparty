@@ -1,5 +1,6 @@
 #
 class neutron::params {
+  include ::openstacklib::defaults
 
   if($::osfamily == 'Redhat') {
     $nobody_user_group    = 'nobody'
@@ -42,6 +43,8 @@ class neutron::params {
     $midonet_server_package = 'python-networking-midonet'
     $midonet_config_file    = '/etc/neutron/plugins/midonet/midonet.ini'
 
+    $ovn_plugin_package = 'python-networking-ovn'
+
     $plumgrid_plugin_package    = 'networking-plumgrid'
     $plumgrid_pythonlib_package = 'plumgrid-pythonlib'
     $plumgrid_config_file       = '/etc/neutron/plugins/plumgrid/plumgrid.ini'
@@ -55,10 +58,7 @@ class neutron::params {
 
     $dnsmasq_packages   = ['dnsmasq', 'dnsmasq-utils']
 
-    $lbaas_agent_package = 'openstack-neutron-lbaas'
-    $lbaas_agent_service = 'neutron-lbaas-agent'
-
-    $lbaasv2_agent_package = false
+    $lbaasv2_agent_package = 'openstack-neutron-lbaas'
     $lbaasv2_agent_service = 'neutron-lbaasv2-agent'
 
     $haproxy_package   = 'haproxy'
@@ -85,9 +85,6 @@ class neutron::params {
     $cliff_package      = 'python-cliff'
 
     $kernel_headers     = "linux-headers-${::kernelrelease}"
-
-    $sqlite_package_name  = undef
-    $pymysql_package_name = undef
 
   } elsif($::osfamily == 'Debian') {
 
@@ -130,6 +127,8 @@ class neutron::params {
     $midonet_server_package = 'python-networking-midonet'
     $midonet_config_file    = '/etc/neutron/plugins/midonet/midonet.ini'
 
+    $ovn_plugin_package = 'python-networking-ovn'
+
     $plumgrid_plugin_package    = 'networking-plumgrid'
     $plumgrid_pythonlib_package = 'plumgrid-pythonlib'
     $plumgrid_config_file       = '/etc/neutron/plugins/plumgrid/plumgrid.ini'
@@ -140,9 +139,6 @@ class neutron::params {
 
     $dhcp_agent_package = 'neutron-dhcp-agent'
     $dhcp_agent_service = 'neutron-dhcp-agent'
-
-    $lbaas_agent_package = 'neutron-lbaas-agent'
-    $lbaas_agent_service = 'neutron-lbaas-agent'
 
     $lbaasv2_agent_package = 'neutron-lbaasv2-agent'
     $lbaasv2_agent_service = 'neutron-lbaasv2-agent'
@@ -172,9 +168,6 @@ class neutron::params {
 
     $cliff_package      = 'python-cliff'
     $kernel_headers     = "linux-headers-${::kernelrelease}"
-
-    $sqlite_package_name  = 'python-pysqlite2'
-    $pymysql_package_name = 'python-pymysql'
   } else {
 
     fail("Unsupported osfamily ${::osfamily}")

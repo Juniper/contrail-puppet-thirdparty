@@ -3,7 +3,7 @@ require 'spec_helper'
 describe 'neutron::plugins::opencontrail' do
 
   let :pre_condition do
-    "class { 'neutron::server': auth_password => 'password' }
+    "class { 'neutron::server': password => 'password' }
      class { 'neutron': rabbit_password => 'passw0rd' }"
   end
 
@@ -73,9 +73,10 @@ describe 'neutron::plugins::opencontrail' do
         :path    => '/etc/default/neutron-server',
         :match   => '^NEUTRON_PLUGIN_CONFIG=(.*)$',
         :line    => 'NEUTRON_PLUGIN_CONFIG=/etc/neutron/plugins/opencontrail/ContrailPlugin.ini',
-        :require => ['Package[neutron-server]', 'Package[neutron-plugin-contrail]'],
-        :notify  => 'Service[neutron-server]'
+        :tag     => 'neutron-file-line',
       )
+      is_expected.to contain_file_line('/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG').that_requires('Anchor[neutron::config::begin]')
+      is_expected.to contain_file_line('/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG').that_notifies('Anchor[neutron::config::end]')
     end
     it_configures 'neutron opencontrail plugin'
   end

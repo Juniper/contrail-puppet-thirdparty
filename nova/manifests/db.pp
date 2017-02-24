@@ -21,6 +21,11 @@
 #
 # == Parameters
 #
+# [*database_db_max_retries*]
+#   (optional) Maximum retries in case of connection error or deadlock error
+#   before error is raised. Set to -1 to specify an infinite retry count.
+#   Defaults to $::os_service_default
+#
 # [*database_connection*]
 #   (optional) Connection url to connect to nova database.
 #   Defaults to $::os_service_default
@@ -63,6 +68,7 @@
 #   (Optional) Defaults to $::os_service_default
 #
 class nova::db (
+  $database_db_max_retries = $::os_service_default,
   $database_connection     = $::os_service_default,
   $slave_connection        = $::os_service_default,
   $api_database_connection = $::os_service_default,
@@ -96,47 +102,17 @@ class nova::db (
     validate_re($database_connection_real,
       '^(sqlite|mysql(\+pymysql)?|postgresql):\/\/(\S+:\S+@\S+\/\S+)?')
 
-    case $database_connection_real {
-      /^mysql(\+pymysql)?:\/\//: {
-        require 'mysql::bindings'
-        require 'mysql::bindings::python'
-        if $database_connection_real =~ /^mysql\+pymysql/ {
-          $backend_package = $::nova::params::pymysql_package_name
-        } else {
-          $backend_package = false
-        }
-      }
-      /^postgresql:\/\//: {
-        $backend_package = false
-        require 'postgresql::lib::python'
-      }
-      /^sqlite:\/\//: {
-        $backend_package = $::nova::params::sqlite_package_name
-      }
-      default: {
-        fail('Unsupported backend configured')
-      }
+    oslo::db { 'nova_config':
+      db_max_retries   => $database_db_max_retries,
+      connection       => $database_connection_real,
+      idle_timeout     => $database_idle_timeout_real,
+      min_pool_size    => $database_min_pool_size_real,
+      max_pool_size    => $database_max_pool_size_real,
+      max_retries      => $database_max_retries_real,
+      retry_interval   => $database_retry_interval_real,
+      max_overflow     => $database_max_overflow_real,
+      slave_connection => $slave_connection_real,
     }
-
-    if $backend_package and !defined(Package[$backend_package]) {
-      package {'nova-backend-package':
-        ensure => present,
-        name   => $backend_package,
-        tag    => ['openstack', 'nova-package'],
-      }
-    }
-
-    nova_config {
-      'database/connection':       value => $database_connection_real, secret => true;
-      'database/idle_timeout':     value => $database_idle_timeout_real;
-      'database/min_pool_size':    value => $database_min_pool_size_real;
-      'database/max_retries':      value => $database_max_retries_real;
-      'database/retry_interval':   value => $database_retry_interval_real;
-      'database/max_pool_size':    value => $database_max_pool_size_real;
-      'database/max_overflow':     value => $database_max_overflow_real;
-      'database/slave_connection': value => $slave_connection_real, secret => true;
-    }
-
   }
 
   if !is_service_default($api_database_connection_real) {

@@ -1,6 +1,7 @@
 # these parameters need to be accessed from several locations and
 # should be considered to be constant
 class horizon::params {
+  include ::openstacklib::defaults
 
   $logdir      = '/var/log/horizon'
   $django_wsgi = '/usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi'
@@ -17,8 +18,8 @@ class horizon::params {
       $root_url                    = '/dashboard'
       $apache_user                 = 'apache'
       $apache_group                = 'apache'
-      $wsgi_user                   = 'dashboard'
-      $wsgi_group                  = 'dashboard'
+      $wsgi_user                   = 'apache'
+      $wsgi_group                  = 'apache'
       $memcache_package            = 'python-memcached'
     }
     'Debian': {
@@ -43,7 +44,8 @@ class horizon::params {
       }
     }
     default: {
-      fail("Unsupported osfamily: ${::osfamily} operatingsystem: ${::operatingsystem}, module ${module_name} only support osfamily RedHat and Debian")
+      fail("Unsupported osfamily: ${::osfamily} operatingsystem: ${::operatingsystem}, \
+module ${module_name} only support osfamily RedHat and Debian")
     }
   }
 }

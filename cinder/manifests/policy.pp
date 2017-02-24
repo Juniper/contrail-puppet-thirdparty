@@ -22,6 +22,8 @@ class cinder::policy (
   $policy_path = '/etc/cinder/policy.json',
 ) {
 
+  include ::cinder::deps
+
   validate_hash($policies)
 
   Openstacklib::Policy::Base {
@@ -29,5 +31,6 @@ class cinder::policy (
   }
 
   create_resources('openstacklib::policy::base', $policies)
+  oslo::policy { 'cinder_config': policy_file => $policy_path }
 
 }

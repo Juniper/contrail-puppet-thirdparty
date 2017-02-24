@@ -77,6 +77,7 @@ describe 'neutron::plugins::ml2' do
       is_expected.to contain_neutron_plugin_ml2('ml2/extension_drivers').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_plugin_ml2('ml2/path_mtu').with_value(p[:path_mtu])
       is_expected.to contain_neutron_plugin_ml2('ml2/physical_network_mtus').with_ensure('absent')
+      is_expected.to contain_neutron_plugin_ml2('ml2/overlay_ip_version').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_plugin_ml2('securitygroup/firewall_driver').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_plugin_ml2('securitygroup/enable_security_group').with_value('<SERVICE DEFAULT>')
     end
@@ -93,8 +94,10 @@ describe 'neutron::plugins::ml2' do
         is_expected.to contain_package('neutron-plugin-ml2').with(
           :name   => platform_params[:ml2_server_package],
           :ensure => p[:package_ensure],
-          :tag    => 'openstack'
+          :tag    => ['neutron-package', 'openstack'],
         )
+        is_expected.to contain_package('neutron-plugin-ml2').that_requires('Anchor[neutron::install::begin]')
+        is_expected.to contain_package('neutron-plugin-ml2').that_notifies('Anchor[neutron::install::end]')
       end
     end
 
@@ -109,6 +112,33 @@ describe 'neutron::plugins::ml2' do
       it 'configures enable_security_group and firewall_driver options' do
         is_expected.to contain_neutron_plugin_ml2('securitygroup/enable_security_group').with_value('true')
         is_expected.to contain_neutron_plugin_ml2('securitygroup/firewall_driver').with_value('neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver')
+      end
+    end
+
+    context 'when specifying IPv4 overlays' do
+      before :each do
+        params.merge!(:overlay_ip_version => 4)
+      end
+      it 'configures as IPv4' do
+        is_expected.to contain_neutron_plugin_ml2('ml2/overlay_ip_version').with_value(4)
+      end
+    end
+
+    context 'when specifying IPv6 overlays' do
+      before :each do
+        params.merge!(:overlay_ip_version => 6)
+      end
+      it 'configures as IPv6' do
+        is_expected.to contain_neutron_plugin_ml2('ml2/overlay_ip_version').with_value(6)
+      end
+    end
+
+    context 'when specifying an invalid overlay IP versions' do
+      before :each do
+        params.merge!(:overlay_ip_version => 10)
+      end
+      it 'fails to accept value' do
+        is_expected.to raise_error(Puppet::Error)
       end
     end
 
@@ -251,7 +281,7 @@ describe 'neutron::plugins::ml2' do
           is_expected.to contain_package('neutron-plugin-ml2').with(
             :name   => platform_params[:ml2_server_package],
             :ensure => params[:package_ensure],
-            :tag    => 'openstack'
+            :tag    => ['neutron-package', 'openstack'],
           )
         end
       end
@@ -261,11 +291,9 @@ describe 'neutron::plugins::ml2' do
       before :each do
         params.merge!(
           :mechanism_drivers    => ['openvswitch', 'sriovnicswitch'],
-          :sriov_agent_required => true,
         )
       end
-      it 'configures sriov mechanism driver with agent_enabled' do
-        is_expected.to contain_neutron_plugin_sriov('ml2_sriov/agent_required').with_value('true')
+      it 'configures sriov mechanism driver' do
         is_expected.to contain_neutron_plugin_sriov('ml2_sriov/supported_pci_vendor_devs').with_value(['15b3:1004,8086:10ca'])
       end
     end
@@ -280,8 +308,9 @@ describe 'neutron::plugins::ml2' do
           :path    => '/etc/default/neutron-server',
           :match   => '^NEUTRON_PLUGIN_CONFIG=(.*)$',
           :line    => 'NEUTRON_PLUGIN_CONFIG=/etc/neutron/plugin.ini',
-          :require => ['File[/etc/default/neutron-server]','File[/etc/neutron/plugin.ini]']
         )
+        is_expected.to contain_file_line('/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG').that_requires('Anchor[neutron::config::begin]')
+        is_expected.to contain_file_line('/etc/default/neutron-server:NEUTRON_PLUGIN_CONFIG').that_notifies('Anchor[neutron::config::end]')
       end
     end
   end

@@ -49,6 +49,12 @@
 #   longer be valid.
 #   Defaults to $::os_service_default
 #
+# [*manage_volume_type*]
+#   (Optional) Whether or not manage Cinder Volume type.
+#   If set to true, a Cinde Volume type will be created
+#   with volume_backend_name=$volume_backend_name key/value.
+#   Defaults to false.
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
 #   Defaults to: {}
@@ -66,13 +72,16 @@ define cinder::backend::nfs (
   $nfs_shares_config    = '/etc/cinder/shares.conf',
   $nfs_used_ratio       = $::os_service_default,
   $nfs_oversub_ratio    = $::os_service_default,
+  $manage_volume_type   = false,
   $extra_options        = {},
 ) {
 
+  include ::cinder::deps
+
   file {$nfs_shares_config:
     content => join($nfs_servers, "\n"),
-    require => Package['cinder'],
-    notify  => Service['cinder-volume']
+    require => Anchor['cinder::install::end'],
+    notify  => Anchor['cinder::service::begin'],
   }
 
   cinder_config {
@@ -87,6 +96,13 @@ define cinder::backend::nfs (
     "${name}/nfs_mount_point_base": value => $nfs_mount_point_base;
     "${name}/nfs_used_ratio":       value => $nfs_used_ratio;
     "${name}/nfs_oversub_ratio":    value => $nfs_oversub_ratio;
+  }
+
+  if $manage_volume_type {
+    cinder_type { $volume_backend_name:
+      ensure     => present,
+      properties => ["volume_backend_name=${volume_backend_name}"],
+    }
   }
 
   create_resources('cinder_config', $extra_options)

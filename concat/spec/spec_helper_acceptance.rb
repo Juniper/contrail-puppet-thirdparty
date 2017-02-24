@@ -1,23 +1,31 @@
 require 'beaker-rspec/spec_helper'
 require 'beaker-rspec/helpers/serverspec'
+require 'acceptance/specinfra_stubs'
+require 'beaker/puppet_install_helper'
 
-unless ENV['RS_PROVISION'] == 'no'
+run_puppet_install_helper
+
+unless ENV['RS_PROVISION'] == 'no' or ENV['BEAKER_provision'] == 'no'
   hosts.each do |host|
-    if host['platform'] =~ /debian/
-      on host, 'echo \'export PATH=/var/lib/gems/1.8/bin/:${PATH}\' >> ~/.bashrc'
-    end
-    if host.is_pe?
-      install_pe
+    if host['platform'] =~ /sles-1/i || host['platform'] =~ /solaris-1/i
+      get_deps = <<-EOS
+      package{'wget':}
+      exec{'download-stdlib':
+        command => "wget -P /root/ https://forgeapi.puppetlabs.com/v3/files/puppetlabs-stdlib-4.5.1.tar.gz --no-check-certificate",
+        path    => ['/opt/csw/bin/','/usr/bin/']
+      }
+      EOS
+      apply_manifest_on(host, get_deps)
+      # have to use force otherwise it checks ssl cert even though it is a local file
+      on host, puppet('module install /root/puppetlabs-stdlib-4.5.1.tar.gz --force --ignore-dependencies'), {:acceptable_exit_codes => [0, 1]}
+    elsif host['platform'] =~ /windows/i
+      on host, 'curl -k -o c:/puppetlabs-stdlib-4.5.1.tar.gz https://forgeapi.puppetlabs.com/v3/files/puppetlabs-stdlib-4.5.1.tar.gz'
+      on host, puppet('module install c:/puppetlabs-stdlib-4.5.1.tar.gz --force --ignore-dependencies'), {:acceptable_exit_codes => [0, 1]}
     else
-      # Install Puppet
-      install_package host, 'rubygems'
-      on host, 'gem install puppet --no-ri --no-rdoc'
-      on host, "mkdir -p #{host['distmoduledir']}"
+      on host, puppet('module install puppetlabs-stdlib'), {:acceptable_exit_codes => [0, 1]}
     end
   end
 end
-
-UNSUPPORTED_PLATFORMS = ['windows']
 
 RSpec.configure do |c|
   # Project root
@@ -28,10 +36,8 @@ RSpec.configure do |c|
 
   # Configure all nodes in nodeset
   c.before :suite do
-    # Install module and dependencies
-    puppet_module_install(:source => proj_root, :module_name => 'concat')
     hosts.each do |host|
-      on host, puppet('module','install','puppetlabs-stdlib'), { :acceptable_exit_codes => [0,1] }
+      copy_module_to(host, :source => proj_root, :module_name => 'concat')
     end
   end
 
@@ -39,8 +45,9 @@ RSpec.configure do |c|
     shell('mkdir -p /tmp/concat')
   end
   c.after(:all) do
-    shell("rm -rf /tmp/concat #{default.puppet['vardir']}/concat")
+    shell('rm -rf /tmp/concat /var/lib/puppet/concat')
   end
 
   c.treat_symbols_as_metadata_keys_with_true_values = true
 end
+

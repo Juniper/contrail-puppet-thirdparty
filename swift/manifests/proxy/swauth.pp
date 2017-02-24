@@ -21,15 +21,18 @@ class swift::proxy::swauth(
   $package_ensure = 'present'
 ) {
 
+  include ::swift::deps
+
   package { 'python-swauth':
     ensure => $package_ensure,
     before => Package['swift-proxy'],
+    tag    => 'swift-package',
   }
 
   concat::fragment { 'swift_proxy_swauth':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/swauth.conf.erb'),
-    order   => '20',
+    order   => '160',
   }
 
 }

@@ -10,7 +10,13 @@ describe 'heat::api_cloudwatch' do
       :workers        => '0' }
   end
 
+
   shared_examples_for 'heat-api-cloudwatch' do
+    let :pre_condition do
+      "class { 'heat::keystone::authtoken':
+           password => 'a_big_secret',
+       }"
+    end
 
     context 'config params' do
 
@@ -46,17 +52,6 @@ describe 'heat::api_cloudwatch' do
       end
 
       it_raises 'a Puppet::Error', /The cert_file parameter is required when use_ssl is set to true/
-    end
-
-    context 'with SSL socket options set to false' do
-      let :params do
-        {
-          :use_ssl   => false,
-        }
-      end
-
-      it { is_expected.to contain_heat_config('heat_api_cloudwatch/cert_file').with_value('<SERVICE DEFAULT>') }
-      it { is_expected.to contain_heat_config('heat_api_cloudwatch/key_file').with_value('<SERVICE DEFAULT>') }
     end
 
     [{:enabled => true}, {:enabled => false}].each do |param_hash|
@@ -103,7 +98,10 @@ describe 'heat::api_cloudwatch' do
 
     context 'with $sync_db set to false in ::heat' do
       let :pre_condition do
-        "class {'heat': sync_db => false}"
+        "class {'heat':
+           keystone_password => 'password',
+           sync_db => false
+         }"
       end
 
       it 'configures heat-api-cloudwatch service to not subscribe to the dbsync resource' do

@@ -17,6 +17,11 @@ describe 'cinder::backend::gpfs' do
       :gpfs_storage_pool      => '<SERVICE DEFAULT>',
       :gpfs_images_dir        => '<SERVICE DEFAULT>',
       :gpfs_images_share_mode => '<SERVICE DEFAULT>',
+      :nas_host               => '<SERVICE DEFAULT>',
+      :nas_login              => '<SERVICE DEFAULT>',
+      :nas_password           => '<SERVICE DEFAULT>',
+      :nas_private_key        => '<SERVICE DEFAULT>',
+      :nas_ssh_port           => '<SERVICE DEFAULT>',
   }
   end
 
@@ -25,7 +30,12 @@ describe 'cinder::backend::gpfs' do
       :gpfs_max_clone_depth   => 1,
       :gpfs_sparse_volumes    => false,
       :gpfs_storage_pool      => 'foo',
-  }
+      :nas_host               => 'nas_host',
+      :nas_login              => 'admin',
+      :nas_password           => 'nas_password',
+      :nas_private_key        => '/path/to/private_key',
+      :nas_ssh_port           => '22',
+    }
   end
 
   let :facts do
@@ -83,6 +93,15 @@ describe 'cinder::backend::gpfs' do
       })
     end
     it_raises 'a Puppet::Error', /gpfs_images_share_mode only support `copy` or `copy_on_write`/
+  end
+
+  context 'gpfs backend with cinder type' do
+    before do
+      params.merge!({:manage_volume_type => true})
+    end
+    it 'should create type with properties' do
+      should contain_cinder_type('gpfs').with(:ensure => :present, :properties => ['volume_backend_name=gpfs'])
+    end
   end
 
   context 'gpfs backend with additional configuration' do

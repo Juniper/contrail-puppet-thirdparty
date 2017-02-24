@@ -3,6 +3,7 @@
 # Parameters for puppet-heat
 #
 class heat::params {
+  include ::openstacklib::defaults
 
   case $::osfamily {
     'RedHat': {
@@ -13,8 +14,6 @@ class heat::params {
       $engine_package_name = 'openstack-heat-engine'
       $client_package_name = 'python-heatclient'
       $common_package_name = 'openstack-heat-common'
-      $sqlite_package_name  = undef
-      $pymysql_package_name = undef
       # service names
       $api_service_name = 'openstack-heat-api'
       $api_cloudwatch_service_name = 'openstack-heat-api-cloudwatch'
@@ -29,8 +28,6 @@ class heat::params {
       $engine_package_name = 'heat-engine'
       $client_package_name = 'python-heatclient'
       $common_package_name = 'heat-common'
-      $sqlite_package_name  = 'python-pysqlite2'
-      $pymysql_package_name = 'python-pymysql'
       # service names
       $api_service_name = 'heat-api'
       $api_cloudwatch_service_name = 'heat-api-cloudwatch'

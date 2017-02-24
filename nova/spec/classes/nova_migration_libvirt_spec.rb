@@ -44,6 +44,9 @@ describe 'nova::migration::libvirt' do
       it { is_expected.to contain_file_line('/etc/libvirt/libvirtd.conf listen_tcp').with(:line => "listen_tcp = 1") }
       it { is_expected.not_to contain_file_line('/etc/libvirt/libvirtd.conf auth_tls')}
       it { is_expected.to contain_file_line('/etc/libvirt/libvirtd.conf auth_tcp').with(:line => "auth_tcp = \"none\"") }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_tunnelled').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_completion_timeout').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_progress_timeout').with_value('<SERVICE DEFAULT>') }
     end
 
     context 'with override_uuid enabled' do
@@ -79,12 +82,14 @@ describe 'nova::migration::libvirt' do
     context 'with migration flags set' do
       let :params do
         {
-          :live_migration_flag => 'live migration flag',
-          :block_migration_flag => 'block migration flag',
+          :live_migration_tunnelled          => true,
+          :live_migration_completion_timeout => '1500',
+          :live_migration_progress_timeout   => '1500',
         }
       end
-      it { is_expected.to contain_nova_config('libvirt/live_migration_flag').with(:value => 'live migration flag') }
-      it { is_expected.to contain_nova_config('libvirt/block_migration_flag').with(:value => 'block migration flag') }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_tunnelled').with(:value => true) }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_completion_timeout').with_value('1500') }
+      it { is_expected.to contain_nova_config('libvirt/live_migration_progress_timeout').with_value('1500') }
     end
 
     context 'with auth set to sasl' do
@@ -117,11 +122,48 @@ describe 'nova::migration::libvirt' do
       it { expect { is_expected.to contain_class('nova::compute::libvirt') }.to \
         raise_error(Puppet::Error, /Valid options for auth are none and sasl./) }
     end
+
+    context 'when not configuring libvirt' do
+      let :params do
+        {
+          :configure_libvirt => false
+        }
+      end
+      it { is_expected.not_to contain_file_line('/etc/libvirt/libvirtd.conf listen_tls') }
+    end
+
+    context 'when not configuring nova and tls enabled' do
+      let :params do
+        {
+          :configure_nova => false,
+          :use_tls        => true,
+        }
+      end
+      it { is_expected.not_to contain_nova_config('libvirt/live_migration_uri').with_value('qemu+tls://%s/system') }
+    end
   end
 
-  context 'on Debian platforms' do
+  # TODO (degorenko): switch to on_supported_os function when we got Xenial
+  context 'on Debian platforms with Ubuntu release 16' do
     let :facts do
-      @default_facts.merge({ :osfamily => 'Debian' })
+      @default_facts.merge({
+        :osfamily => 'Debian',
+        :operatingsystem => 'Ubuntu',
+        :operatingsystemmajrelease => '16'
+      })
+    end
+
+    it_configures 'nova migration with libvirt'
+    it { is_expected.to contain_file_line('/etc/default/libvirt-bin libvirtd opts').with(:line => 'libvirtd_opts="-l"') }
+  end
+
+  context 'on Debian platforms release' do
+    let :facts do
+      @default_facts.merge({
+        :osfamily => 'Debian',
+        :operatingsystem => 'Debian',
+        :operatingsystemmajrelease => '8'
+      })
     end
 
     it_configures 'nova migration with libvirt'
@@ -130,7 +172,11 @@ describe 'nova::migration::libvirt' do
 
   context 'on RedHat platforms' do
     let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
+      @default_facts.merge({
+        :osfamily => 'RedHat',
+        :operatingsystem => 'CentOS',
+        :operatingsystemmajrelease => '7.0'
+      })
     end
 
     it_configures 'nova migration with libvirt'

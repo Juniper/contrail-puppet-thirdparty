@@ -49,6 +49,12 @@
 #   (optional) The name for the folder in the VC datacenter that will contain cinder volumes.
 #   Defaults to 'cinder-volumes'.
 #
+# [*manage_volume_type*]
+#   (Optional) Whether or not manage Cinder Volume type.
+#   If set to true, a Cinde Volume type will be created
+#   with volume_backend_name=$volume_backend_name key/value.
+#   Defaults to false.
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
 #   Defaults to: {}
@@ -66,15 +72,20 @@ define cinder::backend::vmdk (
   $task_poll_interval          = 5,
   $image_transfer_timeout_secs = $::os_service_default,
   $wsdl_location               = $::os_service_default,
+  $manage_volume_type          = false,
   $extra_options               = {},
   ) {
 
+  include ::cinder::deps
+
   if $volume_folder == 'cinder-volumes' {
-    warning('The OpenStack default value of volume_folder differs from the puppet module default of "cinder-volumes" and will be changed to the upstream OpenStack default in N-release.')
+    warning("The OpenStack default value of volume_folder differs from the puppet module \
+default of \"cinder-volumes\" and will be changed to the upstream OpenStack default in N-release.")
   }
 
   if $task_poll_interval == 5 {
-    warning('The OpenStack default value of task_poll_interval differs from the puppet module default of "5" and will be changed to the upstream OpenStack default in N-release.')
+    warning("The OpenStack default value of task_poll_interval differs from the puppet \
+module default of \"5\" and will be changed to the upstream OpenStack default in N-release.")
   }
 
   cinder_config {
@@ -92,8 +103,16 @@ define cinder::backend::vmdk (
     "${name}/host":                               value => "vmdk:${host_ip}-${volume_folder}";
   }
 
+  if $manage_volume_type {
+    cinder_type { $volume_backend_name:
+      ensure     => present,
+      properties => ["volume_backend_name=${volume_backend_name}"],
+    }
+  }
+
   package { 'python-suds':
-    ensure   => present
+    ensure => present,
+    tag    => 'cinder-support-package',
   }
 
   create_resources('cinder_config', $extra_options)

@@ -8,10 +8,6 @@
 #    (Optional) Ensure state for package.
 #    Defaults to 'present'
 #
-# [*verbose*]
-#   (Optional) Should the daemons log verbose messages
-#   Defaults to undef.
-#
 # [*debug*]
 #   (Optional) Should the daemons log debug messages
 #   Defaults to undef.
@@ -20,6 +16,12 @@
 #   (Optional) Directory where logs should be stored
 #   If set to boolean 'false', it will not log to any directory
 #   Defaults to undef.
+#
+# [*default_transport_url*]
+#   (optional) A URL representing the messaging driver to use and its full
+#   configuration. Transport URLs take the form:
+#   transport://user:pass@host1:port[,hostN:portN]/virtual_host
+#   Defaults to $::os_service_default
 #
 # [*rpc_backend*]
 #   (Optional) Use these options to configure the message system.
@@ -95,8 +97,94 @@
 #   available on some distributions.
 #   Defaults to $::os_service_default.
 #
+# [*kombu_reconnect_delay*]
+#   (Optional) How long to wait before reconnecting in response
+#   to an AMQP consumer cancel notification. (floating point value)
+#   Defaults to $::os_service_default
+#
+# [*kombu_failover_strategy*]
+#   (Optional) Determines how the next RabbitMQ node is chosen in case the one
+#   we are currently connected to becomes unavailable. Takes effect only if
+#   more than one RabbitMQ node is provided in config. (string value)
+#   Defaults to $::os_service_default
+#
+# [*kombu_compression*]
+#   (optional) Possible values are: gzip, bz2. If not set compression will not
+#   be used. This option may notbe available in future versions. EXPERIMENTAL.
+#   (string value)
+#   Defaults to $::os_service_default
+#
 # [*amqp_durable_queues*]
 #   (Optional) Use durable queues in amqp.
+#   Defaults to $::os_service_default.
+#
+# [*amqp_server_request_prefix*]
+#   (Optional) Address prefix used when sending to a specific server
+#   Defaults to $::os_service_default.
+#
+# [*amqp_broadcast_prefix*]
+#   (Optional) address prefix used when broadcasting to all servers
+#   Defaults to $::os_service_default.
+#
+# [*amqp_group_request_prefix*]
+#   (Optional) address prefix when sending to any server in group
+#   Defaults to $::os_service_default.
+#
+# [*amqp_container_name*]
+#   (Optional) Name for the AMQP container
+#   Defaults to $::os_service_default.
+#
+# [*amqp_idle_timeout*]
+#   (Optional) Timeout for inactive connections
+#   Defaults to $::os_service_default.
+#
+# [*amqp_trace*]
+#   (Optional) Debug: dump AMQP frames to stdout
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_ca_file*]
+#   (Optional) CA certificate PEM file to verify server certificate
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_cert_file*]
+#   (Optional) Identifying certificate PEM file to present to clients
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_key_file*]
+#   (Optional) Private key PEM file used to sign cert_file certificate
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_key_password*]
+#   (Optional) Password for decrypting ssl_key_file (if encrypted)
+#   Defaults to $::os_service_default.
+#
+# [*amqp_allow_insecure_clients*]
+#   (Optional) Accept clients using either SSL or plain TCP
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_mechanisms*]
+#   (Optional) Space separated list of acceptable SASL mechanisms
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_config_dir*]
+#   (Optional) Path to directory that contains the SASL configuration
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_config_name*]
+#   (Optional) Name of configuration file (without .conf suffix)
+#   Defaults to $::os_service_default.
+#
+# [*amqp_username*]
+#   (Optional) User name for message broker authentication
+#   Defaults to $::os_service_default.
+#
+# [*amqp_password*]
+#   (Optional) Password for message broker authentication
+#   Defaults to $::os_service_default.
+#
+# [*host*]
+#   (Optional) Name of this node. This is typically a hostname, FQDN, or
+#   IP address.
 #   Defaults to $::os_service_default.
 #
 # [*max_template_size*]
@@ -108,49 +196,16 @@
 #   Should be larger than max_template_size.
 #   Defaults to $::os_service_default
 #
+# [*notification_transport_url*]
+#   (optional) A URL representing the messaging driver to use for notifications
+#   and its full configuration. Transport URLs take the form:
+#     transport://user:pass@host1:port[,hostN:portN]/virtual_host
+#   Defaults to $::os_service_default
+#
 # [*notification_driver*]
 #   (Optional) Driver or drivers to handle sending notifications.
 #   Value can be a string or a list.
 #   Defaults to $::os_service_default
-#
-# == keystone authentication options
-#
-# [*auth_uri*]
-#   (Optional) Specifies the public Identity URI for Heat to use.
-#   Located in heat.conf.
-#   Defaults to: 'http://127.0.0.1:5000/'.
-#
-# [*identity_uri*]
-#   (Optional) Specifies the admin Identity URI for Heat to use.
-#   Located in heat.conf.
-#   Defaults to: 'http://127.0.0.1:35357/'.
-#
-# [*auth_plugin*]
-#   Specifies the plugin used for authentication.
-#   Defaults to undef.
-#
-# [*keystone_user*]
-#   Defaults to 'heat'.
-#
-# [*keystone_tenant*]
-#   Defaults to 'services'.
-#
-# [*keystone_password*]
-#
-# [*keystone_project_domain_name*]
-#   Specifies the project domain of Keystone account for "password" auth_plugin.
-#   Defaults to 'Default'.
-#
-# [*keystone_user_domain_id*]
-#   (Optional) Domain ID of the principal if the principal has a domain.
-#   Defaults to: 'Default'.
-#
-# [*keystone_user_domain_name*]
-#   Defaults to 'Default'.
-#
-# [*keystone_project_domain_id*]
-#   (Optional) Domain ID of the scoped project if auth is project-scoped.
-#   Defaults to: 'Default'.
 #
 # [*keystone_ec2_uri*]
 #
@@ -205,13 +260,6 @@
 #   default region name that heat talks to service endpoints on.
 #   Defaults to $::os_service_default.
 #
-# [*instance_user*]
-#   (Optional) The default user for new instances. Although heat claims that
-#   this feature is deprecated, it still sets the users to ec2-user if
-#   you leave this unset. If you want heat to not set instance_user to
-#   ec2-user, you need to set this to an empty string. This feature has been
-#   deprecated for some time and will likely be removed in L or M.
-#
 # [*enable_stack_adopt*]
 #   (Optional) Enable the stack-adopt feature.
 #   Defaults to $::os_service_default.
@@ -224,60 +272,82 @@
 #   (Optional) Run db sync on nodes after connection setting has been set.
 #   Defaults to true
 #
+# [*enable_proxy_headers_parsing*]
+#   (Optional) Enable paste middleware to handle SSL requests through
+#   HTTPProxyToWSGI middleware.
+#   Defaults to $::os_service_default.
+#
 # [*heat_clients_url*]
 #   (optional) Heat url in format like http://0.0.0.0:8004/v1/%(tenant_id)s.
 #   Defaults to $::os_service_default.
 #
-# === Deprecated Parameters
+# [*purge_config*]
+#   (optional) Whether to set only the specified config options
+#   in the heat config.
+#   Defaults to false.
 #
-# [*mysql_module*]
-#   Deprecated. Does nothing.
+# [*auth_strategy*]
+#   (optional) Type of authentication to use
+#   Defaults to 'keystone'
 #
-# [*sql_connection*]
-#   Deprecated. Use database_connection instead.
+# DEPRECATED PARAMETERS
 #
-# [*qpid_hostname*]
+# [*verbose*]
+#   (Optional) Deprecated. Should the daemons log verbose messages
+#   Defaults to undef.
 #
-# [*qpid_port*]
+# [*auth_uri*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::auth_uri
+#   Defaults to undef
 #
-# [*qpid_username*]
+# [*identity_uri*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::auth_url
+#   Defaults to undef
 #
-# [*qpid_password*]
+# [*auth_plugin*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::auth_type
+#   Defaults to undef
 #
-# [*qpid_heartbeat*]
+# [*keystone_user*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::username
+#   Defaults to undef
 #
-# [*qpid_protocol*]
+# [*keystone_tenant*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::project_name
+#   Defaults to undef
 #
-# [*qpid_tcp_nodelay*]
+# [*keystone_password*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::password
+#   Defaults to undef
 #
-# [*qpid_reconnect*]
+# [*keystone_user_domain_name*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::user_domain_name
+#   Defaults to undef
 #
-# [*qpid_reconnect_timeout*]
+# [*keystone_user_domain_id*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::user_domain_name
+#   instead, there is no need for both id and name options.
+#   Defaults to $::os_service_default
 #
-# [*qpid_reconnect_limit*]
+# [*keystone_project_domain_name*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::project_domain_name
+#   Defaults to undef
 #
-# [*qpid_reconnect_interval*]
+# [*keystone_project_domain_id*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::project_domain_name
+#   instead, there is no need for both id and name options.
+#   Defaults to $::os_service_default
 #
-# [*qpid_reconnect_interval_min*]
-#
-# [*qpid_reconnect_interval_max*]
+# [*memcached_servers*]
+#   (Optional) Deprecated. Use heat::keystone::authtoken::memcached_servers.
+#   Defaults to undef
 #
 class heat(
-  $auth_uri                           = 'http://127.0.0.1:5000/',
-  $identity_uri                       = 'http://127.0.0.1:35357/',
   $package_ensure                     = 'present',
-  $verbose                            = undef,
   $debug                              = undef,
   $log_dir                            = undef,
-  $auth_plugin                        = undef,
-  $keystone_user                      = 'heat',
-  $keystone_tenant                    = 'services',
-  $keystone_password                  = false,
   $keystone_ec2_uri                   = 'http://127.0.0.1:5000/v2.0/ec2tokens',
-  $keystone_project_domain_id         = 'Default',
-  $keystone_project_domain_name       = 'Default',
-  $keystone_user_domain_id            = 'Default',
-  $keystone_user_domain_name          = 'Default',
+  $default_transport_url              = $::os_service_default,
   $rpc_backend                        = $::os_service_default,
   $rpc_response_timeout               = $::os_service_default,
   $rabbit_host                        = $::os_service_default,
@@ -294,7 +364,27 @@ class heat(
   $kombu_ssl_certfile                 = $::os_service_default,
   $kombu_ssl_keyfile                  = $::os_service_default,
   $kombu_ssl_version                  = $::os_service_default,
+  $kombu_reconnect_delay              = $::os_service_default,
+  $kombu_failover_strategy            = $::os_service_default,
+  $kombu_compression                  = $::os_service_default,
   $amqp_durable_queues                = $::os_service_default,
+  $amqp_server_request_prefix         = $::os_service_default,
+  $amqp_broadcast_prefix              = $::os_service_default,
+  $amqp_group_request_prefix          = $::os_service_default,
+  $amqp_container_name                = $::os_service_default,
+  $amqp_idle_timeout                  = $::os_service_default,
+  $amqp_trace                         = $::os_service_default,
+  $amqp_ssl_ca_file                   = $::os_service_default,
+  $amqp_ssl_cert_file                 = $::os_service_default,
+  $amqp_ssl_key_file                  = $::os_service_default,
+  $amqp_ssl_key_password              = $::os_service_default,
+  $amqp_allow_insecure_clients        = $::os_service_default,
+  $amqp_sasl_mechanisms               = $::os_service_default,
+  $amqp_sasl_config_dir               = $::os_service_default,
+  $amqp_sasl_config_name              = $::os_service_default,
+  $amqp_username                      = $::os_service_default,
+  $amqp_password                      = $::os_service_default,
+  $host                               = $::os_service_default,
   $use_syslog                         = undef,
   $use_stderr                         = undef,
   $log_facility                       = undef,
@@ -312,25 +402,25 @@ class heat(
   $sync_db                            = undef,
   $max_template_size                  = $::os_service_default,
   $max_json_body_size                 = $::os_service_default,
+  $notification_transport_url         = $::os_service_default,
   $notification_driver                = $::os_service_default,
+  $enable_proxy_headers_parsing       = $::os_service_default,
   $heat_clients_url                   = $::os_service_default,
-  # Deprecated parameters
-  $mysql_module                       = undef,
-  $sql_connection                     = undef,
-  $instance_user                      = undef,
-  $qpid_hostname                      = undef,
-  $qpid_port                          = undef,
-  $qpid_username                      = undef,
-  $qpid_password                      = undef,
-  $qpid_heartbeat                     = undef,
-  $qpid_protocol                      = undef,
-  $qpid_tcp_nodelay                   = undef,
-  $qpid_reconnect                     = undef,
-  $qpid_reconnect_timeout             = undef,
-  $qpid_reconnect_limit               = undef,
-  $qpid_reconnect_interval_min        = undef,
-  $qpid_reconnect_interval_max        = undef,
-  $qpid_reconnect_interval            = undef,
+  $purge_config                       = false,
+  $auth_strategy                      = 'keystone',
+  # Deprecated
+  $verbose                            = undef,
+  $auth_uri                           = undef,
+  $identity_uri                       = undef,
+  $auth_plugin                        = undef,
+  $keystone_user                      = undef,
+  $keystone_tenant                    = undef,
+  $keystone_password                  = undef,
+  $keystone_user_domain_name          = undef,
+  $keystone_user_domain_id            = $::os_service_default,
+  $keystone_project_domain_name       = undef,
+  $keystone_project_domain_id         = $::os_service_default,
+  $memcached_servers                  = undef,
 ) {
 
   include ::heat::logging
@@ -338,23 +428,56 @@ class heat(
   include ::heat::deps
   include ::heat::params
 
-  if !$rabbit_use_ssl or is_service_default(rabbit_use_ssl) {
-    if !is_service_default($kombu_ssl_ca_certs) {
-      fail('The kombu_ssl_ca_certs parameter requires rabbit_use_ssl to be set to true')
-    }
-    if !is_service_default($kombu_ssl_certfile) {
-      fail('The kombu_ssl_certfile parameter requires rabbit_use_ssl to be set to true')
-    }
-    if !is_service_default($kombu_ssl_keyfile) {
-      fail('The kombu_ssl_keyfile parameter requires rabbit_use_ssl to be set to true')
-    }
+  if $auth_strategy == 'keystone' {
+    include ::heat::keystone::authtoken
   }
-  if ((!is_service_default($kombu_ssl_certfile)) and is_service_default($kombu_ssl_keyfile))
-    or ((!is_service_default($kombu_ssl_keyfile)) and is_service_default($kombu_ssl_certfile)) {
-    fail('The kombu_ssl_certfile and kombu_ssl_keyfile parameters must be used together')
+
+  if $verbose {
+    warning('verbose is deprecated, has no effect and will be removed after Newton cycle.')
   }
-  if $mysql_module {
-    warning('The mysql_module parameter is deprecated. The latest 2.x mysql module will be used.')
+
+  if $auth_uri {
+    warning('auth_uri is deprecated, use heat::keystone::authtoken::auth_uri instead.')
+  }
+
+  if $identity_uri {
+    warning('identity_uri is deprecated, use heat::keystone::authtoken::auth_url instead.')
+  }
+
+  if $auth_plugin {
+    warning('auth_plugin is deprecated, use heat::keystone::authtoken::auth_type instead.')
+  }
+
+  if $keystone_user {
+    warning('keystone_user is deprecated, use heat::keystone::authtoken::username instead.')
+  }
+
+  if $keystone_tenant {
+    warning('keystone_tenant is deprecated, use heat::keystone::authtoken::project_name instead.')
+  }
+
+  if $keystone_password {
+    warning('keystone_password is deprecated, use heat::keystone::authtoken::password instead.')
+  }
+
+  if $keystone_user_domain_name {
+    warning('keystone_user_domain_name is deprecated, use heat::keystone::authtoken::user_domain_name instead.')
+  }
+
+  if $keystone_user_domain_id {
+    warning('keystone_user_domain_id is deprecated, use the name option instead.')
+  }
+
+  if $keystone_project_domain_name {
+    warning('keystone_project_domain_name is deprecated, use heat::keystone::authtoken::project_domain_name instead.')
+  }
+
+  if $keystone_project_domain_id {
+    warning('keystone_project_domain_id is deprecated, use the name option instead.')
+  }
+
+  if $memcached_servers {
+    warning('memcached_servers is deprecated, use heat::keystone::authtoken::memcached_servers instead.')
   }
 
   package { 'heat-common':
@@ -363,89 +486,74 @@ class heat(
     tag    => ['openstack', 'heat-package'],
   }
 
-  if $rpc_backend == 'rabbit' or is_service_default($rpc_backend) {
+  resources { 'heat_config':
+    purge => $purge_config,
+  }
 
-    if ! is_service_default($rabbit_hosts) and $rabbit_hosts {
-      heat_config {
-        'oslo_messaging_rabbit/rabbit_hosts': value => join(any2array($rabbit_hosts), ',');
-        'oslo_messaging_rabbit/rabbit_host':  ensure => absent;
-        'oslo_messaging_rabbit/rabbit_port':  ensure => absent;
-      }
-      if size($rabbit_hosts) > 1 and is_service_default($rabbit_ha_queues) {
-        heat_config {
-          'oslo_messaging_rabbit/rabbit_ha_queues': value => true;
-        }
-      } else {
-        heat_config {
-          'oslo_messaging_rabbit/rabbit_ha_queues': value => $rabbit_ha_queues;
-        }
-      }
-    } else {
-      heat_config {
-        'oslo_messaging_rabbit/rabbit_host':      value => $rabbit_host;
-        'oslo_messaging_rabbit/rabbit_port':      value => $rabbit_port;
-        'oslo_messaging_rabbit/rabbit_hosts':     ensure => absent;
-        'oslo_messaging_rabbit/rabbit_ha_queues': value => $rabbit_ha_queues;
-      }
-    }
+  if $rpc_backend == 'rabbit' or is_service_default($rpc_backend) {
     if $rabbit_heartbeat_timeout_threshold == 0 {
       warning('Default value for rabbit_heartbeat_timeout_threshold parameter is different from OpenStack project defaults')
     }
-    heat_config {
-      'oslo_messaging_rabbit/rabbit_userid':                value => $rabbit_userid;
-      'oslo_messaging_rabbit/rabbit_password':              value => $rabbit_password, secret => true;
-      'oslo_messaging_rabbit/rabbit_virtual_host':          value => $rabbit_virtual_host;
-      'oslo_messaging_rabbit/heartbeat_timeout_threshold':  value => $rabbit_heartbeat_timeout_threshold;
-      'oslo_messaging_rabbit/heartbeat_rate':               value => $rabbit_heartbeat_rate;
-      'oslo_messaging_rabbit/rabbit_use_ssl':               value => $rabbit_use_ssl;
-      'oslo_messaging_rabbit/amqp_durable_queues':          value => $amqp_durable_queues;
-      'oslo_messaging_rabbit/kombu_ssl_ca_certs':           value => $kombu_ssl_ca_certs;
-      'oslo_messaging_rabbit/kombu_ssl_certfile':           value => $kombu_ssl_certfile;
-      'oslo_messaging_rabbit/kombu_ssl_keyfile':            value => $kombu_ssl_keyfile;
-      'oslo_messaging_rabbit/kombu_ssl_version':            value => $kombu_ssl_version;
-    }
 
-  }
-
-  if $rpc_backend == 'qpid' {
-    warning('Qpid driver is removed from Oslo.messaging in the Mitaka release')
-  }
-
-  if $auth_plugin {
-    if $auth_plugin == 'password' {
-      heat_config {
-        'keystone_authtoken/auth_url':          value => $identity_uri;
-        'keystone_authtoken/auth_plugin':       value => $auth_plugin;
-        'keystone_authtoken/username':          value => $keystone_user;
-        'keystone_authtoken/password':          value => $keystone_password, secret => true;
-        'keystone_authtoken/user_domain_id':    value => $keystone_user_domain_id;
-        'keystone_authtoken/project_name':      value => $keystone_tenant;
-        'keystone_authtoken/project_domain_id': value => $keystone_project_domain_id;
-      }
-    } else {
-      fail('Currently only "password" auth_plugin is supported.')
-    }
-  } else {
-    warning('"admin_user", "admin_password", "admin_tenant_name" configuration options are deprecated in favor of auth_plugin and related options')
-    heat_config {
-      'keystone_authtoken/auth_uri':          value => $auth_uri;
-      'keystone_authtoken/identity_uri':      value => $identity_uri;
-      'keystone_authtoken/admin_tenant_name': value => $keystone_tenant;
-      'keystone_authtoken/admin_user':        value => $keystone_user;
-      'keystone_authtoken/admin_password':    value => $keystone_password, secret => true;
+    oslo::messaging::rabbit { 'heat_config':
+      kombu_ssl_version           => $kombu_ssl_version,
+      kombu_ssl_keyfile           => $kombu_ssl_keyfile,
+      kombu_ssl_certfile          => $kombu_ssl_certfile,
+      kombu_ssl_ca_certs          => $kombu_ssl_ca_certs,
+      kombu_reconnect_delay       => $kombu_reconnect_delay,
+      kombu_failover_strategy     => $kombu_failover_strategy,
+      kombu_compression           => $kombu_compression,
+      rabbit_userid               => $rabbit_userid,
+      rabbit_password             => $rabbit_password,
+      rabbit_virtual_host         => $rabbit_virtual_host,
+      heartbeat_timeout_threshold => $rabbit_heartbeat_timeout_threshold,
+      heartbeat_rate              => $rabbit_heartbeat_rate,
+      rabbit_use_ssl              => $rabbit_use_ssl,
+      amqp_durable_queues         => $amqp_durable_queues,
+      rabbit_host                 => $rabbit_host,
+      rabbit_port                 => $rabbit_port,
+      rabbit_hosts                => $rabbit_hosts,
+      rabbit_ha_queues            => $rabbit_ha_queues,
     }
   }
+  elsif $rpc_backend == 'amqp' {
+    oslo::messaging::amqp { 'heat_config':
+      server_request_prefix  => $amqp_server_request_prefix,
+      broadcast_prefix       => $amqp_broadcast_prefix,
+      group_request_prefix   => $amqp_group_request_prefix,
+      container_name         => $amqp_container_name,
+      idle_timeout           => $amqp_idle_timeout,
+      trace                  => $amqp_trace,
+      ssl_ca_file            => $amqp_ssl_ca_file,
+      ssl_cert_file          => $amqp_ssl_cert_file,
+      ssl_key_file           => $amqp_ssl_key_file,
+      ssl_key_password       => $amqp_ssl_key_password,
+      allow_insecure_clients => $amqp_allow_insecure_clients,
+      sasl_mechanisms        => $amqp_sasl_mechanisms,
+      sasl_config_dir        => $amqp_sasl_config_dir,
+      sasl_config_name       => $amqp_sasl_config_name,
+      username               => $amqp_username,
+      password               => $amqp_password,
+    }
+  }
+
+  $auth_url_real = pick($identity_uri, $::heat::keystone::authtoken::auth_url)
+  $keystone_user_real = pick($keystone_user, $::heat::keystone::authtoken::username)
+  $keystone_password_real = pick($keystone_password, $::heat::keystone::authtoken::password)
+  $keystone_project_domain_name_real = pick($keystone_project_domain_name, $::heat::keystone::authtoken::project_domain_name)
+  $keystone_user_domain_name_real = pick($keystone_user_domain_name, $::heat::keystone::authtoken::user_domain_name)
 
   heat_config {
-    'trustee/auth_plugin':       value => 'password';
-    'trustee/auth_url':          value => $identity_uri;
-    'trustee/username':          value => $keystone_user;
-    'trustee/password':          value => $keystone_password, secret => true;
-    'trustee/project_domain_id': value => $keystone_project_domain_id;
-    'trustee/user_domain_id':    value => $keystone_user_domain_id;
-
-    'clients_keystone/auth_uri': value => $identity_uri;
-    'clients_heat/url':          value => $heat_clients_url;
+    'trustee/auth_plugin':         value => 'password';
+    'trustee/auth_url':            value => $auth_url_real;
+    'trustee/username':            value => $keystone_user_real;
+    'trustee/password':            value => $keystone_password_real, secret => true;
+    'trustee/project_domain_id':   value => $keystone_project_domain_id;
+    'trustee/user_domain_id':      value => $keystone_user_domain_id;
+    'trustee/project_domain_name': value => $keystone_project_domain_name_real;
+    'trustee/user_domain_name':    value => $keystone_user_domain_name_real;
+    'clients_keystone/auth_uri':   value => $auth_url_real;
+    'clients_heat/url':            value => $heat_clients_url;
   }
 
   if (!is_service_default($enable_stack_adopt)) {
@@ -457,11 +565,9 @@ class heat(
   }
 
   heat_config {
-    'DEFAULT/rpc_backend':                  value => $rpc_backend;
-    'DEFAULT/rpc_response_timeout':         value => $rpc_response_timeout;
+    'DEFAULT/host':                         value => $host;
     'DEFAULT/max_template_size':            value => $max_template_size;
     'DEFAULT/max_json_body_size':           value => $max_json_body_size;
-    'DEFAULT/notification_driver':          value => $notification_driver;
     'DEFAULT/region_name_for_services':     value => $region_name;
     'DEFAULT/enable_stack_abandon':         value => $enable_stack_abandon;
     'DEFAULT/enable_stack_adopt':           value => $enable_stack_adopt;
@@ -469,14 +575,18 @@ class heat(
     'paste_deploy/flavor':                  value => $flavor;
   }
 
-  # instance_user
-  # special case for empty string since it's a valid value
-  if $instance_user == '' {
-    heat_config { 'DEFAULT/instance_user': value => ''; }
-  } elsif $instance_user {
-    heat_config { 'DEFAULT/instance_user': value => $instance_user; }
-  } else {
-    heat_config { 'DEFAULT/instance_user': ensure => absent; }
+  oslo::messaging::notifications { 'heat_config':
+    transport_url => $notification_transport_url,
+    driver        => $notification_driver,
+  }
+
+  oslo::messaging::default { 'heat_config':
+    transport_url        => $default_transport_url,
+    rpc_response_timeout => $rpc_response_timeout,
+  }
+
+  oslo::middleware { 'heat_config':
+    enable_proxy_headers_parsing => $enable_proxy_headers_parsing,
   }
 
 }

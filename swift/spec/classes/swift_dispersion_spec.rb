@@ -17,11 +17,11 @@ describe 'swift::dispersion' do
   end
 
   let :pre_condition do
-    "class { 'swift': swift_hash_suffix => 'string' }"
+    "class { 'swift': swift_hash_path_suffix => 'string' }"
   end
 
   let :facts do
-    { :osfamily => 'Debian' }
+    OSDefaults.get_facts({ :osfamily => 'Debian' })
   end
 
   let :params do
@@ -31,8 +31,7 @@ describe 'swift::dispersion' do
   it { is_expected.to contain_file('/etc/swift/dispersion.conf').with(
     :ensure  => 'file',
     :owner   => 'swift',
-    :group   => 'swift',
-    :require => 'Package[swift]')
+    :group   => 'swift',)
   }
 
   shared_examples 'swift::dispersion' do
@@ -65,8 +64,8 @@ describe 'swift::dispersion' do
       is_expected.to contain_exec('swift-dispersion-populate').with(
         :path      => ['/bin', '/usr/bin'],
         :subscribe => 'File[/etc/swift/dispersion.conf]',
-        :onlyif    => "swift -A #{p[:auth_url]} -U #{p[:auth_tenant]}:#{p[:auth_user]} -K #{p[:auth_pass]} -V #{p[:auth_version]} stat | grep 'Account: '",
-        :unless    => "swift -A #{p[:auth_url]} -U #{p[:auth_tenant]}:#{p[:auth_user]} -K #{p[:auth_pass]} -V #{p[:auth_version]} list | grep dispersion_",
+        :onlyif    => "swift -A #{p[:auth_url]} --os-username #{p[:auth_user]} --os-project-name #{p[:auth_tenant]} --os-password #{p[:auth_pass]} -V #{p[:auth_version]} stat | grep 'Account: '",
+        :unless    => "swift -A #{p[:auth_url]} --os-username #{p[:auth_user]} --os-project-name #{p[:auth_tenant]} --os-password #{p[:auth_pass]} -V #{p[:auth_version]} list | grep dispersion_",
         :require => 'Package[swiftclient]'
       )
     end

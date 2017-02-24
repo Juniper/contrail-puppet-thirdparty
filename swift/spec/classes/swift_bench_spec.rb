@@ -22,12 +22,14 @@ describe 'swift::bench' do
   end
 
   let :pre_condition do
-    "class { 'swift': swift_hash_suffix => 'string' }"
+    "class { 'swift': swift_hash_path_suffix => 'string' }"
   end
 
   let :facts do
-    { :operatingsystem => 'Ubuntu',
-      :osfamily        => 'Debian' }
+    OSDefaults.get_facts({
+      :operatingsystem => 'Ubuntu',
+      :osfamily        => 'Debian'
+    })
   end
 
   let :params do

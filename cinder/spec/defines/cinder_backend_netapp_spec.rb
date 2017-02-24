@@ -36,7 +36,6 @@ describe 'cinder::backend::netapp' do
       :thres_avl_size_perc_start    => '20',
       :thres_avl_size_perc_stop     => '60',
       :nfs_shares_config            => '/etc/cinder/shares.conf',
-      :netapp_eseries_host_type     => 'linux_dm_mp',
       :nfs_mount_options            => '<SERVICE DEFAULT>',
       :netapp_webservice_path       => '/devmgr/v2',
     }
@@ -97,6 +96,15 @@ describe 'cinder::backend::netapp' do
       is_expected.to contain_cinder_config('netapp/nfs_mount_options').with({
         :value => 'rw,proto=tcp,sec=sys'
       })
+    end
+  end
+
+  context 'netapp backend with cinder type' do
+    before do
+      params.merge!({:manage_volume_type => true})
+    end
+    it 'should create type with properties' do
+      should contain_cinder_type('netapp').with(:ensure => :present, :properties => ['volume_backend_name=netapp'])
     end
   end
 

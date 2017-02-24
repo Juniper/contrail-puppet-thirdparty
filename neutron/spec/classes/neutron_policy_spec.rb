@@ -27,26 +27,22 @@ describe 'neutron::policy' do
         :value => 'foo:bar'
       })
     end
-  end
 
-  context 'on Debian platforms' do
-    let :facts do
-      @default_facts.merge(test_facts.merge({
-         :osfamily => 'Debian'
-      }))
+    it 'set policy_file in neutron.conf' do
+      is_expected.to contain_neutron_config('oslo_policy/policy_file').with_value(params[:policy_path])
     end
-
-    it_configures 'neutron policies'
   end
 
-  context 'on RedHat platforms' do
-    let :facts do
-      @default_facts.merge(test_facts.merge({
-         :osfamily               => 'RedHat',
-         :operatingsystemrelease => '7'
-      }))
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts())
+      end
+
+      it_configures 'neutron policies'
     end
-
-    it_configures 'neutron policies'
   end
+
 end

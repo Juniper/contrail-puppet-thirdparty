@@ -6,6 +6,7 @@ describe 'ceilometer::keystone::auth' do
     {
       :email              => 'ceilometer@localhost',
       :auth_name          => 'ceilometer',
+      :service_name       => 'ceilometer',
       :configure_endpoint => true,
       :service_type       => 'metering',
       :region             => 'RegionOne',
@@ -43,14 +44,14 @@ describe 'ceilometer::keystone::auth' do
       end
 
       it 'configures ceilometer service' do
-        is_expected.to contain_keystone_service("#{default_params[:auth_name]}::#{default_params[:service_type]}").with(
+        is_expected.to contain_keystone_service("#{default_params[:service_name]}::#{default_params[:service_type]}").with(
           :ensure      => 'present',
           :description => 'Openstack Metering Service'
         )
       end
 
       it 'configure ceilometer endpoints' do
-        is_expected.to contain_keystone_endpoint("#{default_params[:region]}/#{default_params[:auth_name]}::#{default_params[:service_type]}").with(
+        is_expected.to contain_keystone_endpoint("#{default_params[:region]}/#{default_params[:service_name]}::#{default_params[:service_type]}").with(
           :ensure       => 'present',
           :public_url   => default_params[:public_url],
           :admin_url    => default_params[:admin_url],
@@ -70,6 +71,7 @@ describe 'ceilometer::keystone::auth' do
           :public_url    => 'https://public.host:443/ceilometer_pub',
           :admin_url     => 'https://admin.host/ceilometer_adm',
           :internal_url  => 'http://internal.host:80/ceilometer_int',
+          :service_name  => 'bubbles',
         })
       end
 
@@ -89,14 +91,14 @@ describe 'ceilometer::keystone::auth' do
       end
 
       it 'configures ceilometer service' do
-        is_expected.to contain_keystone_service("#{params[:auth_name]}::#{params[:service_type]}").with(
+        is_expected.to contain_keystone_service("#{params[:service_name]}::#{params[:service_type]}").with(
           :ensure      => 'present',
           :description => 'Openstack Metering Service'
         )
       end
 
       it 'configure ceilometer endpoints' do
-        is_expected.to contain_keystone_endpoint("#{params[:region]}/#{params[:auth_name]}::#{params[:service_type]}").with(
+        is_expected.to contain_keystone_endpoint("#{params[:region]}/#{params[:service_name]}::#{params[:service_type]}").with(
           :ensure       => 'present',
           :public_url   => params[:public_url],
           :admin_url    => params[:admin_url],
@@ -108,35 +110,9 @@ describe 'ceilometer::keystone::auth' do
         before do
           params.delete!(:configure_endpoint)
           it 'does not configure ceilometer endpoints' do
-            is_expected.to_not contain_keystone_endpoint("#{params[:region]}/#{params[:auth_name]}::#{params[:service_type]}")
+            is_expected.to_not contain_keystone_endpoint("#{params[:region]}/#{params[:service_name]}::#{params[:service_type]}")
           end
         end
-      end
-    end
-
-    context 'with deprecated parameters' do
-      before do
-        params.merge!({
-          :auth_name         => 'mighty-ceilometer',
-          :region            => 'RegionFortyTwo',
-          :public_address    => '10.0.0.1',
-          :admin_address     => '10.0.0.2',
-          :internal_address  => '10.0.0.3',
-          :port              => '65001',
-          :public_protocol   => 'https',
-          :admin_protocol    => 'ftp',
-          :internal_protocol => 'gopher',
-          :service_type      => 'metering',
-        })
-      end
-
-      it 'configure ceilometer endpoints' do
-        is_expected.to contain_keystone_endpoint("#{params[:region]}/#{params[:auth_name]}::#{params[:service_type]}").with(
-          :ensure       => 'present',
-          :public_url   => "#{params[:public_protocol]}://#{params[:public_address]}:#{params[:port]}",
-          :admin_url    => "#{params[:admin_protocol]}://#{params[:admin_address]}:#{params[:port]}",
-          :internal_url => "#{params[:internal_protocol]}://#{params[:internal_address]}:#{params[:port]}"
-        )
       end
     end
 

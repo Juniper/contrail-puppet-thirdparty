@@ -15,13 +15,7 @@ describe 'horizon' do
     File.expand_path(File.join(__FILE__, '..', '..', 'fixtures'))
   end
 
-  let :facts do
-    { :concat_basedir => '/var/lib/puppet/concat',
-      :fqdn           => 'some.host.tld'
-    }
-  end
-
-  shared_examples 'horizon' do
+  shared_examples_for 'horizon' do
 
     context 'with default parameters' do
       it {
@@ -65,8 +59,10 @@ describe 'horizon' do
           "LOGIN_REDIRECT_URL = '#{platforms_params[:root_url]}/'",
           "ALLOWED_HOSTS = ['*', ]",
           "  'identity': 3,",
+          'HORIZON_CONFIG["password_autocomplete"] = "off"',
+          'HORIZON_CONFIG["images_panel"] = "legacy"',
           "SECRET_KEY = 'elj1IWiLoWHgcyYxFVLj7cM5rGOOxWl0'",
-          'OPENSTACK_KEYSTONE_URL = "http://127.0.0.1:5000/v2.0"',
+          'OPENSTACK_KEYSTONE_URL = "http://127.0.0.1:5000"',
           'OPENSTACK_KEYSTONE_DEFAULT_ROLE = "_member_"',
           "    'can_set_mount_point': True,",
           "    'can_set_password': False,",
@@ -112,18 +108,25 @@ describe 'horizon' do
           :compress_offline             => false,
           :hypervisor_options           => {'can_set_mount_point' => false, 'can_set_password' => true },
           :cinder_options               => {'enable_backup' => true },
+          :keystone_options             => {'name' => 'native', 'can_edit_user' => true, 'can_edit_group' => true, 'can_edit_project' => true, 'can_edit_domain' => false, 'can_edit_role' => false},
           :neutron_options              => {'enable_lb' => true, 'enable_firewall' => true, 'enable_quotas' => false, 'enable_security_group' => false, 'enable_vpn' => true,
                                             'enable_distributed_router' => false, 'enable_ha_router' => false, 'profile_support' => 'cisco',
                                             'supported_provider_types' => ['flat', 'vxlan'], 'supported_vnic_types' => ['*'], 'default_ipv4_subnet_pool_label' => 'None', },
           :file_upload_temp_dir         => '/var/spool/horizon',
           :secure_cookies               => true,
-          :custom_theme_path            => 'static/themes/green',
           :api_versions                 => {'identity' => 2.0},
           :keystone_multidomain_support => true,
           :keystone_default_domain      => 'domain.tld',
           :overview_days_range          => 1,
           :session_timeout              => 1800,
           :timezone                     => 'Asia/Shanghai',
+          :available_themes             => [
+            { 'name' => 'default', 'label' => 'Default', 'path' => 'themes/default' },
+            { 'name' => 'material', 'label' => 'Material', 'path' => 'themes/material' },
+          ],
+          :default_theme                => 'default',
+          :password_autocomplete        => 'on',
+          :images_panel                 => 'angular',
         })
       end
 
@@ -136,6 +139,8 @@ describe 'horizon' do
           "  'identity': 2.0,",
           "OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True",
           "OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'domain.tld'",
+          'HORIZON_CONFIG["password_autocomplete"] = "on"',
+          'HORIZON_CONFIG["images_panel"] = "angular"',
           "SECRET_KEY = 'elj1IWiLoWHgcyYxFVLj7cM5rGOOxWl0'",
           "                'DEAD_RETRY': 1,",
           "                'SERVER_RETRIES': 1,",
@@ -146,6 +151,14 @@ describe 'horizon' do
           'OPENSTACK_KEYSTONE_URL = "https://keystone.example.com:4682"',
           'OPENSTACK_KEYSTONE_DEFAULT_ROLE = "SwiftOperator"',
           'OPENSTACK_SSL_NO_VERIFY = True',
+          "OPENSTACK_KEYSTONE_BACKEND = {",
+          "    'name': 'native',",
+          "    'can_edit_user': True,",
+          "    'can_edit_group': True,",
+          "    'can_edit_project': True,",
+          "    'can_edit_domain': False,",
+          "    'can_edit_role': False,",
+          "}",
           "    'can_set_mount_point': False,",
           "    'can_set_password': True,",
           "    'enable_backup': True,",
@@ -162,7 +175,11 @@ describe 'horizon' do
           'SECONDARY_ENDPOINT_TYPE = "ANY-VALUE"',
           'API_RESULT_LIMIT = 4682',
           'TIME_ZONE = "Asia/Shanghai"',
-          "CUSTOM_THEME_PATH = 'static/themes/green'",
+          "AVAILABLE_THEMES = [",
+          "  ('default', 'Default', 'themes/default'),",
+          "  ('material', 'Material', 'themes/material'),",
+          "]",
+          "DEFAULT_THEME = 'default'",
           "            'level': 'DEBUG',",
           "            'handlers': ['syslog'],",
           "SESSION_TIMEOUT = 1800",
@@ -209,34 +226,6 @@ describe 'horizon' do
          )
       }
     end
-
-    context 'with tuskar-ui enabled' do
-      before do
-        params.merge!({
-          :tuskar_ui => true,
-          :tuskar_ui_ironic_discoverd_url      => 'http://127.0.0.1:5050',
-          :tuskar_ui_undercloud_admin_password => 'somesecretpassword',
-          :tuskar_ui_deployment_mode           => 'scale',
-        })
-      end
-
-      it 'generates local_settings.py' do
-        verify_concat_fragment_contents(catalogue, 'local_settings.py', [
-          'IRONIC_DISCOVERD_URL = "http://127.0.0.1:5050"',
-          'UNDERCLOUD_ADMIN_PASSWORD = "somesecretpassword"',
-          'DEPLOYMENT_MODE = "scale"',
-        ])
-      end
-    end
-
-    context 'with wrong tuskar_ui_deployment_mode parameter value' do
-      before do
-        params.merge!({
-          :tuskar_ui_deployment_mode => 'wrong' })
-      end
-      it_raises 'a Puppet::Error', /'wrong' is not correct value for tuskar_ui_deployment_mode parameter. It must be either 'scale' or 'poc'./
-    end
-
 
     context 'with vhost_extra_params' do
       before do
@@ -291,8 +280,8 @@ describe 'horizon' do
       before do
         params.merge!({
           :available_regions => [
-            ['http://region-1.example.com:5000/v2.0', 'Region-1'],
-            ['http://region-2.example.com:5000/v2.0', 'Region-2']
+            ['http://region-1.example.com:5000', 'Region-1'],
+            ['http://region-2.example.com:5000', 'Region-2']
           ]
         })
       end
@@ -300,8 +289,8 @@ describe 'horizon' do
       it 'AVAILABLE_REGIONS is configured' do
         verify_concat_fragment_contents(catalogue, 'local_settings.py', [
           "AVAILABLE_REGIONS = [",
-          "    ('http://region-1.example.com:5000/v2.0', 'Region-1'),",
-          "    ('http://region-2.example.com:5000/v2.0', 'Region-2'),",
+          "    ('http://region-1.example.com:5000', 'Region-1'),",
+          "    ('http://region-2.example.com:5000', 'Region-2'),",
           "]"
         ])
       end
@@ -424,23 +413,7 @@ describe 'horizon' do
     end
   end
 
-  context 'on RedHat platforms' do
-    before do
-      facts.merge!({
-        :osfamily               => 'RedHat',
-        :operatingsystemrelease => '6.0',
-        :os_package_type        => 'rpm'
-      })
-    end
-
-    let :platforms_params do
-      { :config_file       => '/etc/openstack-dashboard/local_settings',
-        :package_name      => 'openstack-dashboard',
-        :root_url          => '/dashboard' }
-    end
-
-    it_behaves_like 'horizon'
-
+  shared_examples_for 'horizon on RedHat' do
     it 'sets WEBROOT in local_settings.py' do
       verify_concat_fragment_contents(catalogue, 'local_settings.py', [
         "WEBROOT = '/dashboard/'",
@@ -448,24 +421,7 @@ describe 'horizon' do
     end
   end
 
-  context 'on Debian platforms' do
-    before do
-      facts.merge!({
-        :osfamily               => 'Debian',
-        :operatingsystemrelease => '6.0',
-        :operatingsystem        => 'Debian',
-        :os_package_type        => 'debian'
-      })
-    end
-
-    let :platforms_params do
-      { :config_file       => '/etc/openstack-dashboard/local_settings.py',
-        :package_name      => 'openstack-dashboard-apache',
-        :root_url          => '/horizon' }
-    end
-
-    it_behaves_like 'horizon'
-
+  shared_examples_for 'horizon on Debian' do
     it 'sets WEBROOT in local_settings.py' do
       verify_concat_fragment_contents(catalogue, 'local_settings.py', [
         "WEBROOT = '/horizon/'",
@@ -473,28 +429,34 @@ describe 'horizon' do
     end
   end
 
-  context 'on Ubuntu platforms' do
-    before do
-      facts.merge!({
-        :osfamily               => 'Debian',
-        :operatingsystem        => 'Ubuntu',
-        :operatingsystemrelease => '14.04',
-        :os_package_type        => 'ubuntu'
-      })
-    end
+  on_supported_os({
+    :supported_os   => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts({
+          :fqdn           => 'some.host.tld',
+          :processorcount => 2,
+          :concat_basedir => '/var/lib/puppet/concat'
+        }))
+      end
 
-    let :platforms_params do
-      { :config_file       => '/etc/openstack-dashboard/local_settings.py',
-        :package_name      => 'openstack-dashboard',
-        :root_url          => '/horizon' }
-    end
+      let(:platforms_params) do
+        case facts[:osfamily]
+        when 'Debian'
+          { :config_file       => '/etc/openstack-dashboard/local_settings.py',
+            :package_name      => 'openstack-dashboard',
+            :root_url          => '/horizon' }
+        when 'RedHat'
+          { :config_file       => '/etc/openstack-dashboard/local_settings',
+            :package_name      => 'openstack-dashboard',
+            :root_url          => '/dashboard' }
+        end
+      end
 
-    it_behaves_like 'horizon'
-
-    it 'sets WEBROOT in local_settings.py' do
-      verify_concat_fragment_contents(catalogue, 'local_settings.py', [
-        "WEBROOT = '/horizon/'",
-      ])
+      it_behaves_like 'horizon'
+      it_behaves_like "horizon on #{facts[:osfamily]}"
     end
   end
+
 end

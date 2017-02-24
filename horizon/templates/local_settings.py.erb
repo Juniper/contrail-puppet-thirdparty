@@ -36,7 +36,6 @@ ALLOWED_HOSTS = ['<%= @final_allowed_hosts.join("', '") %>', ]
 <% else %>
 ALLOWED_HOSTS = ['<%= @final_allowed_hosts %>', ]
 <% end %>
-
 # Set SSL proxy settings:
 # Pass this header from the proxy after terminating the SSL,
 # and don't forget to strip it from the client's request.
@@ -132,10 +131,15 @@ HORIZON_CONFIG = {
 # Turn off browser autocompletion for forms including the login form and
 # the database creation workflow if so desired.
 #HORIZON_CONFIG["password_autocomplete"] = "off"
+HORIZON_CONFIG["password_autocomplete"] = "<%= @password_autocomplete %>"
 
 # Setting this to True will disable the reveal button for password fields,
 # including on the login form.
 #HORIZON_CONFIG["disable_password_reveal"] = False
+
+# Configure enabled image panel. It can be legacy or angular.
+#HORIZON_CONFIG["images_panel"] = "legacy"
+HORIZON_CONFIG["images_panel"] = "<%= @images_panel %>"
 
 LOCAL_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -270,14 +274,19 @@ OPENSTACK_SSL_NO_VERIFY = True
 # can_edit_user to False and name to 'ldap'.
 #
 # TODO(tres): Remove these once Keystone has an API to identify auth backend.
+<% if @keystone_options_real.kind_of?(Hash) %>
 OPENSTACK_KEYSTONE_BACKEND = {
-    'name': 'native',
-    'can_edit_user': True,
-    'can_edit_group': True,
-    'can_edit_project': True,
-    'can_edit_domain': True,
-    'can_edit_role': True,
+<% @keystone_options_real.sort.each do |opt_name,opt_val| -%>
+  <%- if opt_val == true or opt_val == false -%>
+    '<%= opt_name -%>': <%= opt_val.to_s.capitalize -%>,
+  <%- elsif opt_val == 'None' -%>
+    '<%= opt_name -%>': None,
+  <%- else -%>
+    '<%= opt_name -%>': '<%= opt_val -%>',
+  <%-end-%>
+<% end -%>
 }
+<% end -%>
 
 # Setting this to True, will add a new "Retrieve Password" action on instance,
 # allowing Admin session password retrieval/decryption.
@@ -465,7 +474,7 @@ SECONDARY_ENDPOINT_TYPE = "<%= @secondary_endpoint_type %>"
 # on a single page before providing a paging element (a "more" link)
 # to paginate results.
 #API_RESULT_LIMIT = 1000
-#API_RESULT_PAGE_SIZE = 20$     
+#API_RESULT_PAGE_SIZE = 20$
 API_RESULT_LIMIT = <%= @api_result_limit %>
 API_RESULT_PAGE_SIZE = 20
 
@@ -505,6 +514,18 @@ EXTERNAL_MONITORING = <%= @horizon_app_links %>
 # static/themes/default.
 <% if @custom_theme_path %>
 CUSTOM_THEME_PATH = '<%= @custom_theme_path %>'
+<% end %>
+
+<% if @available_themes.kind_of?(Array) %>
+AVAILABLE_THEMES = [
+<% @available_themes.each do |theme| %>
+  ('<%= theme['name'] %>', '<%= theme['label'] %>', '<%= theme['path'] %>'),
+<% end %>
+]
+<% end %>
+
+<% if @default_theme %>
+DEFAULT_THEME = '<%= @default_theme %>'
 <% end %>
 
 # Set this to True to display an 'Admin Password' field on the Change Password
@@ -612,6 +633,7 @@ LOGGING = {
             'filename': '<%= scope.lookupvar("horizon::params::logdir") %>/horizon.log',
             'formatter': 'verbose',
         },
+    <%- if @log_handler == 'syslog' -%>
         'syslog': {
             'level': '<%= @log_level %>',
             'facility': 'local1',
@@ -619,6 +641,7 @@ LOGGING = {
             'address': '/dev/log',
             'formatter': 'normal',
         }
+    <%- end -%>
     },
     'loggers': {
         # Logging from django.db.backends is VERY verbose, send to null
@@ -850,12 +873,6 @@ COMPRESS_OFFLINE = <%= @compress_offline.to_s.capitalize %>
 # so we add this option to change the directory where uploaded files are temporarily
 # stored until they are loaded into Glance.
 FILE_UPLOAD_TEMP_DIR = '<%= @file_upload_temp_dir %>'
-
-<% if @tuskar_ui %>
-IRONIC_DISCOVERD_URL = "<%= @tuskar_ui_ironic_discoverd_url %>"
-UNDERCLOUD_ADMIN_PASSWORD = "<%= @tuskar_ui_undercloud_admin_password %>"
-DEPLOYMENT_MODE = "<%= @tuskar_ui_deployment_mode %>"
-<% end %>
 
 # The default date range in the Overview panel meters - either <today> minus N
 # days (if the value is integer N), or from the beginning of the current month

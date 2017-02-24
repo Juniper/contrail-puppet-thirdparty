@@ -3,7 +3,7 @@ require 'spec_helper'
 describe 'swift::storage::object' do
 
   let :pre_condition do
-    "class { 'swift': swift_hash_suffix => 'foo' }
+    "class { 'swift': swift_hash_path_suffix => 'foo' }
      class { 'swift::storage': storage_local_net_ip => '10.0.0.1' }"
   end
 
@@ -70,9 +70,10 @@ describe 'swift::storage::object' do
 
   context 'on Debian platforms' do
     let :facts do
-      {:operatingsystem => 'Ubuntu',
-       :osfamily        => 'Debian' }
-
+      OSDefaults.get_facts({
+       :operatingsystem => 'Ubuntu',
+       :osfamily        => 'Debian',
+      })
     end
 
     let :platform_params do
@@ -82,7 +83,7 @@ describe 'swift::storage::object' do
           'swift-object-updater'    => 'swift-object-updater',
           'swift-object-auditor'    => 'swift-object-auditor'
         },
-        :service_provider => 'upstart'
+        :service_provider => nil
       }
     end
 
@@ -112,8 +113,10 @@ describe 'swift::storage::object' do
 
   context 'on RedHat platforms' do
     let :facts do
-      { :osfamily        => 'RedHat',
-        :operatingsystem => 'RedHat' }
+      OSDefaults.get_facts({
+        :osfamily        => 'RedHat',
+        :operatingsystem => 'RedHat',
+      })
     end
 
     let :platform_params do

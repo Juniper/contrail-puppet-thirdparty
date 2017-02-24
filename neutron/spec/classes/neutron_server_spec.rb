@@ -7,13 +7,12 @@ describe 'neutron::server' do
   end
 
   let :params do
-    { :password           => 'passw0rd',
-      :username           => 'neutron',
-      :keystone_auth_type => 'password',
-      :project_domain_id  => 'Default',
-      :project_name       => 'services',
-      :user_domain_id     => 'Default',
-      :tenant_name        => 'services' }
+    { :password            => 'passw0rd',
+      :username            => 'neutron',
+      :keystone_auth_type  => 'password',
+      :project_domain_name => 'Default',
+      :project_name        => 'services',
+      :user_domain_name    => 'Default'}
   end
 
   let :default_params do
@@ -31,7 +30,6 @@ describe 'neutron::server' do
       :router_scheduler_driver          => 'neutron.scheduler.l3_agent_scheduler.ChanceScheduler',
       :l3_ha                            => false,
       :max_l3_agents_per_router         => 3,
-      :min_l3_agents_per_router         => 2,
     }
   end
 
@@ -50,23 +48,6 @@ describe 'neutron::server' do
     it { is_expected.to contain_class('neutron::params') }
     it { is_expected.to contain_class('neutron::policy') }
 
-    it 'configures authentication middleware' do
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_type').with_value(p[:keystone_auth_type]);
-      is_expected.to contain_neutron_config('keystone_authtoken/tenant_name').with_value(p[:tenant_name]);
-      is_expected.to contain_neutron_config('keystone_authtoken/username').with_value(p[:username]);
-      is_expected.to contain_neutron_config('keystone_authtoken/password').with_value(p[:password]);
-      is_expected.to contain_neutron_config('keystone_authtoken/password').with_secret( true )
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_uri').with_value("http://localhost:5000/");
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_url').with_value("http://localhost:35357/");
-      is_expected.to contain_neutron_config('keystone_authtoken/project_domain_id').with_value(p[:project_domain_id]);
-      is_expected.to contain_neutron_config('keystone_authtoken/project_name').with_value(p[:project_name]);
-      is_expected.to contain_neutron_config('keystone_authtoken/user_domain_id').with_value(p[:user_domain_id]);
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_tenant_name').with_ensure('absent');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_user').with_ensure('absent');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_password').with_ensure('absent');
-      is_expected.to contain_neutron_config('keystone_authtoken/identity_uri').with_ensure('absent');
-    end
-
     it 'installs neutron server package' do
       if platform_params.has_key?(:server_package)
         is_expected.to contain_package('neutron-server').with(
@@ -74,11 +55,11 @@ describe 'neutron::server' do
           :ensure => p[:package_ensure],
           :tag    => ['openstack', 'neutron-package'],
         )
-        is_expected.to contain_package('neutron-server').with_before(/Neutron_api_config\[.+\]/)
-        is_expected.to contain_package('neutron-server').with_before(/Neutron_config\[.+\]/)
-        is_expected.to contain_package('neutron-server').with_before(/Service\[neutron-server\]/)
+        is_expected.to contain_package('neutron-server').that_requires('Anchor[neutron::install::begin]')
+        is_expected.to contain_package('neutron-server').that_notifies('Anchor[neutron::install::end]')
       else
-        is_expected.to contain_package('neutron').with_before(/Neutron_api_config\[.+\]/)
+        is_expected.to contain_package('neutron').that_requires('Anchor[neutron::install::begin]')
+        is_expected.to contain_package('neutron').that_notifies('Anchor[neutron::install::end]')
       end
     end
 
@@ -87,9 +68,10 @@ describe 'neutron::server' do
         :name    => platform_params[:server_service],
         :enable  => true,
         :ensure  => 'running',
-        :require => 'Class[Neutron]',
         :tag     => ['neutron-service', 'neutron-db-sync-service'],
       )
+      is_expected.to contain_service('neutron-server').that_subscribes_to('Anchor[neutron::service::begin]')
+      is_expected.to contain_service('neutron-server').that_notifies('Anchor[neutron::service::end]')
       is_expected.not_to contain_class('neutron::db::sync')
       is_expected.to contain_service('neutron-server').with_name('neutron-server')
       is_expected.to contain_neutron_config('DEFAULT/api_workers').with_value(facts[:processorcount])
@@ -124,7 +106,6 @@ describe 'neutron::server' do
       it 'should enable HA routers' do
         is_expected.to contain_neutron_config('DEFAULT/l3_ha').with_value(true)
         is_expected.to contain_neutron_config('DEFAULT/max_l3_agents_per_router').with_value(3)
-        is_expected.to contain_neutron_config('DEFAULT/min_l3_agents_per_router').with_value(2)
         is_expected.to contain_neutron_config('DEFAULT/l3_ha_net_cidr').with_value('<SERVICE DEFAULT>')
       end
     end
@@ -135,6 +116,8 @@ describe 'neutron::server' do
       end
       it 'should disable HA routers' do
         is_expected.to contain_neutron_config('DEFAULT/l3_ha').with_value(false)
+        is_expected.to contain_neutron_config('DEFAULT/max_l3_agents_per_router').with_value(3)
+        is_expected.to contain_neutron_config('DEFAULT/l3_ha_net_cidr').with_value('<SERVICE DEFAULT>')
       end
     end
 
@@ -146,16 +129,6 @@ describe 'neutron::server' do
       it 'should enable HA routers' do
         is_expected.to contain_neutron_config('DEFAULT/max_l3_agents_per_router').with_value(0)
       end
-    end
-
-    context 'with HA routers enabled and wrong parameters' do
-      before :each do
-        params.merge!(:l3_ha                    => true,
-                      :max_l3_agents_per_router => 2,
-                      :min_l3_agents_per_router => 3 )
-      end
-
-      it_raises 'a Puppet::Error', /min_l3_agents_per_router should be less than or equal to max_l3_agents_per_router./
     end
 
     context 'with custom service name' do
@@ -184,6 +157,12 @@ describe 'neutron::server' do
       end
     end
 
+    context 'with allow_automatic_dhcp_failover in neutron.conf' do
+      it 'should configure allow_automatic_dhcp_failover' do
+        is_expected.to contain_neutron_config('DEFAULT/allow_automatic_dhcp_failover').with_value('<SERVICE DEFAULT>')
+      end
+    end
+
     context 'with qos_notification_drivers parameter' do
       before :each do
         params.merge!(:qos_notification_drivers => 'message_queue')
@@ -193,13 +172,9 @@ describe 'neutron::server' do
       end
     end
 
-    context 'with deprecated auth_plugin parameter' do
-      before :each do
-        params.merge!(:auth_plugin => 'v2password')
-      end
-      it 'should configure auth_plugin' do
-        is_expected.to contain_neutron_config('keystone_authtoken/auth_plugin').with_value('v2password')
-        is_expected.not_to contain_neutron_config('keystone_authtoken/auth_type')
+    context 'with network_auto_schedule in neutron.conf' do
+      it 'should configure network_auto_schedule' do
+        is_expected.to contain_neutron_config('DEFAULT/network_auto_schedule').with_value('<SERVICE DEFAULT>')
       end
     end
 
@@ -209,6 +184,20 @@ describe 'neutron::server' do
       end
 
       it_raises 'a Puppet::Error', /Must pass either networks, subnets, or ports as values for dhcp_load_type/
+    end
+
+    context 'with multiple service providers' do
+      before :each do
+        params.merge!(
+          { :service_providers => ['provider1', 'provider2'] }
+        )
+      end
+
+      it 'configures neutron.conf' do
+        is_expected.to contain_neutron_config(
+          'service_providers/service_provider'
+        ).with_value(['provider1', 'provider2'])
+      end
     end
 
     context 'with availability zone hints set' do
@@ -226,20 +215,7 @@ describe 'neutron::server' do
         is_expected.to contain_neutron_config('DEFAULT/network_scheduler_driver').with_value('neutron.scheduler.dhcp_agent_scheduler.AZAwareWeightScheduler')
         is_expected.to contain_neutron_config('DEFAULT/dhcp_load_type').with_value('networks')
       end
-    end
 
-    context 'with multiple service providers' do
-      before :each do
-        params.merge!(
-          { :service_providers => ['provider1', 'provider2'] }
-        )
-      end
-
-      it 'configures neutron.conf' do
-        is_expected.to contain_neutron_config(
-          'service_providers/service_provider'
-        ).with_value(['provider1', 'provider2'])
-      end
     end
   end
 
@@ -247,46 +223,7 @@ describe 'neutron::server' do
     before do
       params.delete(:password)
     end
-    it_raises 'a Puppet::Error', /Either auth_password or password must be set when using keystone authentication/
-  end
-
-  shared_examples_for 'a neutron server with incompatible authentication params' do
-    before do
-      params.merge!(
-        :auth_password => "passw0rd"
-      )
-    end
-    it_raises 'a Puppet::Error', /auth_password and password must not be used together/
-  end
-
-  shared_examples_for 'a neutron server with deprecated authentication params' do
-    before do
-      params.merge!(
-        :auth_user     => "neutron",
-        :auth_password => "passw0rd",
-        :auth_tenant   => "services",
-        :auth_region   => "MyRegion",
-        :identity_uri  => "https://foo.bar:5000/"
-      )
-      params.delete(:password)
-    end
-    it 'configures authentication middleware' do
-      is_expected.to contain_neutron_api_config('filter:authtoken/admin_tenant_name').with_value('services');
-      is_expected.to contain_neutron_api_config('filter:authtoken/admin_user').with_value('neutron');
-      is_expected.to contain_neutron_api_config('filter:authtoken/admin_password').with_value('passw0rd');
-      is_expected.to contain_neutron_api_config('filter:authtoken/admin_password').with_secret( true )
-      is_expected.to contain_neutron_api_config('filter:authtoken/identity_uri').with_value('https://foo.bar:5000/');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_tenant_name').with_value('services');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_user').with_value('neutron');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_password').with_value('passw0rd');
-      is_expected.to contain_neutron_config('keystone_authtoken/admin_password').with_secret( true )
-      is_expected.to contain_neutron_config('keystone_authtoken/identity_uri').with_value('https://foo.bar:5000/');
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_region').with_value('MyRegion');
-      is_expected.not_to contain_neutron_config('keystone_authtoken/tenant_name');
-      is_expected.not_to contain_neutron_config('keystone_authtoken/username');
-      is_expected.not_to contain_neutron_config('keystone_authtoken/password');
-      is_expected.not_to contain_neutron_config('keystone_authtoken/auth_url');
-    end
+    it_raises 'a Puppet::Error', /Please set password for neutron service user/
   end
 
   shared_examples_for 'VPNaaS, FWaaS and LBaaS package installation' do
@@ -298,7 +235,7 @@ describe 'neutron::server' do
       )
     end
     it 'should install *aaS packages' do
-      is_expected.to contain_package('neutron-lbaas-agent')
+      is_expected.to contain_package('neutron-lbaasv2-agent')
       is_expected.to contain_package('neutron-fwaas')
       is_expected.to contain_package('neutron-vpnaas-agent')
     end
@@ -312,49 +249,6 @@ describe 'neutron::server' do
     end
     it 'includes neutron::db::sync' do
       is_expected.to contain_class('neutron::db::sync')
-    end
-  end
-
-  describe "with custom keystone authentication params" do
-    let :facts do
-      @default_facts.merge(test_facts.merge({
-         :osfamily => 'RedHat',
-         :operatingsystemrelease => '7'
-      }))
-    end
-    before do
-      params.merge!({
-        :auth_uri           => 'https://foo.bar:5000/',
-        :auth_url           => 'https://foo.bar:35357/v3',
-        :keystone_auth_type => 'v3password',
-        :project_domain_id  => 'non_default',
-        :project_name       => 'new_services',
-        :user_domain_id     => 'non_default'
-      })
-    end
-    it 'configures keystone authentication params' do
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_uri').with_value("https://foo.bar:5000/");
-      is_expected.to contain_neutron_config('keystone_authtoken/auth_url').with_value("https://foo.bar:35357/v3");
-      is_expected.to contain_neutron_config('keystone_authtoken/project_domain_id').with_value("non_default");
-      is_expected.to contain_neutron_config('keystone_authtoken/project_name').with_value("new_services");
-      is_expected.to contain_neutron_config('keystone_authtoken/user_domain_id').with_value("non_default");
-    end
-  end
-
-  describe "with custom auth region" do
-    let :facts do
-      @default_facts.merge(test_facts.merge({
-         :osfamily               => 'RedHat',
-         :operatingsystemrelease => '7'
-      }))
-    end
-    before do
-      params.merge!({
-        :region_name => 'MyRegion',
-      })
-    end
-    it 'configures region_name' do
-      is_expected.to contain_neutron_config('keystone_authtoken/region_name').with_value('MyRegion');
     end
   end
 
@@ -373,8 +267,6 @@ describe 'neutron::server' do
 
     it_configures 'a neutron server'
     it_configures 'a neutron server with broken authentication'
-    it_configures 'a neutron server with incompatible authentication params'
-    it_configures 'a neutron server with deprecated authentication params'
     it_configures 'a neutron server without database synchronization'
   end
 
@@ -393,8 +285,6 @@ describe 'neutron::server' do
 
     it_configures 'a neutron server'
     it_configures 'a neutron server with broken authentication'
-    it_configures 'a neutron server with incompatible authentication params'
-    it_configures 'a neutron server with deprecated authentication params'
     it_configures 'a neutron server without database synchronization'
   end
 end

@@ -49,26 +49,18 @@ class nova::vncproxy(
   # See http://nova.openstack.org/runnova/vncconsole.html for more details.
 
   nova_config {
-    'DEFAULT/novncproxy_host': value => $host;
-    'DEFAULT/novncproxy_port': value => $port;
+    'vnc/novncproxy_host': value => $host;
+    'vnc/novncproxy_port': value => $port;
   }
 
   include ::nova::vncproxy::common
 
-  if ! defined(Package['python-numpy']) {
-    package { 'python-numpy':
-      ensure => present,
-      name   => $::nova::params::numpy_package_name,
-      tag    => ['openstack', 'nova-support-package'],
-    }
-  }
   nova::generic_service { 'vncproxy':
     enabled        => $enabled,
     manage_service => $manage_service,
     package_name   => $::nova::params::vncproxy_package_name,
     service_name   => $::nova::params::vncproxy_service_name,
     ensure_package => $ensure_package,
-    require        => Package['python-numpy']
   }
 
 }

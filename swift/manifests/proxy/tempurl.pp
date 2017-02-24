@@ -52,6 +52,8 @@ class swift::proxy::tempurl (
   $outgoing_allow_headers  = undef,
 ) {
 
+  include ::swift::deps
+
   if($methods) {
     if is_array($methods) {
       $methods_real = join($methods,' ')
@@ -95,7 +97,7 @@ class swift::proxy::tempurl (
   concat::fragment { 'swift-proxy-tempurl':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/tempurl.conf.erb'),
-    order   => '29',
+    order   => '120',
   }
 
 }

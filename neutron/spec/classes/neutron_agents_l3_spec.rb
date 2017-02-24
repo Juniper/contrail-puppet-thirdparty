@@ -39,7 +39,6 @@ describe 'neutron::agents::l3' do
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/debug').with_value(p[:debug])
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/external_network_bridge').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/interface_driver').with_value(p[:interface_driver])
-      is_expected.to contain_neutron_l3_agent_config('DEFAULT/router_id').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/gateway_external_network_id').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/handle_internal_only_routers').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/metadata_port').with_value('<SERVICE DEFAULT>')
@@ -47,7 +46,6 @@ describe 'neutron::agents::l3' do
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/periodic_interval').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/periodic_fuzzy_delay').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('DEFAULT/enable_metadata_proxy').with_value('<SERVICE DEFAULT>')
-      is_expected.to contain_neutron_l3_agent_config('DEFAULT/network_device_mtu').with_value('<SERVICE DEFAULT>')
       is_expected.to contain_neutron_l3_agent_config('AGENT/availability_zone').with_value('<SERVICE DEFAULT>')
     end
 
@@ -62,32 +60,29 @@ describe 'neutron::agents::l3' do
         is_expected.to contain_package('neutron-l3').with(
           :name    => platform_params[:l3_agent_package],
           :ensure  => p[:package_ensure],
-          :require => 'Package[neutron]',
           :tag     => ['openstack', 'neutron-package'],
         )
-        is_expected.to contain_package('neutron-l3').with_before(/Neutron_l3_agent_config\[.+\]/)
+        is_expected.to contain_package('neutron-l3').that_requires('Anchor[neutron::install::begin]')
+        is_expected.to contain_package('neutron-l3').that_notifies('Anchor[neutron::install::end]')
       else
-        is_expected.to contain_package('neutron').with_before(/Neutron_l3_agent_config\[.+\]/)
+        is_expected.to contain_package('neutron').that_requires('Anchor[neutron::install::begin]')
+        is_expected.to contain_package('neutron').that_notifies('Anchor[neutron::install::end]')
       end
     end
 
-    it 'configures neutron l3 agent service' do
-      is_expected.to contain_service('neutron-l3').with(
-        :name    => platform_params[:l3_agent_service],
-        :enable  => true,
-        :ensure  => 'running',
-        :require => 'Class[Neutron]',
-        :tag     => 'neutron-service',
-      )
-      is_expected.to contain_service('neutron-l3').that_subscribes_to('Package[neutron]')
-    end
-
-    context 'with manage_service as false' do
+    context 'with manage_service as true' do
       before :each do
-        params.merge!(:manage_service => false)
+        params.merge!(:manage_service => true)
       end
-      it 'should not start/stop service' do
-        is_expected.to contain_service('neutron-l3').without_ensure
+      it 'configures neutron l3 agent service' do
+        is_expected.to contain_service('neutron-l3').with(
+          :name    => platform_params[:l3_agent_service],
+          :enable  => true,
+          :ensure  => 'running',
+          :tag     => 'neutron-service',
+        )
+        is_expected.to contain_service('neutron-l3').that_subscribes_to('Anchor[neutron::service::begin]')
+        is_expected.to contain_service('neutron-l3').that_notifies('Anchor[neutron::service::end]')
       end
     end
 
@@ -112,36 +107,15 @@ describe 'neutron::agents::l3' do
       end
     end
 
-    context 'with use_namespaces as false' do
-      before :each do
-        params.merge!(:use_namespaces => false)
-      end
-      it 'should set use_namespaces option' do
-        is_expected.to contain_neutron_l3_agent_config('DEFAULT/use_namespaces').with_value(p[:use_namespaces])
-      end
-    end
-
     context 'with availability zone' do
       before :each do
         params.merge!(:availability_zone => 'zone1')
       end
 
       it 'configures availability zone' do
-        is_expected.to contain_neutron_l3_agent_config('AGENT/availability_zone').with_value(params[:availability_zone])
+        is_expected.to contain_neutron_l3_agent_config('AGENT/availability_zone').with_value(p[:availability_zone])
       end
     end
-  end
-
-  shared_examples_for 'neutron l3 agent with network_device_mtu specified' do
-    before do
-      params.merge!(
-        :network_device_mtu => 9999
-      )
-    end
-    it 'configures network_device_mtu' do
-      is_expected.to contain_neutron_l3_agent_config('DEFAULT/network_device_mtu').with_value(params[:network_device_mtu])
-    end
-
   end
 
   context 'on Debian platforms' do
@@ -157,9 +131,9 @@ describe 'neutron::agents::l3' do
     end
 
     it_configures 'neutron l3 agent'
-    it_configures 'neutron l3 agent with network_device_mtu specified'
     it 'configures neutron-l3 package subscription' do
-      is_expected.to contain_service('neutron-l3').that_subscribes_to( [ 'Package[neutron]', 'Package[neutron-l3]' ] )
+      is_expected.to contain_service('neutron-l3').that_subscribes_to('Anchor[neutron::service::begin]')
+      is_expected.to contain_service('neutron-l3').that_notifies('Anchor[neutron::service::end]')
     end
   end
 
@@ -176,6 +150,5 @@ describe 'neutron::agents::l3' do
     end
 
     it_configures 'neutron l3 agent'
-    it_configures 'neutron l3 agent with network_device_mtu specified'
   end
 end

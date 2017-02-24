@@ -16,12 +16,14 @@ describe 'cinder::backend::nexenta' do
     { :nexenta_volume              => 'cinder',
       :nexenta_target_prefix       => 'iqn:',
       :nexenta_target_group_prefix => 'cinder/',
-      :nexenta_blocksize           => '8k',
-      :nexenta_sparse              => true }
+      :nexenta_blocksize           => '8192',
+      :nexenta_sparse              => true,
+      :nexenta_rest_port           => '8457',
+      :volume_driver               => 'cinder.volume.drivers.nexenta.iscsi.NexentaISCSIDriver' }
   end
 
   let :facts do
-    { :osfamily => 'Debian' }
+    OSDefaults.get_facts({})
   end
 
 
@@ -46,6 +48,15 @@ describe 'cinder::backend::nexenta' do
       is_expected.to contain_cinder_config('nexenta/param1').with({
         :value => 'value1'
       })
+    end
+  end
+
+  context 'nexenta backend with cinder type' do
+    before do
+      params.merge!({:manage_volume_type => true})
+    end
+    it 'should create type with properties' do
+      should contain_cinder_type('nexenta').with(:ensure => :present, :properties => ['volume_backend_name=nexenta'])
     end
   end
 

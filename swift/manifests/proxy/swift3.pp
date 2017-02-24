@@ -24,18 +24,19 @@ class swift::proxy::swift3(
   $ensure = 'present'
 ) {
 
+  include ::swift::deps
   include ::swift::params
 
   package { 'swift-plugin-s3':
     ensure => $ensure,
     name   => $::swift::params::swift3,
-    tag    => 'openstack',
+    tag    => ['openstack','swift-package']
   }
 
   concat::fragment { 'swift_swift3':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/swift3.conf.erb'),
-    order   => '27',
+    order   => '70',
   }
 
 }

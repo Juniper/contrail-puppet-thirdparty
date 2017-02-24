@@ -33,10 +33,8 @@ describe 'nova::cells' do
      :call_timeout                  => '60',
      :capabilities                  => ['hypervisor=xenserver;kvm','os=linux;windows'],
      :db_check_interval             => '60',
-     :driver                        => 'nova.cells.rpc_driver.CellsRPCDriver',
      :instance_updated_at_threshold => '3600',
      :instance_update_num_instances => '1',
-     :manager                       => 'nova.cells.manager.CellsManager',
      :max_hop_count                 => '10',
      :mute_child_interval           => '300',
      :mute_weight_multiplier        => '-10.0',
@@ -78,10 +76,8 @@ describe 'nova::cells' do
       is_expected.to contain_nova_config('cells/call_timeout').with(:value => '60')
       is_expected.to contain_nova_config('cells/capabilities').with(:value => 'hypervisor=xenserver;kvm,os=linux;windows')
       is_expected.to contain_nova_config('cells/db_check_interval').with(:value => '60')
-      is_expected.to contain_nova_config('cells/driver').with(:value => 'nova.cells.rpc_driver.CellsRPCDriver')
       is_expected.to contain_nova_config('cells/instance_updated_at_threshold').with(:value => '3600')
       is_expected.to contain_nova_config('cells/instance_update_num_instances').with(:value => '1')
-      is_expected.to contain_nova_config('cells/manager').with(:value => 'nova.cells.manager.CellsManager')
       is_expected.to contain_nova_config('cells/max_hop_count').with(:value => '10')
       is_expected.to contain_nova_config('cells/mute_child_interval').with(:value => '300')
       is_expected.to contain_nova_config('cells/mute_weight_multiplier').with(:value => '-10.0')
@@ -135,43 +131,39 @@ describe 'nova::cells' do
       default_params.merge(params)
     end
     it { is_expected.to contain_nova_config('cells/name').with_value(expected_params[:cell_name]) }
-    it { is_expected.to contain_nova_config('DEFAULT/quota_driver').with_value('nova.quota.NoopQuotaDriver')}
     it { is_expected.to contain_nova_config('cells/cell_type').with_value('compute')}
     it_configures 'nova-cells'
   end
 
+  on_supported_os({
+    :supported_os => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts())
+      end
 
-  context 'on Debian platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'Debian' })
+      case facts[:osfamily]
+      when 'Debian'
+        let (:platform_params) do
+          {
+              :cells_package_name => 'nova-cells',
+              :cells_service_name => 'nova-cells'
+          }
+        end
+        it_configures 'a parent cell with manage_service as false'
+      when 'RedHat'
+        let (:platform_params) do
+          {
+              :cells_package_name => 'openstack-nova-cells',
+              :cells_service_name => 'openstack-nova-cells'
+          }
+        end
+      end
+
+      it_configures 'a parent cell'
+      it_configures 'a child cell'
     end
-
-    let :platform_params do
-      {
-        :cells_package_name => 'nova-cells',
-        :cells_service_name => 'nova-cells'
-      }
-    end
-
-    it_configures 'a parent cell'
-    it_configures 'a parent cell with manage_service as false'
-    it_configures 'a child cell'
-  end
-
-  context 'on RedHat platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
-    end
-
-    let :platform_params do
-      {
-        :cells_package_name => 'openstack-nova-cells',
-        :cells_service_name => 'openstack-nova-cells'
-      }
-    end
-
-    it_configures 'a parent cell'
-    it_configures 'a child cell'
   end
 
 end

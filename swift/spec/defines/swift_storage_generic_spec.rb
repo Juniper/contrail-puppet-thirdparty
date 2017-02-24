@@ -7,14 +7,14 @@ describe 'swift::storage::generic' do
   end
 
   let :facts do
-    {
+    OSDefaults.get_facts({
       :operatingsystem => 'Ubuntu',
-      :osfamily        => 'Debian'
-    }
+      :osfamily        => 'Debian',
+    })
   end
 
   let :pre_condition do
-    "class { 'swift': swift_hash_suffix => 'foo' }
+    "class { 'swift': swift_hash_path_suffix => 'foo' }
      class { 'swift::storage': storage_local_net_ip => '10.0.0.1' }"
   end
 
@@ -55,7 +55,8 @@ describe 'swift::storage::generic' do
               it do
                 is_expected.to contain_package("swift-#{t}").with(
                   :ensure => params[:package_ensure],
-                  :tag    => ['openstack', 'swift-package']
+                  :tag    => ['openstack', 'swift-package'],
+                  :notify => ['Anchor[swift::install::end]']
                 )
               end
               it do
@@ -99,8 +100,10 @@ describe 'swift::storage::generic' do
 
   context 'on Debian platforms' do
     let :facts do
-      { :operatingsystem => 'Ubuntu',
-        :osfamily        => 'Debian' }
+      OSDefaults.get_facts({
+        :operatingsystem => 'Ubuntu',
+        :osfamily        => 'Debian',
+      })
     end
 
     let :platform_params do
@@ -113,7 +116,7 @@ describe 'swift::storage::generic' do
          'swift-object-server'        => 'swift-object',
          'swift-object-replicator'    => 'swift-object-replicator',
          'swift-object-auditor'       => 'swift-object-auditor',
-         'service_provider'           => 'upstart'
+         'service_provider'           => nil
       }
     end
 
@@ -144,8 +147,10 @@ describe 'swift::storage::generic' do
 
   context 'on Redhat platforms' do
     let :facts do
-      { :operatingsystem => 'Redhat',
-        :osfamily        => 'Redhat' }
+      OSDefaults.get_facts({
+        :operatingsystem => 'Redhat',
+        :osfamily        => 'Redhat',
+      })
     end
 
     let :platform_params do

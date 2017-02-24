@@ -1,92 +1,60 @@
 require 'spec_helper_acceptance'
 
-describe 'concat order', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfamily')) do
+describe 'concat order' do
   basedir = default.tmpdir('concat')
-  before(:all) do
-    shell("rm -rf #{basedir} #{default.puppet['vardir']}/concat")
-    shell("mkdir -p #{basedir}")
-  end
 
-  context '=> alpha' do
-    pp = <<-EOS
-      include concat::setup
+  context '=> ' do
+    shared_examples 'sortby' do |order_by, match_output|
+      pp = <<-EOS
       concat { '#{basedir}/foo':
-        order => 'alpha'
+        order => '#{order_by}'
       }
       concat::fragment { '1':
         target  => '#{basedir}/foo',
         content => 'string1',
+        order   => '1',
       }
       concat::fragment { '2':
         target  => '#{basedir}/foo',
         content => 'string2',
+        order   => '2',
       }
       concat::fragment { '10':
         target  => '#{basedir}/foo',
         content => 'string10',
       }
-    EOS
+      EOS
 
-    it 'applies the manifest twice with no stderr' do
-      expect(apply_manifest(pp, :catch_failures => true).stderr).to eq("")
-      expect(apply_manifest(pp, :catch_changes => true).stderr).to eq("")
+      it 'applies the manifest twice with no stderr' do
+        apply_manifest(pp, :catch_failures => true)
+        apply_manifest(pp, :catch_changes => true)
+      end
+
+      describe file("#{basedir}/foo") do
+        it { should be_file }
+        its(:content) { should match match_output }
+      end
     end
 
-    describe file("#{basedir}/foo") do
-      it { should be_file }
-      #XXX Solaris 10 doesn't support multi-line grep
-      it("should contain string10\nstring1\nsring2", :unless => (fact('osfamily') == 'Solaris' or UNSUPPORTED_PLATFORMS.include?(fact('osfamily')))) {
-        should contain "string10\nstring1\nsring2"
-      }
-    end
-  end
-
-  context '=> numeric' do
-    pp = <<-EOS
-      include concat::setup
-      concat { '#{basedir}/foo':
-        order => 'numeric'
-      }
-      concat::fragment { '1':
-        target  => '#{basedir}/foo',
-        content => 'string1',
-      }
-      concat::fragment { '2':
-        target  => '#{basedir}/foo',
-        content => 'string2',
-      }
-      concat::fragment { '10':
-        target  => '#{basedir}/foo',
-        content => 'string10',
-      }
-    EOS
-
-    it 'applies the manifest twice with no stderr' do
-      expect(apply_manifest(pp, :catch_failures => true).stderr).to eq("")
-      expect(apply_manifest(pp, :catch_changes => true).stderr).to eq("")
+    describe 'alpha' do
+      it_behaves_like 'sortby', 'alpha', /string1string10string2/
     end
 
-    describe file("#{basedir}/foo") do
-      it { should be_file }
-      #XXX Solaris 10 doesn't support multi-line grep
-      it("should contain string1\nstring2\nsring10", :unless => (fact('osfamily') == 'Solaris' or UNSUPPORTED_PLATFORMS.include?(fact('osfamily')))) {
-        should contain "string1\nstring2\nsring10"
-      }
+    describe 'numeric' do
+      it_behaves_like 'sortby', 'numeric', /string1string2string10/
     end
   end
 end # concat order
 
-describe 'concat::fragment order', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfamily')) do
+describe 'concat::fragment order' do
   basedir = default.tmpdir('concat')
-  before(:all) do
-    shell("rm -rf #{basedir} #{default.puppet['vardir']}/concat")
-    shell("mkdir -p #{basedir}")
-  end
 
   context '=> reverse order' do
-    pp = <<-EOS
-      include concat::setup
-      concat { '#{basedir}/foo': }
+    shared_examples 'order_by' do |order_by, match_output|
+      pp = <<-EOS
+      concat { '#{basedir}/foo':
+          order => '#{order_by}'
+      }
       concat::fragment { '1':
         target  => '#{basedir}/foo',
         content => 'string1',
@@ -102,25 +70,28 @@ describe 'concat::fragment order', :unless => UNSUPPORTED_PLATFORMS.include?(fac
         content => 'string3',
         order   => '1',
       }
-    EOS
+      EOS
 
-    it 'applies the manifest twice with no stderr' do
-      expect(apply_manifest(pp, :catch_failures => true).stderr).to eq("")
-      expect(apply_manifest(pp, :catch_changes => true).stderr).to eq("")
+      it 'applies the manifest twice with no stderr' do
+        apply_manifest(pp, :catch_failures => true)
+        apply_manifest(pp, :catch_changes => true)
+      end
+
+      describe file("#{basedir}/foo") do
+        it { should be_file }
+        its(:content) { should match match_output }
+      end
     end
-
-    describe file("#{basedir}/foo") do
-      it { should be_file }
-      #XXX Solaris 10 doesn't support multi-line grep
-      it("should contain string3\nstring2\nsring1", :unless => (fact('osfamily') == 'Solaris' or UNSUPPORTED_PLATFORMS.include?(fact('osfamily')))) {
-        should contain "string3\nstring2\nsring1"
-      }
+    describe 'alpha' do
+      it_should_behave_like 'order_by', 'alpha', /string3string2string1/
+    end
+    describe 'numeric' do
+      it_should_behave_like 'order_by', 'numeric', /string3string2string1/
     end
   end
 
   context '=> normal order' do
     pp = <<-EOS
-      include concat::setup
       concat { '#{basedir}/foo': }
       concat::fragment { '1':
         target  => '#{basedir}/foo',
@@ -140,16 +111,13 @@ describe 'concat::fragment order', :unless => UNSUPPORTED_PLATFORMS.include?(fac
     EOS
 
     it 'applies the manifest twice with no stderr' do
-      expect(apply_manifest(pp, :catch_failures => true).stderr).to eq("")
-      expect(apply_manifest(pp, :catch_changes => true).stderr).to eq("")
+      apply_manifest(pp, :catch_failures => true)
+      apply_manifest(pp, :catch_changes => true)
     end
 
     describe file("#{basedir}/foo") do
       it { should be_file }
-      #XXX Solaris 10 doesn't support multi-line grep
-      it("should contain string1\nstring2\nsring3", :unless => (fact('osfamily') == 'Solaris' or UNSUPPORTED_PLATFORMS.include?(fact('osfamily')))) {
-        should contain "string1\nstring2\nsring3"
-      }
+      its(:content) { should match /string1string2string3/ }
     end
   end
 end # concat::fragment order

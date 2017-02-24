@@ -169,16 +169,10 @@ class horizon::wsgi::apache (
   }
 
   Package['horizon'] -> Package['httpd']
-  File[$::horizon::params::config_file] ~> Service['httpd']
+  Concat[$::horizon::params::config_file] ~> Service['httpd']
 
-  $unix_user = $::osfamily ? {
-    'RedHat' => $::horizon::params::apache_user,
-    default  => $::horizon::params::wsgi_user
-  }
-  $unix_group = $::osfamily ? {
-    'RedHat' => $::horizon::params::apache_group,
-    default  => $::horizon::params::wsgi_group,
-  }
+  $unix_user  = $::horizon::params::wsgi_user
+  $unix_group = $::horizon::params::wsgi_group
 
   file { $::horizon::params::logdir:
     ensure  => directory,
@@ -242,8 +236,8 @@ class horizon::wsgi::apache (
   }
 
   ensure_resource('apache::vhost', $vhost_conf_name, merge ($default_vhost_conf, $extra_params, {
-    redirectmatch_regexp => $redirect_match,
-    redirectmatch_dest   => $redirect_url,
+    redirectmatch_regexp => $root_url ? { '/' => undef, default => $redirect_match },
+    redirectmatch_dest   => $root_url ? { '/' => undef, default => $redirect_url },
   }))
   ensure_resource('apache::vhost', $vhost_ssl_conf_name, merge ($default_vhost_conf, $extra_params, {
     access_log_file      => 'horizon_ssl_access.log',
@@ -254,8 +248,8 @@ class horizon::wsgi::apache (
     ensure               => $ensure_ssl_vhost,
     wsgi_daemon_process  => 'horizon-ssl',
     wsgi_process_group   => 'horizon-ssl',
-    redirectmatch_regexp => '^/$',
-    redirectmatch_dest   => $root_url,
+    redirectmatch_regexp => $root_url ? { '/' => undef, default => '^/$' },
+    redirectmatch_dest   => $root_url ? { '/' => undef, default => $root_url },
   }))
 
 }

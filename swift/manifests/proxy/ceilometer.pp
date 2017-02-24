@@ -78,6 +78,8 @@ class swift::proxy::ceilometer(
   $group               = 'ceilometer',
 ) inherits swift {
 
+  include ::swift::deps
+
   if(is_array($rabbit_hosts)) {
     $rabbit_hosts_with_creds = prefix($rabbit_hosts, "${rabbit_user}:${rabbit_password}@")
   }
@@ -100,13 +102,12 @@ class swift::proxy::ceilometer(
   concat::fragment { 'swift_ceilometer':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/ceilometer.conf.erb'),
-    order   => '33',
-    require => Class['::ceilometer'],
+    order   => '260',
   }
 
   package { 'python-ceilometermiddleware':
     ensure => $ensure,
-    tag    => 'openstack',
+    tag    => ['openstack', 'swift-support-package'],
   }
 
 }

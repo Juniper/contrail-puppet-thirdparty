@@ -1,7 +1,18 @@
 require 'puppet'
-Puppet::Type.type(:rabbitmq_exchange).provide(:rabbitmqadmin) do
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'rabbitmqctl'))
+Puppet::Type.type(:rabbitmq_exchange).provide(:rabbitmqadmin, :parent => Puppet::Provider::Rabbitmqctl) do
 
-  commands :rabbitmqadmin => '/usr/local/bin/rabbitmqadmin'
+  if Puppet::PUPPETVERSION.to_f < 3
+    commands :rabbitmqctl   => 'rabbitmqctl'
+    commands :rabbitmqadmin => '/usr/local/bin/rabbitmqadmin'
+  else
+    has_command(:rabbitmqctl, 'rabbitmqctl') do
+      environment :HOME => "/tmp"
+    end
+    has_command(:rabbitmqadmin, '/usr/local/bin/rabbitmqadmin') do
+      environment :HOME => "/tmp"
+    end
+  end
   defaultfor :feature => :posix
 
   def should_vhost
@@ -12,23 +23,61 @@ Puppet::Type.type(:rabbitmq_exchange).provide(:rabbitmqadmin) do
     end
   end
 
+  def self.all_vhosts
+    vhosts = []
+    self.run_with_retries {
+      rabbitmqctl('-q', 'list_vhosts')
+    }.split(/\n/).each do |vhost|
+      vhosts.push(vhost)
+    end
+    vhosts
+  end
+
+  def self.all_exchanges(vhost)
+    exchanges = []
+    self.run_with_retries {
+      rabbitmqctl('-q', 'list_exchanges', '-p', vhost, 'name', 'type', 'internal', 'durable', 'auto_delete', 'arguments')
+    }.split(/\n/).each do |exchange|
+      next if exchange =~ /^federation:/
+      exchanges.push(exchange)
+    end
+    exchanges
+  end
+
   def self.instances
     resources = []
-    rabbitmqadmin('list', 'exchanges').split(/\n/)[3..-2].collect do |line|
-      if line =~ /^\|\s+(\S+)\s+\|\s+(\S+)?\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|\s+(\S+)\s+\|$/
-        entry = {
-          :ensure => :present,
-          :name   => "%s@%s" % [$2, $1],
-          :type   => $3
-        }
-        resources << new(entry) if entry[:type]
-      else
-        raise Puppet::Error, "Cannot parse invalid exchange line: #{line}"
-      end
+    all_vhosts.each do |vhost|
+        all_exchanges(vhost).each do |line|
+            name, type, internal, durable, auto_delete, arguments = line.split()
+            if type.nil?
+                # if name is empty, it will wrongly get the type's value.
+                # This way type will get the correct value
+                type = name
+                name = ''
+            end
+            # Convert output of arguments from the rabbitmqctl command to a json string.
+            if !arguments.nil?
+              arguments = arguments.gsub(/^\[(.*)\]$/, "").gsub(/\{("(?:.|\\")*?"),/, '{\1:').gsub(/\},\{/, ",")
+              if arguments == ""
+                arguments = '{}'
+              end
+            else
+              arguments = '{}'
+            end
+            exchange = {
+              :type   => type,
+              :ensure => :present,
+              :internal => internal,
+              :durable => durable,
+              :auto_delete => auto_delete,
+              :name   => "%s@%s" % [name, vhost],
+              :arguments => JSON.parse(arguments),
+            }
+            resources << new(exchange) if exchange[:type]
+        end
     end
     resources
   end
-
 
   def self.prefetch(resources)
     packages = instances
@@ -46,14 +95,23 @@ Puppet::Type.type(:rabbitmq_exchange).provide(:rabbitmqadmin) do
   def create
     vhost_opt = should_vhost ? "--vhost=#{should_vhost}" : ''
     name = resource[:name].split('@')[0]
-    rabbitmqadmin('declare', 'exchange', vhost_opt, "--user=#{resource[:user]}", "--password=#{resource[:password]}", "name=#{name}", "type=#{resource[:type]}")
+    arguments = resource[:arguments]
+    if arguments.nil?
+      arguments = {}
+    end
+    cmd = ['declare', 'exchange', vhost_opt, "--user=#{resource[:user]}", "--password=#{resource[:password]}", "name=#{name}", "type=#{resource[:type]}",]
+    cmd << "internal=#{resource[:internal]}" if resource[:internal]
+    cmd << "durable=#{resource[:durable]}" if resource[:durable]
+    cmd << "auto_delete=#{resource[:auto_delete]}" if resource[:auto_delete]
+    cmd += ["arguments=#{arguments.to_json}", '-c', '/etc/rabbitmq/rabbitmqadmin.conf']
+    rabbitmqadmin(*cmd)
     @property_hash[:ensure] = :present
   end
 
   def destroy
     vhost_opt = should_vhost ? "--vhost=#{should_vhost}" : ''
     name = resource[:name].split('@')[0]
-    rabbitmqadmin('delete', 'exchange', vhost_opt, "--user=#{resource[:user]}", "--password=#{resource[:password]}", "name=#{name}")
+    rabbitmqadmin('delete', 'exchange', vhost_opt, "--user=#{resource[:user]}", "--password=#{resource[:password]}", "name=#{name}", '-c', '/etc/rabbitmq/rabbitmqadmin.conf')
     @property_hash[:ensure] = :absent
   end
 

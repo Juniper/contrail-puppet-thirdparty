@@ -11,11 +11,11 @@
 # [*backup_swift_url*]
 #   (optional) The URL of the Swift endpoint.
 #   Should be a valid Swift URL
-#   Defaults to 'http://localhost:8080/v1/AUTH_'
+#   Defaults to $::os_service_default
 #
 # [*backup_swift_auth_url*]
-#  (optional) The URL of the Keystone endpoint for authentication.
-#  Defaults to 'http://127.0.0.1:5000/v2.0/'
+#   (optional) The URL of the Keystone endpoint for authentication.
+#   Defaults to $::os_service_default
 #
 # [*backup_swift_container*]
 #   (optional) The default Swift container to use.
@@ -32,6 +32,21 @@
 # [*backup_swift_retry_backoff*]
 #   (optional) The backoff time in seconds between Swift retries.
 #   Defaults to $::os_service_default
+#
+# [*backup_swift_user_domain*]
+#  (optional) Swift user domain name. Required when connecting to an
+#  auth 3.0 system.
+#  Defaults to $::os_service_default
+#
+# [*backup_swift_project_domain*]
+#  (optional) Swift project domain name. Required when connecting to an
+#  auth 3.0 system.
+#  Defaults to $::os_service_default
+#
+# [*backup_swift_project*]
+#  (optional) Swift project/account name. Required when connection to an
+#  auth 3.0 system.
+#  Defaults to $::os_service_default
 #
 # [*backup_compression_algorithm*]
 #   (optional) The compression algorithm for the chunks sent to swift
@@ -61,17 +76,23 @@
 #
 class cinder::backup::swift (
   $backup_driver                = 'cinder.backup.drivers.swift',
-  $backup_swift_url             = 'http://localhost:8080/v1/AUTH_',
-  $backup_swift_auth_url        = 'http://127.0.0.1:5000/v2.0/',
+  $backup_swift_url             = $::os_service_default,
+  $backup_swift_auth_url        = $::os_service_default,
   $backup_swift_container       = 'volumes_backup',
   $backup_swift_object_size     = $::os_service_default,
   $backup_swift_retry_attempts  = $::os_service_default,
   $backup_swift_retry_backoff   = $::os_service_default,
+  $backup_swift_user_domain     = $::os_service_default,
+  $backup_swift_project_domain  = $::os_service_default,
+  $backup_swift_project         = $::os_service_default,
   $backup_compression_algorithm = $::os_service_default,
 ) {
 
+  include ::cinder::deps
+
   if ($backup_swift_container == 'volumes_backup') {
-    warning('The OpenStack default value of backup_swift_container differs from the puppet module default of "volumes_backup" and will be changed to the upstream OpenStack default in N-release.')
+    warning("The OpenStack default value of backup_swift_container differs from the puppet module \
+default of \"volumes_backup\" and will be changed to the upstream OpenStack default in N-release.")
   }
 
   cinder_config {
@@ -82,6 +103,9 @@ class cinder::backup::swift (
     'DEFAULT/backup_swift_object_size':     value => $backup_swift_object_size;
     'DEFAULT/backup_swift_retry_attempts':  value => $backup_swift_retry_attempts;
     'DEFAULT/backup_swift_retry_backoff':   value => $backup_swift_retry_backoff;
+    'DEFAULT/backup_swift_user_domain':     value => $backup_swift_user_domain;
+    'DEFAULT/backup_swift_project_domain':  value => $backup_swift_project_domain;
+    'DEFAULT/backup_swift_project':         value => $backup_swift_project;
     'DEFAULT/backup_compression_algorithm': value => $backup_compression_algorithm;
   }
 

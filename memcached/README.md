@@ -7,6 +7,13 @@ If you find this module useful, send some bitcoins to 1Na3YFUmdxKxJLiuRXQYJU2kiN
 
 ## How to use
 
+```
+Starting with version 3.0.0, memcached will be listening on 127.0.0.1 only.
+This should make setups more secure (e.g. if there are no firewall rules in place).
+
+To change this behavior, you need to set listen_ip to '0.0.0.0'.
+```
+
 ### Use roughly 90% of memory
 
 ```ruby
@@ -33,10 +40,13 @@ If you find this module useful, send some bitcoins to 1Na3YFUmdxKxJLiuRXQYJU2kiN
 
 * $package_ensure = 'present'
 * $logfile = '/var/log/memcached.log'
+* $pidfile = '/var/run/memcached.pid' (Debian family only, set to false to disable pidfile)
 * $max_memory = false
-* $item_size = false
+* $max_item_size = false
+* $min_item_size = false
+* $factor = false
 * $lock_memory = false (WARNING: good if used intelligently, google for -k key)
-* $listen_ip = '0.0.0.0'
+* $listen_ip = '127.0.0.1'
 * $tcp_port = 11211
 * $udp_port = 11211
 * $manage_firewall = false
@@ -46,3 +56,6 @@ If you find this module useful, send some bitcoins to 1Na3YFUmdxKxJLiuRXQYJU2kiN
 * $unix_socket = undef
 * $install_dev = false (TRUE if 'libmemcached-dev' package should be installed)
 * $processorcount = $::processorcount
+* $service_restart = true (restart service after configuration changes, false to prevent restarts)
+* $use_sasl = false (start memcached with SASL support)
+* $large_mem_pages = false (try to use large memory pages)

@@ -21,7 +21,7 @@ describe 'basic swift' do
       # Swift resources
       class { '::swift':
         # not sure how I want to deal with this shared secret
-        swift_hash_suffix => 'secrete',
+        swift_hash_path_suffix => 'secrete',
         package_ensure    => latest,
       }
       class { '::swift::keystone::auth':
@@ -33,6 +33,7 @@ describe 'basic swift' do
       }
       # create xfs partitions on a loopback device and mounts them
       swift::storage::loopback { '2':
+        seek    => '200000',
         require => Class['swift'],
       }
       # sets up storage nodes which is composed of a single
@@ -43,29 +44,28 @@ describe 'basic swift' do
         manage_ring          => true,
         zone                 => '2',
         storage_local_net_ip => '127.0.0.1',
-        require              => Swift::Storage::Loopback[2] ,
+        require              => Swift::Storage::Loopback['2'] ,
       }
       class { '::swift::ringbuilder':
         part_power     => '18',
         replicas       => '1',
         min_part_hours => 1,
-        require        => Class['swift'],
       }
       class { '::swift::proxy':
         proxy_local_net_ip => '127.0.0.1',
-        pipeline           => ['healthcheck', 'cache', 'tempauth', 'dlo', 'proxy-server'],
+        pipeline           => ['healthcheck', 'proxy-logging', 'cache', 'authtoken', 'keystone', 'dlo', 'proxy-server'],
         account_autocreate => true,
-        require            => Class['swift::ringbuilder'],
       }
       class { '::swift::proxy::authtoken':
-        admin_password => 'a_big_secret',
+        password => 'a_big_secret',
       }
+      class { '::swift::keystone::dispersion': } -> class { '::swift::dispersion': }
       class {'::swift::objectexpirer':
         interval => 600,
       }
       class {
-        [ '::swift::proxy::healthcheck', '::swift::proxy::cache',
-        '::swift::proxy::tempauth', '::swift::proxy::dlo' ]:
+        [ '::swift::proxy::healthcheck', '::swift::proxy::proxy_logging', '::swift::proxy::cache',
+        '::swift::proxy::keystone', '::swift::proxy::dlo' ]:
       }
       EOS
 
@@ -102,7 +102,7 @@ describe 'basic swift' do
       # Swift resources
       class { '::swift':
         # not sure how I want to deal with this shared secret
-        swift_hash_suffix => 'secrete',
+        swift_hash_path_suffix => 'secrete',
         package_ensure    => latest,
       }
       class { '::swift::keystone::auth':
@@ -114,6 +114,7 @@ describe 'basic swift' do
       }
       # create xfs partitions on a loopback device and mounts them
       swift::storage::loopback { '2':
+        seek    => '200000',
         require => Class['swift'],
       }
       # sets up storage nodes which is composed of a single
@@ -124,38 +125,40 @@ describe 'basic swift' do
         manage_ring          => true,
         zone                 => '2',
         storage_local_net_ip => '127.0.0.1',
-        require              => Swift::Storage::Loopback[2] ,
+        require              => Swift::Storage::Loopback['2'] ,
       }
       class { '::swift::storage::account':
-        service_provider   => 'swiftinit',
+        service_provider => 'swiftinit',
       }
       class { '::swift::storage::container':
-        service_provider   => 'swiftinit',
+        service_provider => 'swiftinit',
       }
       class { '::swift::storage::object':
-        service_provider   => 'swiftinit',
+        service_provider => 'swiftinit',
       }
       class { '::swift::ringbuilder':
         part_power     => '18',
         replicas       => '1',
         min_part_hours => 1,
-        require        => Class['swift'],
       }
       class { '::swift::proxy':
         proxy_local_net_ip => '127.0.0.1',
-        pipeline           => ['healthcheck', 'cache', 'tempauth', 'proxy-server'],
+        pipeline           => ['healthcheck', 'proxy-logging', 'cache', 'authtoken', 'keystone', 'dlo', 'proxy-server'],
         account_autocreate => true,
-        require            => Class['swift::ringbuilder'],
         service_provider   => 'swiftinit',
       }
       class { '::swift::proxy::authtoken':
         admin_password => 'a_big_secret',
       }
+      class { '::swift::keystone::dispersion': } -> class { '::swift::dispersion': }
       class {'::swift::objectexpirer':
         interval         => 600,
         service_provider => 'swiftinit',
       }
-      class { ['::swift::proxy::healthcheck', '::swift::proxy::cache', '::swift::proxy::tempauth']: }
+      class {
+        [ '::swift::proxy::healthcheck', '::swift::proxy::proxy_logging', '::swift::proxy::cache',
+        '::swift::proxy::keystone', '::swift::proxy::dlo' ]:
+      }
       EOS
 
       # Run one time to catch any errors upgrading to swiftinit service provider

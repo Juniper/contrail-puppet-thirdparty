@@ -49,10 +49,12 @@ class swift::proxy::slo (
   $max_get_time                = '86400'
 ) {
 
+  include ::swift::deps
+
   concat::fragment { 'swift_slo':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/slo.conf.erb'),
-    order   => '35',
+    order   => '230',
   }
 
 }

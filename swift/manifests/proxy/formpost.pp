@@ -1,5 +1,5 @@
 #
-# Configure swift cache_errors.
+# Configure swift formpost.
 #
 # == Dependencies
 #
@@ -17,10 +17,12 @@
 #
 class swift::proxy::formpost() {
 
+  include ::swift::deps
+
   concat::fragment { 'swift-proxy-formpost':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/formpost.conf.erb'),
-    order   => '31',
+    order   => '130',
   }
 
 }

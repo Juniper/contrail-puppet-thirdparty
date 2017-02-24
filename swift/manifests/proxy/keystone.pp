@@ -1,5 +1,5 @@
 #
-# This class can be sed to manage keystone middleware for swift proxy
+# This class can be set to manage keystone middleware for swift proxy
 #
 # == Parameters
 #
@@ -10,13 +10,13 @@
 #    Swift operator roles must be defined in swift::keystone::auth because
 #    keystone API access is usually not available on Swift proxy nodes.
 #
-#  [*is_admin*]
-#   (Optional) Set to true to allow users to set ACLs on their account.
-#    Defaults to true.
-#
 # [*reseller_prefix*]
 #   (Optional) The prefix used for reseller URL.
 #   Defaults to 'AUTH_'
+#
+# DEPRECATED PARAMETERS
+# [*is_admin*]
+#   Deprecated, this parameter does nothing.
 #
 # == Authors
 #
@@ -25,14 +25,21 @@
 #
 class swift::proxy::keystone(
   $operator_roles      = ['admin', 'SwiftOperator'],
-  $is_admin            = true,
-  $reseller_prefix     = 'AUTH_'
+  $reseller_prefix     = 'AUTH_',
+  # DEPRECATED PARAMETERS
+  $is_admin            = undef
 ) {
+
+  include ::swift::deps
+
+  if $is_admin {
+        warning('is_admin parameter is deprecated, has no effect and will be removed in a future release.')
+  }
 
   concat::fragment { 'swift_keystone':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/keystone.conf.erb'),
-    order   => '79',
+    order   => '180',
   }
 
 }

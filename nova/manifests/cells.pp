@@ -34,10 +34,6 @@
 #    Create cells with nova-manage
 #    Defaults to 'True'
 #
-#  [*driver*]
-#    Cells communication driver to use
-#    Defaults to 'nova.cells.rpc_driver.CellsRPCDriver'
-#
 #  [*ensure_package*]
 #    Desired ensure state of packages.
 #    Defaults to present
@@ -57,10 +53,6 @@
 #  [*instance_update_num_instances*]
 #    Number of instances to update per periodic task run
 #    Defaults to '1'
-#
-#  [*manager*]
-#    Number of instances to update per periodic task run
-#    Defaults to 'nova.cells.manager.CellsManager'
 #
 #  [*cell_name*]
 #    name of this cell
@@ -140,6 +132,12 @@
 #    It might be used by some cell scheduling code in the future
 #    Defaults to '1.0'
 #
+# DEPRECATED
+#
+#  [*driver*]
+#    Cells communication driver to use
+#    Defaults to undef
+#
 class nova::cells (
   $bandwidth_update_interval     = '600',
   $call_timeout                  = '60',
@@ -149,13 +147,11 @@ class nova::cells (
   $cell_parent_name              = undef,
   $create_cells                  = true,
   $db_check_interval             = '60',
-  $driver                        = 'nova.cells.rpc_driver.CellsRPCDriver',
   $enabled                       = true,
   $ensure_package                = 'present',
   $instance_updated_at_threshold = '3600',
   $instance_update_num_instances = '1',
   $manage_service                = true,
-  $manager                       = 'nova.cells.manager.CellsManager',
   $max_hop_count                 = '10',
   $mute_child_interval           = '300',
   $mute_weight_multiplier        = '-10.0',
@@ -169,11 +165,17 @@ class nova::cells (
   $scheduler_retry_delay         = '2',
   $scheduler_weight_classes      = 'nova.cells.weights.all_weighers',
   $weight_offset                 = '1.0',
-  $weight_scale                  = '1.0'
+  $weight_scale                  = '1.0',
+  # Deprecated
+  $driver                        = undef,
 ) {
 
   include ::nova::deps
   include ::nova::params
+
+  if $driver {
+    warning('driver parameter is now deprecated, has no effect and will be removed at Ocata cycle.')
+  }
 
   case $cell_type {
     'parent': {
@@ -181,7 +183,6 @@ class nova::cells (
       nova_config { 'cells/cell_type': value         => 'api' }
     }
     'child': {
-      nova_config { 'DEFAULT/quota_driver': value => 'nova.quota.NoopQuotaDriver' }
       nova_config { 'cells/cell_type': value    => 'compute' }
     }
     default: { fail("Unsupported cell_type parameter value: '${cell_type}'. Should be 'parent' or 'child'.") }
@@ -192,11 +193,9 @@ class nova::cells (
     'cells/call_timeout':                  value => $call_timeout;
     'cells/capabilities':                  value => join($capabilities, ',');
     'cells/db_check_interval':             value => $db_check_interval;
-    'cells/driver':                        value => $driver;
     'cells/enable':                        value => $enabled;
     'cells/instance_updated_at_threshold': value => $instance_updated_at_threshold;
     'cells/instance_update_num_instances': value => $instance_update_num_instances;
-    'cells/manager':                       value => $manager;
     'cells/max_hop_count':                 value => $max_hop_count;
     'cells/mute_child_interval':           value => $mute_child_interval;
     'cells/mute_weight_multiplier':        value => $mute_weight_multiplier;

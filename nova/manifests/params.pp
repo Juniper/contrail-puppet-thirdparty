@@ -3,6 +3,7 @@
 # These parameters need to be accessed from several locations and
 # should be considered to be constant
 class nova::params {
+  include ::openstacklib::defaults
 
   case $::osfamily {
     'RedHat': {
@@ -19,15 +20,12 @@ class nova::params {
       $libvirt_daemon_package_prefix = 'libvirt-daemon-'
       $libvirt_nwfilter_package_name = 'libvirt-daemon-config-nwfilter'
       $network_package_name          = 'openstack-nova-network'
-      $numpy_package_name            = 'numpy'
       $objectstore_package_name      = 'openstack-nova-objectstore'
       $scheduler_package_name        = 'openstack-nova-scheduler'
       $tgt_package_name              = 'scsi-target-utils'
       $vncproxy_package_name         = 'openstack-nova-novncproxy'
       $serialproxy_package_name      = 'openstack-nova-serialproxy'
       $spicehtml5proxy_package_name  = 'openstack-nova-console'
-      $sqlite_package_name           = undef
-      $pymysql_package_name          = undef
       $ceph_client_package_name      = 'ceph-common'
       $genisoimage_package_name      = 'genisoimage'
       # service names
@@ -38,6 +36,8 @@ class nova::params {
       $conductor_service_name        = 'openstack-nova-conductor'
       $consoleauth_service_name      = 'openstack-nova-consoleauth'
       $libvirt_service_name          = 'libvirtd'
+      $virtlock_service_name         = 'virtlockd'
+      $virtlog_service_name          = undef
       $network_service_name          = 'openstack-nova-network'
       $objectstore_service_name      = 'openstack-nova-objectstore'
       $scheduler_service_name        = 'openstack-nova-scheduler'
@@ -52,20 +52,23 @@ class nova::params {
       $nova_wsgi_script_path         = '/var/www/cgi-bin/nova'
       $nova_api_wsgi_script_source   = '/usr/lib/python2.7/site-packages/nova/wsgi/nova-api.py'
       case $::operatingsystem {
-        'Fedora': {
-          $special_service_provider = undef
-        }
         'RedHat', 'CentOS', 'Scientific', 'OracleLinux': {
           if (versioncmp($::operatingsystemmajrelease, '7') < 0) {
-            $messagebus_service_name = 'messagebus'
-            $special_service_provider = 'init'
+            $messagebus_service_name  = 'messagebus'
+            $special_service_provider = undef
           } else {
+            if (versioncmp($::puppetversion, '4.5') < 0) {
+              $special_service_provider = 'redhat'
+            } else {
+              $special_service_provider = undef
+            }
             $messagebus_service_name = 'dbus'
-            $special_service_provider = 'redhat'
           }
         }
         default: {
-          $special_service_provider = 'init'
+          # not required on Fedora
+          $special_service_provider = undef
+          $messagebus_service_name  = undef
         }
       }
     }
@@ -81,13 +84,10 @@ class nova::params {
       $doc_package_name             = 'nova-doc'
       $libvirt_package_name         = 'libvirt-bin'
       $network_package_name         = 'nova-network'
-      $numpy_package_name           = 'python-numpy'
       $objectstore_package_name     = 'nova-objectstore'
       $scheduler_package_name       = 'nova-scheduler'
       $tgt_package_name             = 'tgt'
       $serialproxy_package_name     = 'nova-serialproxy'
-      $sqlite_package_name          = 'python-pysqlite2'
-      $pymysql_package_name         = 'python-pymysql'
       $ceph_client_package_name     = 'ceph'
       $genisoimage_package_name     = 'genisoimage'
       # service names
@@ -111,25 +111,30 @@ class nova::params {
       $lock_path                    = '/var/lock/nova'
       case $::os_package_type {
         'debian': {
-          $spicehtml5proxy_package_name = 'nova-consoleproxy'
-          $spicehtml5proxy_service_name = 'nova-spicehtml5proxy'
-          $vncproxy_package_name    = 'nova-consoleproxy'
+          $spicehtml5proxy_package_name    = 'nova-consoleproxy'
+          $spicehtml5proxy_service_name    = 'nova-spicehtml5proxy'
+          $vncproxy_package_name           = 'nova-consoleproxy'
           # Use default provider on Debian
-          $special_service_provider = undef
-          $libvirt_service_name         = 'libvirtd'
+          $special_service_provider        = undef
+          $libvirt_service_name            = 'libvirtd'
+          $virtlock_service_name           = undef
+          $virtlog_service_name            = undef
         }
         default: {
-          $spicehtml5proxy_package_name = 'nova-spiceproxy'
-          $spicehtml5proxy_service_name = 'nova-spiceproxy'
-          $vncproxy_package_name    = 'nova-novncproxy'
-          # some of the services need to be started form the special upstart provider
-          $special_service_provider = 'upstart'
-          $libvirt_service_name         = 'libvirt-bin'
+          $spicehtml5proxy_package_name    = 'nova-spiceproxy'
+          $spicehtml5proxy_service_name    = 'nova-spiceproxy'
+          $vncproxy_package_name           = 'nova-novncproxy'
+          # Use default provider on Debian
+          $special_service_provider        = undef
+          $libvirt_service_name            = 'libvirt-bin'
+          $virtlock_service_name           = 'virtlockd'
+          $virtlog_service_name            = 'virtlogd'
         }
       }
     }
     default: {
-      fail("Unsupported osfamily: ${::osfamily} operatingsystem: ${::operatingsystem}, module ${module_name} only support osfamily RedHat and Debian")
+      fail("Unsupported osfamily: ${::osfamily} operatingsystem: ${::operatingsystem}, \
+module ${module_name} only support osfamily RedHat and Debian")
     }
   }
 

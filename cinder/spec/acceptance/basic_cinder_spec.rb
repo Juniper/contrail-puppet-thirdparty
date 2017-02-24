@@ -34,7 +34,6 @@ describe 'basic cinder' do
         rabbit_password     => 'an_even_bigger_secret',
         rabbit_host         => '127.0.0.1',
         debug               => true,
-        verbose             => true,
       }
       class { '::cinder::keystone::auth':
         password => 'a_big_secret',
@@ -42,10 +41,16 @@ describe 'basic cinder' do
       class { '::cinder::db::mysql':
         password => 'a_big_secret',
       }
+      class { '::cinder::keystone::authtoken':
+        password => 'a_big_secret',
+      }
       class { '::cinder::api':
-        keystone_password   => 'a_big_secret',
-        identity_uri        => 'http://127.0.0.1:35357/',
         default_volume_type => 'iscsi_backend',
+        service_name        => 'httpd',
+      }
+      include ::apache
+      class { '::cinder::wsgi::apache':
+        ssl => false,
       }
       class { '::cinder::backup': }
       class { '::cinder::ceilometer': }
@@ -55,6 +60,7 @@ describe 'basic cinder' do
       class { '::cinder::scheduler::filter': }
       class { '::cinder::volume': }
       class { '::cinder::cron::db_purge': }
+      cinder::type { 'test-type': }
       # TODO: create a backend and spawn a volume
       EOS
 
@@ -65,7 +71,7 @@ describe 'basic cinder' do
     end
 
     describe port(8776) do
-      it { is_expected.to be_listening.with('tcp') }
+      it { is_expected.to be_listening }
     end
 
     describe cron do

@@ -8,8 +8,8 @@
 #   (required) Password for connecting to Neutron network services in
 #   admin context through the OpenStack Identity service.
 #
-# [*neutron_auth_plugin*]
-#   Name of the plugin to load (string value)
+# [*neutron_auth_type*]
+#   Name of the auth type to load (string value)
 #   Defaults to 'v3password'
 #
 # [*neutron_url*]
@@ -53,21 +53,11 @@
 #   (optional) Number of seconds before querying neutron for extensions
 #   Defaults to '600'
 #
-# [*neutron_ca_certificates_file*]
-#   (optional) Location of ca certicates file to use for neutronclient requests.
-#   Defaults to 'None'
-#
 # [*neutron_auth_url*]
 #   (optional) Points to the OpenStack Identity server IP and port.
 #   This is the Identity (keystone) admin API server IP and port value,
 #   and not the Identity service API IP and port.
 #   Defaults to 'http://127.0.0.1:35357/v3'
-#
-# [*security_group_api*]
-#   (optional) The full class name of the security API class.
-#   The default configures Nova to use Neutron for security groups.
-#   Set to 'nova' to use standard Nova security groups.
-#   Defaults to 'neutron'
 #
 # [*firewall_driver*]
 #   (optional) Firewall driver.
@@ -124,9 +114,17 @@
 #   (optional) DEPRECATED. The full class name of the network API class.
 #   This parameter has no effect
 #
+# [*neutron_auth_plugin*]
+#   Name of the plugin to load (string value)
+#   Defaults to undef
+#
+# [*neutron_ca_certificates_file*]
+#   (optional) Location of ca certicates file to use for neutronclient requests.
+#   Defaults to undef
+#
 class nova::network::neutron (
   $neutron_password                = false,
-  $neutron_auth_plugin             = 'v3password',
+  $neutron_auth_type               = 'v3password',
   $neutron_project_name            = 'services',
   $neutron_project_domain_name     = 'Default',
   $neutron_username                = 'neutron',
@@ -137,8 +135,6 @@ class nova::network::neutron (
   $neutron_region_name             = 'RegionOne',
   $neutron_ovs_bridge              = 'br-int',
   $neutron_extension_sync_interval = '600',
-  $neutron_ca_certificates_file    = undef,
-  $security_group_api              = 'neutron',
   $firewall_driver                 = 'nova.virt.firewall.NoopFirewallDriver',
   $vif_plugging_is_fatal           = true,
   $vif_plugging_timeout            = '300',
@@ -151,12 +147,14 @@ class nova::network::neutron (
   $neutron_admin_auth_url          = undef,
   $neutron_default_tenant_id       = undef,
   $network_api_class               = undef,
+  $neutron_auth_plugin             = undef,
+  $neutron_ca_certificates_file    = undef,
 ) {
 
   include ::nova::deps
 
   if $network_api_class != undef {
-    warning('network_api_class has no effect')
+    warning('network_api_class has no effect and will be dropped in a future release.')
   }
 
   # neutron_admin params removed in Mitaka
@@ -169,6 +167,14 @@ class nova::network::neutron (
     } else {
       fail('neutron_password is required')
     }
+  }
+
+  # neutron_auth_plugin deprecated in Newton
+  if $neutron_auth_plugin {
+    warning('neutron_auth_plugin parameter is deprecated and will be removed in a future release, use neutron_auth_type instead.')
+    $neutron_auth_type_real = $neutron_auth_plugin
+  } else {
+    $neutron_auth_type_real = $neutron_auth_type
   }
 
   if $neutron_admin_tenant_name {
@@ -216,7 +222,6 @@ class nova::network::neutron (
   nova_config {
     'DEFAULT/dhcp_domain':             value => $dhcp_domain;
     'DEFAULT/firewall_driver':         value => $firewall_driver;
-    'DEFAULT/security_group_api':      value => $security_group_api;
     'DEFAULT/vif_plugging_is_fatal':   value => $vif_plugging_is_fatal;
     'DEFAULT/vif_plugging_timeout':    value => $vif_plugging_timeout;
     'DEFAULT/use_neutron':             value => true;
@@ -231,13 +236,11 @@ class nova::network::neutron (
     'neutron/auth_url':                value => $neutron_auth_url_real;
     'neutron/ovs_bridge':              value => $neutron_ovs_bridge;
     'neutron/extension_sync_interval': value => $neutron_extension_sync_interval;
-    'neutron/auth_plugin':             value => $neutron_auth_plugin;
+    'neutron/auth_type':               value => $neutron_auth_type_real;
   }
 
-  if ! $neutron_ca_certificates_file {
-    nova_config { 'neutron/ca_certificates_file': ensure => absent }
-  } else {
-    nova_config { 'neutron/ca_certificates_file': value => $neutron_ca_certificates_file }
+  if $neutron_ca_certificates_file {
+    warning('neutron_ca_certificates_file parameter is deprecated, has no effect and will be dropped in a future release.')
   }
 
 }

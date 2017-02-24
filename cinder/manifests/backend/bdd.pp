@@ -40,6 +40,12 @@
 #   (Optional) Method used to wipe old volumes
 #   Defaults to $::os_service_default.
 #
+# [*manage_volume_type*]
+#   (Optional) Whether or not manage Cinder Volume type.
+#   If set to true, a Cinde Volume type will be created
+#   with volume_backend_name=$volume_backend_name key/value.
+#   Defaults to false.
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend
 #   Defaults to: {}
@@ -67,9 +73,11 @@ define cinder::backend::bdd (
   $iscsi_helper        = 'tgtadm',
   $iscsi_protocol      = $::os_service_default,
   $volume_clear        = $::os_service_default,
+  $manage_volume_type  = false,
   $extra_options       = {},
 ) {
 
+  include ::cinder::deps
   include ::cinder::params
 
   cinder_config {
@@ -84,38 +92,47 @@ define cinder::backend::bdd (
     "${name}/volume_clear":        value => $volume_clear;
   }
 
+  if $manage_volume_type {
+    cinder_type { $volume_backend_name:
+      ensure     => present,
+      properties => ["volume_backend_name=${volume_backend_name}"],
+    }
+  }
+
   create_resources('cinder_config', $extra_options)
 
   case $iscsi_helper {
     'tgtadm': {
       ensure_packages('tgt', {
         ensure => present,
-        name   => $::cinder::params::tgt_package_name})
+        name   => $::cinder::params::tgt_package_name,
+        tag    => 'cinder-support-package'})
 
       ensure_resource('service', 'tgtd', {
-        ensure  => running,
-        name    => $::cinder::params::tgt_service_name,
-        require => Package['tgt']})
+        ensure => running,
+        name   => $::cinder::params::tgt_service_name,
+        tag    => 'cinder-support-service'})
 
       if($::osfamily == 'RedHat') {
         ensure_resource('file_line', 'cinder include', {
           path    => '/etc/tgt/targets.conf',
           line    => "include ${volumes_dir}/*",
           match   => '#?include /',
-          require => Package['tgt'],
-          notify  => Service['tgtd']})
+          require => Anchor['cinder::install:end'],
+          notify  => Anchor['cinder::service::begin']})
       }
     }
 
     'lioadm': {
       ensure_packages('targetcli', {
         ensure => present,
-        name => $::cinder::params::lio_package_name})
+        name   => $::cinder::params::lio_package_name,
+        tag    => 'cinder-support-package'})
 
       ensure_resource('service', 'target', {
-        ensure  => running,
-        enable  => true,
-        require => Package['targetcli']})
+        ensure => running,
+        enable => true,
+        tag    => 'cinder-support-service'})
     }
 
     default: {

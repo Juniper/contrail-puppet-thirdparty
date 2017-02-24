@@ -18,6 +18,7 @@ describe 'apache::fastcgi::server', :type => :define do
           :id                     => 'root',
           :concat_basedir         => '/dne',
           :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+          :is_pe                  => false,
         }
       end
       let :facts do default_facts end
@@ -39,6 +40,7 @@ describe 'apache::fastcgi::server', :type => :define do
           :id                     => 'root',
           :concat_basedir         => '/dne',
           :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+          :is_pe                  => false,
         }
       end
       let :facts do default_facts end
@@ -59,6 +61,7 @@ describe 'apache::fastcgi::server', :type => :define do
           :id                     => 'root',
           :concat_basedir         => '/dne',
           :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+          :is_pe                  => false,
         }
       end
       let :facts do default_facts end
@@ -66,7 +69,28 @@ describe 'apache::fastcgi::server', :type => :define do
       it { should contain_class("apache::mod::fastcgi") }
       it { should contain_file("fastcgi-pool-#{title}.conf").with(
         :ensure => 'present',
-        :path   => "/usr/local/etc/apache22/Includes/fastcgi-pool-#{title}.conf"
+        :path   => "/usr/local/etc/apache24/Includes/fastcgi-pool-#{title}.conf"
+      ) }
+    end
+    context "on Gentoo systems" do
+      let :default_facts do
+        {
+          :osfamily               => 'Gentoo',
+          :operatingsystem        => 'Gentoo',
+          :operatingsystemrelease => '3.16.1-gentoo',
+          :concat_basedir         => '/dne',
+          :kernel                 => 'Linux',
+          :id                     => 'root',
+          :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin',
+          :is_pe                  => false,
+        }
+      end
+      let :facts do default_facts end
+      it { should contain_class("apache") }
+      it { should contain_class("apache::mod::fastcgi") }
+      it { should contain_file("fastcgi-pool-#{title}.conf").with(
+        :ensure => 'present',
+        :path   => "/etc/apache2/conf.d/fastcgi-pool-#{title}.conf"
       ) }
     end
   end
@@ -81,9 +105,10 @@ describe 'apache::fastcgi::server', :type => :define do
         :id                     => 'root',
         :concat_basedir         => '/dne',
         :path                   => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+        :is_pe                  => false,
       }
     end
-    describe ".conf content" do
+    describe ".conf content using TCP communication" do
       let :params do
         {
           :host       => '127.0.0.1:9001',
@@ -91,11 +116,12 @@ describe 'apache::fastcgi::server', :type => :define do
           :flush      => true,
           :faux_path  => '/var/www/php-www.fcgi',
           :fcgi_alias => '/php-www.fcgi',
-          :file_type  => 'application/x-httpd-php'
+          :file_type  => 'application/x-httpd-php',
+          :pass_header => 'Authorization'
         }
       end
       let :expected do
-'FastCGIExternalServer /var/www/php-www.fcgi -idle-timeout 30 -flush -host 127.0.0.1:9001
+'FastCGIExternalServer /var/www/php-www.fcgi -idle-timeout 30 -flush -host 127.0.0.1:9001 -pass-header Authorization
 Alias /php-www.fcgi /var/www/php-www.fcgi
 Action application/x-httpd-php /php-www.fcgi
 '
@@ -104,5 +130,27 @@ Action application/x-httpd-php /php-www.fcgi
         should contain_file("fastcgi-pool-www.conf").with_content(expected)
       end
     end
+    describe ".conf content using socket communication" do
+      let :params do
+        {
+          :host       => '/var/run/fcgi.sock',
+          :timeout    => 30,
+          :flush      => true,
+          :faux_path  => '/var/www/php-www.fcgi',
+          :fcgi_alias => '/php-www.fcgi',
+          :file_type  => 'application/x-httpd-php'
+        }
+      end
+      let :expected do
+'FastCGIExternalServer /var/www/php-www.fcgi -idle-timeout 30 -flush -socket /var/run/fcgi.sock
+Alias /php-www.fcgi /var/www/php-www.fcgi
+Action application/x-httpd-php /php-www.fcgi
+'
+      end
+      it do
+        should contain_file("fastcgi-pool-www.conf").with_content(expected)
+      end
+    end
+
   end
 end

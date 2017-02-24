@@ -8,13 +8,16 @@
 #    (Optional) Ensure state for package.
 #    Defaults to 'present'
 #
-# [*verbose*]
-#   (Optional) Should the daemons log verbose messages
-#   Defaults to undef.
 #
 # [*debug*]
 #   (Optional) Should the daemons log debug messages
 #   Defaults to undef.
+#
+# [*default_transport_url*]
+#    (optional) A URL representing the messaging driver to use and its full
+#    configuration. Transport URLs take the form:
+#      transport://user:pass@host1:port[,hostN:portN]/virtual_host
+#    Defaults to $::os_service_default
 #
 # [*rpc_backend*]
 #   (Optional) Use these options to configure the RabbitMQ message system.
@@ -26,33 +29,32 @@
 #
 # [*rabbit_host*]
 #   (Optional) IP or hostname of the rabbit server.
-#   Defaults to '127.0.0.1'
+#   Defaults to $::os_service_default
 #
 # [*rabbit_port*]
 #   (Optional) Port of the rabbit server.
-#   Defaults to 5672.
+#   Defaults to $::os_service_default
 #
 # [*rabbit_hosts*]
 #   (Optional) Array of host:port (used with HA queues).
 #   If defined, will remove rabbit_host & rabbit_port parameters from config
-#   Defaults to undef.
+#   Defaults to $::os_service_default
 #
 # [*rabbit_userid*]
 #   (Optional) User to connect to the rabbit server.
-#   Defaults to 'guest'
+#   Defaults to $::os_service_default
 #
 # [*rabbit_password*]
 #   (Required) Password to connect to the rabbit_server.
-#   Defaults to empty. Required if using the Rabbit (kombu)
-#   backend.
+#   Defaults to empty. Required if using the Rabbit (kombu) backend.
 #
 # [*rabbit_virtual_host*]
 #   (Optional) Virtual_host to use.
-#   Defaults to '/'
+#   Defaults to $::os_service_default
 #
 # [*rabbit_ha_queues*]
 #   (optional) Use HA queues in RabbitMQ (x-ha-policy: all).
-#   Defaults to undef
+#   Defaults to $::os_service_default
 #
 # [*rabbit_heartbeat_timeout_threshold*]
 #   (optional) Number of seconds after which the RabbitMQ broker is considered
@@ -60,18 +62,18 @@
 #   Heartbeating helps to ensure the TCP connection to RabbitMQ isn't silently
 #   closed, resulting in missed or lost messages from the queue.
 #   (Requires kombu >= 3.0.7 and amqp >= 1.4.0)
-#   Defaults to 0
+#   Defaults to $::os_service_default
 #
 # [*rabbit_heartbeat_rate*]
 #   (optional) How often during the rabbit_heartbeat_timeout_threshold period to
 #   check the heartbeat on RabbitMQ connection.  (i.e. rabbit_heartbeat_rate=2
 #   when rabbit_heartbeat_timeout_threshold=60, the heartbeat will be checked
 #   every 30 seconds.
-#   Defaults to 2
+#   Defaults to $::os_service_default
 #
 # [*rabbit_use_ssl*]
 #   (optional) Connect over SSL for RabbitMQ
-#   Defaults to false
+#   Defaults to $::os_service_default
 #
 # [*report_interval*]
 #  (optional) Interval, in seconds, between nodes reporting state to
@@ -106,13 +108,83 @@
 #   consumer cancel notification.
 #   Defaults to $::os_service_default
 #
+# [*kombu_compression*]
+#   (optional) Possible values are: gzip, bz2. If not set compression will not
+#   be used. This option may notbe available in future versions. EXPERIMENTAL.
+#   (string value)
+#   Defaults to $::os_service_default
+#
 # [*amqp_durable_queues*]
 #   Use durable queues in amqp.
-#   (Optional) Defaults to false.
+#   (Optional) Defaults to $::os_service_default
+#
+# [*amqp_server_request_prefix*]
+#   (Optional) Address prefix used when sending to a specific server
+#   Defaults to $::os_service_default.
+#
+# [*amqp_broadcast_prefix*]
+#   (Optional) address prefix used when broadcasting to all servers
+#   Defaults to $::os_service_default.
+#
+# [*amqp_group_request_prefix*]
+#   (Optional) address prefix when sending to any server in group
+#   Defaults to $::os_service_default.
+#
+# [*amqp_container_name*]
+#   (Optional) Name for the AMQP container
+#   Defaults to $::os_service_default.
+#
+# [*amqp_idle_timeout*]
+#   (Optional) Timeout for inactive connections
+#   Defaults to $::os_service_default.
+#
+# [*amqp_trace*]
+#   (Optional) Debug: dump AMQP frames to stdout
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_ca_file*]
+#   (Optional) CA certificate PEM file to verify server certificate
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_cert_file*]
+#   (Optional) Identifying certificate PEM file to present to clients
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_key_file*]
+#   (Optional) Private key PEM file used to sign cert_file certificate
+#   Defaults to $::os_service_default.
+#
+# [*amqp_ssl_key_password*]
+#   (Optional) Password for decrypting ssl_key_file (if encrypted)
+#   Defaults to $::os_service_default.
+#
+# [*amqp_allow_insecure_clients*]
+#   (Optional) Accept clients using either SSL or plain TCP
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_mechanisms*]
+#   (Optional) Space separated list of acceptable SASL mechanisms
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_config_dir*]
+#   (Optional) Path to directory that contains the SASL configuration
+#   Defaults to $::os_service_default.
+#
+# [*amqp_sasl_config_name*]
+#   (Optional) Name of configuration file (without .conf suffix)
+#   Defaults to $::os_service_default.
+#
+# [*amqp_username*]
+#   (Optional) User name for message broker authentication
+#   Defaults to $::os_service_default.
+#
+# [*amqp_password*]
+#   (Optional) Password for message broker authentication
+#   Defaults to $::os_service_default.
 #
 # [*use_syslog*]
 #   (Optional) Use syslog for logging.
-#   Defaults to undef.
+#   Defaults to undef
 #
 # [*database_connection*]
 #    Url used to connect to database.
@@ -137,7 +209,7 @@
 #
 # [*database_retry_interval*]
 #   Interval between retries of opening a sql connection.
-#   (Optional) Defaults to underf.
+#   (Optional) Defaults to undef.
 #
 # [*database_max_overflow*]
 #   If set, use this value for max_overflow with sqlalchemy.
@@ -157,22 +229,6 @@
 #   any directory.
 #   Defaults to '/var/log/cinder'.
 #
-# [*use_ssl*]
-#   (optional) Enable SSL on the API server
-#   Defaults to false, not set
-#
-# [*cert_file*]
-#   (optinal) Certificate file to use when starting API server securely
-#   Defaults to false, not set
-#
-# [*key_file*]
-#   (optional) Private key file to use when starting API server securely
-#   Defaults to false, not set
-#
-# [*ca_file*]
-#   (optional) CA certificate file to use to verify connecting clients
-#   Defaults to $::os_service_default
-#
 # [*storage_availability_zone*]
 #   (optional) Availability zone of the node.
 #   Defaults to 'nova'
@@ -183,18 +239,13 @@
 #   the default for new volumes.
 #   Defaults to false
 #
+# [*allow_availability_zone_fallback*]
+#   (optional) Allow availability zone fallback if preferred availabilty zone cannot be deployed to.
+#   Defaults to $::os_service_default
+#
 # [*api_paste_config*]
 #   (Optional)
 #   Defaults to '/etc/cinder/api-paste.ini',
-#
-# [*enable_v1_api*]
-#   (Optional) Whether to enable the v1 API (true/false).
-#   This will be deprecated in Kilo.
-#   Defaults to 'true'.
-#
-# [*enable_v2_api*]
-#   (Optional) Whether to enable the v2 API (true/false).
-#   Defaults to 'true'.
 #
 # [*enable_v3_api*]
 #   (Optional) Whether to enable the v3 API (true/false).
@@ -217,55 +268,43 @@
 #   not necessarily a host name, FQDN, or IP address.
 #   Defaults to $::os_service_default
 #
-# === Deprecated Parameters
+# [*purge_config*]
+#   (optional) Whether to set only the specified config options
+#   in the cinder config.
+#   Defaults to false.
 #
-# [*qpid_hostname*]
-#   (Optional) Location of qpid server
+# DEPRECATED PARAMETERS
+#
+# [*verbose*]
+#   (Optional) DEPRECATED. Should the daemons log verbose messages
 #   Defaults to undef.
 #
-# [*qpid_port*]
-#   (Optional) Port for qpid server.
+# [*enable_v1_api*]
+#   (Optional) DEPRECATED. Whether to enable the v1 API (true/false).
 #   Defaults to undef.
 #
-# [*qpid_hosts*]
-#   (Optional) Qpid HA cluster host:port pairs. (list value)
+# [*enable_v2_api*]
+#   (Optional) DEPRECATED. Whether to enable the v2 API (true/false).
 #   Defaults to undef.
 #
-# [*qpid_username*]
-#   (Optional) Username to use when connecting to qpid.
-#   Defaults to undef.
+# [*use_ssl*]
+#   (optional) DEPRECATED. Enable SSL on the API server
+#   Defaults to undef
 #
-# [*qpid_password*]
-#   (Optional) Password to use when connecting to qpid.
-#   Defaults to undef.
+# [*cert_file*]
+#   (optional) DEPRECATED. Certificate file to use when starting API server
+#   securely
+#   Defaults to undef
 #
-# [*qpid_sasl_mechanisms*]
-#   (Optional) ENable one or more SASL mechanisms.
-#   Defaults to undef.
+# [*key_file*]
+#   (optional) DEPRECATED. Private key file to use when starting API server
+#   securely
+#   Defaults to undef
 #
-# [*qpid_heartbeat*]
-#   (Optional) Seconds between connection keepalive heartbeats.
-#   Defaults to undef.
-#
-# [*qpid_protocol*]
-#   (Optional) Transport to use, either 'tcp' or 'ssl'.
-#   Defaults to undef.
-#
-# [*qpid_tcp_nodelay*]
-#   (Optional) Disable Nagle Algorithm.
-#   Defaults to undef.
-#
-# [*qpid_reconnect*]
-#
-# [*qpid_reconnect_timeout*]
-#
-# [*qpid_reconnect_limit*]
-#
-# [*qpid_reconnect_interval*]
-#
-# [*qpid_reconnect_interval_min*]
-#
-# [*qpid_reconnect_interval_max*]
+# [*ca_file*]
+#   (optional) DEPRECATED. CA certificate file to use to verify connecting
+#   clients
+#   Defaults to undef
 #
 class cinder (
   $database_connection                = undef,
@@ -275,18 +314,19 @@ class cinder (
   $database_max_retries               = undef,
   $database_retry_interval            = undef,
   $database_max_overflow              = undef,
+  $default_transport_url              = $::os_service_default,
   $rpc_backend                        = 'rabbit',
   $control_exchange                   = 'openstack',
-  $rabbit_host                        = '127.0.0.1',
-  $rabbit_port                        = 5672,
-  $rabbit_hosts                       = undef,
-  $rabbit_virtual_host                = '/',
-  $rabbit_ha_queues                   = undef,
-  $rabbit_heartbeat_timeout_threshold = 0,
-  $rabbit_heartbeat_rate              = 2,
-  $rabbit_userid                      = 'guest',
-  $rabbit_password                    = false,
-  $rabbit_use_ssl                     = false,
+  $rabbit_host                        = $::os_service_default,
+  $rabbit_port                        = $::os_service_default,
+  $rabbit_hosts                       = $::os_service_default,
+  $rabbit_virtual_host                = $::os_service_default,
+  $rabbit_ha_queues                   = $::os_service_default,
+  $rabbit_heartbeat_timeout_threshold = $::os_service_default,
+  $rabbit_heartbeat_rate              = $::os_service_default,
+  $rabbit_userid                      = $::os_service_default,
+  $rabbit_password                    = $::os_service_default,
+  $rabbit_use_ssl                     = $::os_service_default,
   $service_down_time                  = $::os_service_default,
   $report_interval                    = $::os_service_default,
   $kombu_ssl_ca_certs                 = $::os_service_default,
@@ -294,118 +334,126 @@ class cinder (
   $kombu_ssl_keyfile                  = $::os_service_default,
   $kombu_ssl_version                  = $::os_service_default,
   $kombu_reconnect_delay              = $::os_service_default,
-  $amqp_durable_queues                = false,
+  $kombu_compression                  = $::os_service_default,
+  $amqp_durable_queues                = $::os_service_default,
+  $amqp_server_request_prefix         = $::os_service_default,
+  $amqp_broadcast_prefix              = $::os_service_default,
+  $amqp_group_request_prefix          = $::os_service_default,
+  $amqp_container_name                = $::os_service_default,
+  $amqp_idle_timeout                  = $::os_service_default,
+  $amqp_trace                         = $::os_service_default,
+  $amqp_ssl_ca_file                   = $::os_service_default,
+  $amqp_ssl_cert_file                 = $::os_service_default,
+  $amqp_ssl_key_file                  = $::os_service_default,
+  $amqp_ssl_key_password              = $::os_service_default,
+  $amqp_allow_insecure_clients        = $::os_service_default,
+  $amqp_sasl_mechanisms               = $::os_service_default,
+  $amqp_sasl_config_dir               = $::os_service_default,
+  $amqp_sasl_config_name              = $::os_service_default,
+  $amqp_username                      = $::os_service_default,
+  $amqp_password                      = $::os_service_default,
   $package_ensure                     = 'present',
-  $use_ssl                            = false,
-  $ca_file                            = $::os_service_default,
-  $cert_file                          = false,
-  $key_file                           = false,
   $api_paste_config                   = '/etc/cinder/api-paste.ini',
   $use_syslog                         = undef,
   $use_stderr                         = undef,
   $log_facility                       = undef,
   $log_dir                            = '/var/log/cinder',
-  $verbose                            = undef,
   $debug                              = undef,
   $storage_availability_zone          = 'nova',
   $default_availability_zone          = false,
-  $enable_v1_api                      = true,
-  $enable_v2_api                      = true,
+  $allow_availability_zone_fallback   = $::os_service_default,
   $enable_v3_api                      = true,
   $lock_path                          = $::cinder::params::lock_path,
   $image_conversion_dir               = $::os_service_default,
   $host                               = $::os_service_default,
+  $purge_config                       = false,
   # DEPRECATED PARAMETERS
-  $qpid_hostname                      = undef,
-  $qpid_port                          = undef,
-  $qpid_hosts                         = undef,
-  $qpid_username                      = undef,
-  $qpid_password                      = undef,
-  $qpid_sasl_mechanisms               = undef,
-  $qpid_reconnect                     = undef,
-  $qpid_reconnect_timeout             = undef,
-  $qpid_reconnect_limit               = undef,
-  $qpid_reconnect_interval_min        = undef,
-  $qpid_reconnect_interval_max        = undef,
-  $qpid_reconnect_interval            = undef,
-  $qpid_heartbeat                     = undef,
-  $qpid_protocol                      = undef,
-  $qpid_tcp_nodelay                   = undef,
-
+  $verbose                            = undef,
+  $enable_v1_api                      = undef,
+  $enable_v2_api                      = undef,
+  $use_ssl                            = undef,
+  $ca_file                            = undef,
+  $cert_file                          = undef,
+  $key_file                           = undef,
 ) inherits cinder::params {
 
+  include ::cinder::deps
   include ::cinder::db
   include ::cinder::logging
 
-  if $use_ssl {
-    if !$cert_file {
-      fail('The cert_file parameter is required when use_ssl is set to true')
-    }
-    if !$key_file {
-      fail('The key_file parameter is required when use_ssl is set to true')
-    }
+  if $verbose {
+    warning('verbose is deprecated, has no effect and will be removed after Newton cycle.')
   }
 
-  # this anchor is used to simplify the graph between cinder components by
-  # allowing a resource to serve as a point where the configuration of cinder begins
-  anchor { 'cinder-start': }
+  if $enable_v1_api {
+    warning('enable_v1_api is deprecated, has no effect and will be removed in a future release')
+  }
+
+  if $enable_v2_api {
+    warning('enable_v2_api is deprecated, has no effect and will be removed in a future release')
+  }
 
   package { 'cinder':
-    ensure  => $package_ensure,
-    name    => $::cinder::params::package_name,
-    tag     => ['openstack', 'cinder-package'],
-    require => Anchor['cinder-start'],
+    ensure => $package_ensure,
+    name   => $::cinder::params::package_name,
+    tag    => ['openstack', 'cinder-package'],
+  }
+
+  resources { 'cinder_config':
+    purge => $purge_config,
   }
 
   if $rpc_backend == 'cinder.openstack.common.rpc.impl_kombu' or $rpc_backend == 'rabbit' {
 
-    if ! $rabbit_password {
+    if is_service_default($rabbit_password) {
       fail('Please specify a rabbit_password parameter.')
     }
 
-    cinder_config {
-      'oslo_messaging_rabbit/rabbit_password':              value => $rabbit_password, secret => true;
-      'oslo_messaging_rabbit/rabbit_userid':                value => $rabbit_userid;
-      'oslo_messaging_rabbit/rabbit_virtual_host':          value => $rabbit_virtual_host;
-      'oslo_messaging_rabbit/rabbit_use_ssl':               value => $rabbit_use_ssl;
-      'oslo_messaging_rabbit/kombu_ssl_version':            value => $kombu_ssl_version;
-      'oslo_messaging_rabbit/kombu_ssl_ca_certs':           value => $kombu_ssl_ca_certs;
-      'oslo_messaging_rabbit/kombu_ssl_certfile':           value => $kombu_ssl_certfile;
-      'oslo_messaging_rabbit/kombu_ssl_keyfile':            value => $kombu_ssl_keyfile;
-      'oslo_messaging_rabbit/kombu_reconnect_delay':        value => $kombu_reconnect_delay;
-      'oslo_messaging_rabbit/heartbeat_timeout_threshold':  value => $rabbit_heartbeat_timeout_threshold;
-      'oslo_messaging_rabbit/heartbeat_rate':               value => $rabbit_heartbeat_rate;
-      'DEFAULT/control_exchange':                           value => $control_exchange;
-      'DEFAULT/report_interval':                            value => $report_interval;
-      'DEFAULT/service_down_time':                          value => $service_down_time;
-      'oslo_messaging_rabbit/amqp_durable_queues':          value => $amqp_durable_queues;
+    oslo::messaging::rabbit { 'cinder_config':
+      rabbit_userid               => $rabbit_userid,
+      rabbit_password             => $rabbit_password,
+      rabbit_virtual_host         => $rabbit_virtual_host,
+      rabbit_host                 => $rabbit_host,
+      rabbit_port                 => $rabbit_port,
+      rabbit_hosts                => $rabbit_hosts,
+      rabbit_ha_queues            => $rabbit_ha_queues,
+      heartbeat_timeout_threshold => $rabbit_heartbeat_timeout_threshold,
+      heartbeat_rate              => $rabbit_heartbeat_rate,
+      rabbit_use_ssl              => $rabbit_use_ssl,
+      kombu_reconnect_delay       => $kombu_reconnect_delay,
+      kombu_ssl_version           => $kombu_ssl_version,
+      kombu_ssl_keyfile           => $kombu_ssl_keyfile,
+      kombu_ssl_certfile          => $kombu_ssl_certfile,
+      kombu_ssl_ca_certs          => $kombu_ssl_ca_certs,
+      amqp_durable_queues         => $amqp_durable_queues,
+      kombu_compression           => $kombu_compression,
     }
+  }
+  elsif $rpc_backend == 'amqp' {
 
-    if $rabbit_hosts {
-      cinder_config { 'oslo_messaging_rabbit/rabbit_hosts': value => join(any2array($rabbit_hosts), ',') }
-      cinder_config { 'oslo_messaging_rabbit/rabbit_host':  ensure => absent }
-      cinder_config { 'oslo_messaging_rabbit/rabbit_port':  ensure => absent }
-    } else {
-      cinder_config { 'oslo_messaging_rabbit/rabbit_host':  value => $rabbit_host }
-      cinder_config { 'oslo_messaging_rabbit/rabbit_port':  value => $rabbit_port }
-      cinder_config { 'oslo_messaging_rabbit/rabbit_hosts': value => "${rabbit_host}:${rabbit_port}" }
+    oslo::messaging::amqp { 'cinder_config':
+      server_request_prefix  => $amqp_server_request_prefix,
+      broadcast_prefix       => $amqp_broadcast_prefix,
+      group_request_prefix   => $amqp_group_request_prefix,
+      container_name         => $amqp_container_name,
+      idle_timeout           => $amqp_idle_timeout,
+      trace                  => $amqp_trace,
+      ssl_ca_file            => $amqp_ssl_ca_file,
+      ssl_cert_file          => $amqp_ssl_cert_file,
+      ssl_key_file           => $amqp_ssl_key_file,
+      ssl_key_password       => $amqp_ssl_key_password,
+      allow_insecure_clients => $amqp_allow_insecure_clients,
+      sasl_mechanisms        => $amqp_sasl_mechanisms,
+      sasl_config_dir        => $amqp_sasl_config_dir,
+      sasl_config_name       => $amqp_sasl_config_name,
+      username               => $amqp_username,
+      password               => $amqp_password,
     }
-
-    # By default rabbit_ha_queues is undef
-    if $rabbit_ha_queues == undef {
-      if size(any2array($rabbit_hosts)) > 1 {
-        cinder_config { 'oslo_messaging_rabbit/rabbit_ha_queues': value  => true }
-      } else {
-        cinder_config { 'oslo_messaging_rabbit/rabbit_ha_queues': value => false }
-      }
-    } else {
-      cinder_config { 'oslo_messaging_rabbit/rabbit_ha_queues': value => $rabbit_ha_queues }
-    }
-
   }
 
-  if $rpc_backend == 'cinder.openstack.common.rpc.impl_qpid' or $rpc_backend == 'qpid' {
-    warning('Qpid driver is removed from Oslo.messaging in the Mitaka release and puppet-cinder no longer attempts to configure it. All qpid related parameters will be removed from puppet-cinder in the N-release.')
+  oslo::messaging::default { 'cinder_config':
+    transport_url    => $default_transport_url,
+    control_exchange => $control_exchange,
   }
 
   if ! $default_availability_zone {
@@ -415,35 +463,22 @@ class cinder (
   }
 
   cinder_config {
-    'DEFAULT/api_paste_config':          value => $api_paste_config;
-    'DEFAULT/rpc_backend':               value => $rpc_backend;
-    'DEFAULT/storage_availability_zone': value => $storage_availability_zone;
-    'DEFAULT/default_availability_zone': value => $default_availability_zone_real;
-    'DEFAULT/image_conversion_dir':      value => $image_conversion_dir;
-    'DEFAULT/host':                      value => $host;
+    'DEFAULT/report_interval':                  value => $report_interval;
+    'DEFAULT/service_down_time':                value => $service_down_time;
+    'DEFAULT/api_paste_config':                 value => $api_paste_config;
+    'DEFAULT/storage_availability_zone':        value => $storage_availability_zone;
+    'DEFAULT/default_availability_zone':        value => $default_availability_zone_real;
+    'DEFAULT/allow_availability_zone_fallback': value => $allow_availability_zone_fallback;
+    'DEFAULT/image_conversion_dir':             value => $image_conversion_dir;
+    'DEFAULT/host':                             value => $host;
   }
 
-  # SSL Options
-  if $use_ssl {
-    cinder_config {
-      'DEFAULT/ssl_cert_file' : value => $cert_file;
-      'DEFAULT/ssl_key_file' :  value => $key_file;
-      'DEFAULT/ssl_ca_file' :   value => $ca_file;
-    }
-  } else {
-    cinder_config {
-      'DEFAULT/ssl_cert_file' : ensure => absent;
-      'DEFAULT/ssl_key_file' :  ensure => absent;
-      'DEFAULT/ssl_ca_file' :   ensure => absent;
-    }
-  }
-
-  # V1/V2/V3 APIs
+  # V3 APIs
   cinder_config {
-    'DEFAULT/enable_v1_api':        value => $enable_v1_api;
-    'DEFAULT/enable_v2_api':        value => $enable_v2_api;
     'DEFAULT/enable_v3_api':        value => $enable_v3_api;
-    'oslo_concurrency/lock_path':   value => $lock_path;
   }
 
+  oslo::concurrency { 'cinder_config':
+    lock_path => $lock_path
+  }
 }

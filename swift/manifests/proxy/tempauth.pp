@@ -1,5 +1,5 @@
 # == class: swift::proxy::tempauth
-# This class manage tempauth middleware
+# This class manages tempauth middleware
 #
 #  [*reseller_prefix*]
 #    The naming scope for the auth service. Swift storage accounts and
@@ -81,6 +81,8 @@ class swift::proxy::tempauth (
   $storage_url_scheme = undef,
 ) {
 
+  include ::swift::deps
+
   validate_array($account_user_list)
 
   if ($reseller_prefix) {
@@ -103,10 +105,10 @@ class swift::proxy::tempauth (
     validate_re($storage_url_scheme, ['http','https','default'])
   }
 
-  concat::fragment { 'swift-proxy-swauth':
+  concat::fragment { 'swift-proxy-tempauth':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/tempauth.conf.erb'),
-    order   => '01',
+    order   => '150',
   }
 
 }

@@ -80,12 +80,12 @@ extra functionality through types and providers.
 The `heat_config` provider is a children of the ini_setting provider. It allows one to write an entry in the `/etc/heat/heat.conf` file.
 
 ```puppet
-heat_config { 'DEFAULT/verbose' :
-  value => true,
+heat_config { 'DEFAULT/enable_stack_adopt' :
+  value => True,
 }
 ```
 
-This will write `verbose=true` in the `[DEFAULT]` section.
+This will write `enable_stack_adopt=True` in the `[DEFAULT]` section.
 
 ##### name
 
@@ -115,17 +115,17 @@ This module has beaker-rspec tests
 
 To run:
 
-``shell
+```shell
 bundle install
 bundle exec rspec spec/acceptance
-``
+```
 
 Development
 -----------
 
 Developer documentation for the entire puppet-openstack project.
 
-* https://wiki.openstack.org/wiki/Puppet-openstack#Developer_documentation
+* http://docs.openstack.org/developer/puppet-openstack-guide/
 
 Contributors
 ------------

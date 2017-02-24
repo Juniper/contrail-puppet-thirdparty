@@ -12,6 +12,10 @@ describe 'ceilometer with mysql' do
       include ::openstack_integration::mysql
       include ::openstack_integration::keystone
 
+      # TODO(aschultz): remove after fix for LP#1621384 hits RDO
+      include ::gnocchi::client
+      Package['python-gnocchiclient'] -> Exec[ceilometer-dbsync]
+
       rabbitmq_user { 'ceilometer':
         admin    => true,
         password => 'an_even_bigger_secret',
@@ -29,7 +33,7 @@ describe 'ceilometer with mysql' do
 
       # Ceilometer resources
       class { '::ceilometer':
-        metering_secret     => 'secrete',
+        telemetry_secret    => 'secrete',
         rabbit_userid       => 'ceilometer',
         rabbit_password     => 'an_even_bigger_secret',
         rabbit_host         => '127.0.0.1',
@@ -48,11 +52,12 @@ describe 'ceilometer with mysql' do
       class { '::ceilometer::expirer': }
       class { '::ceilometer::agent::central': }
       class { '::ceilometer::agent::notification': }
+      class { '::ceilometer::keystone::authtoken':
+        password => 'a_big_secret',
+      }
       class { '::ceilometer::api':
-        enabled               => true,
-        keystone_password     => 'a_big_secret',
-        keystone_identity_uri => 'http://127.0.0.1:35357/',
-        service_name          => 'httpd',
+        enabled      => true,
+        service_name => 'httpd',
       }
       include ::apache
       class { '::ceilometer::wsgi::apache':

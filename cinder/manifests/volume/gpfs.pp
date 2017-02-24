@@ -44,6 +44,26 @@
 #   default, the system storage pool is used. Defaults to "system" via driver.
 #   Defaults to $::os_service_default
 #
+# [*nas_host*]
+#   (optional) IP address or Hostname of the NAS system.
+#   Defaults to $::os_service_default
+#
+# [*nas_login*]
+#   (optional) User name to connect to NAS system.
+#   Defaults to $::os_service_default
+#
+# [*nas_password*]
+#   (optional) Password to connect to NAS system.
+#   Defaults to $::os_service_default
+#
+# [*nas_private_key*]
+#   (optional) Filename of private key to use for SSH authentication.
+#   Defaults to $::os_service_default
+#
+# [*nas_ssh_port*]
+#   (optional) SSH port to use to connect to NAS system.
+#   Defaults to $::os_service_default
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
 #   Defaults to: {}
@@ -65,8 +85,19 @@ class cinder::volume::gpfs(
   $gpfs_max_clone_depth   = $::os_service_default,
   $gpfs_sparse_volumes    = $::os_service_default,
   $gpfs_storage_pool      = $::os_service_default,
+  $nas_host               = $::os_service_default,
+  $nas_login              = $::os_service_default,
+  $nas_password           = $::os_service_default,
+  $nas_private_key        = $::os_service_default,
+  $nas_ssh_port           = $::os_service_default,
   $extra_options          = {}
 ) {
+
+  include ::cinder::deps
+
+  warning('Usage of cinder::volume::gpfs is deprecated, please use
+cinder::backend::gpfs instead.')
+
   cinder::backend::gpfs { 'DEFAULT':
     gpfs_mount_point_base  => $gpfs_mount_point_base,
     gpfs_images_dir        => $gpfs_images_dir,
@@ -74,6 +105,11 @@ class cinder::volume::gpfs(
     gpfs_max_clone_depth   => $gpfs_max_clone_depth,
     gpfs_sparse_volumes    => $gpfs_sparse_volumes,
     gpfs_storage_pool      => $gpfs_storage_pool,
+    nas_host               => $nas_host,
+    nas_login              => $nas_login,
+    nas_password           => $nas_password,
+    nas_private_key        => $nas_private_key,
+    nas_ssh_port           => $nas_ssh_port,
     extra_options          => $extra_options,
   }
 }

@@ -28,6 +28,10 @@ class cinder::rabbitmq(
   $virtual_host   = '/',
 ) {
 
+  include ::cinder::deps
+
+  warning('cinder::rabbitmq class is deprecated and will be removed in next release. Make other plans to configure rabbitmq resources.')
+
   if $userid == 'guest' {
     $delete_guest_user = false
   } else {
@@ -43,7 +47,7 @@ class cinder::rabbitmq(
       write_permission     => '.*',
       read_permission      => '.*',
       provider             => 'rabbitmqctl',
-    }->Anchor<| title == 'cinder-start' |>
+    } -> Anchor['cinder::service::begin']
   }
   rabbitmq_vhost { $virtual_host:
     provider => 'rabbitmqctl',

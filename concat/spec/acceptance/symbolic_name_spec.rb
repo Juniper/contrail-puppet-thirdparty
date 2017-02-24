@@ -1,9 +1,8 @@
 require 'spec_helper_acceptance'
 
-describe 'symbolic name', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfamily')) do
+describe 'symbolic name' do
   basedir = default.tmpdir('concat')
   pp = <<-EOS
-    include concat::setup
     concat { 'not_abs_path':
       path => '#{basedir}/file',
     }
@@ -22,13 +21,15 @@ describe 'symbolic name', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfami
   EOS
 
   it 'applies the manifest twice with no stderr' do
-    expect(apply_manifest(pp, :catch_failures => true).stderr).to eq("")
-    expect(apply_manifest(pp, :catch_changes => true).stderr).to eq("")
+    apply_manifest(pp, :catch_failures => true)
+    apply_manifest(pp, :catch_changes => true)
   end
 
   describe file("#{basedir}/file") do
     it { should be_file }
-    it { should contain '1' }
-    it { should contain '2' }
+    its(:content) {
+      should match '1'
+      should match '2'
+    }
   end
 end

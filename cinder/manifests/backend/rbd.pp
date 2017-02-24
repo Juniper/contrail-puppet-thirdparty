@@ -57,6 +57,12 @@
 #   (optional) Volumes will be chunked into objects of this size (in megabytes).
 #   Defaults to $::os_service_default
 #
+# [*manage_volume_type*]
+#   (Optional) Whether or not manage Cinder Volume type.
+#   If set to true, a Cinde Volume type will be created
+#   with volume_backend_name=$volume_backend_name key/value.
+#   Defaults to false.
+#
 # [*extra_options*]
 #   (optional) Hash of extra options to pass to the backend stanza
 #   Defaults to: {}
@@ -83,11 +89,13 @@ define cinder::backend::rbd (
   $rados_connection_interval        = $::os_service_default,
   $rados_connection_retries         = $::os_service_default,
   $rbd_store_chunk_size             = $::os_service_default,
+  $manage_volume_type               = false,
   $extra_options                    = {},
   # DEPRECATED PARAMETERS
   $volume_tmp_dir                   = false,
 ) {
 
+  include ::cinder::deps
   include ::cinder::params
 
   cinder_config {
@@ -103,6 +111,13 @@ define cinder::backend::rbd (
     "${name}/rados_connection_interval":        value => $rados_connection_interval;
     "${name}/rados_connection_retries":         value => $rados_connection_retries;
     "${name}/rbd_store_chunk_size":             value => $rbd_store_chunk_size;
+  }
+
+  if $manage_volume_type {
+    cinder_type { $volume_backend_name:
+      ensure     => present,
+      properties => ["volume_backend_name=${volume_backend_name}"],
+    }
   }
 
   if $backend_host {
@@ -142,7 +157,7 @@ define cinder::backend::rbd (
   file_line { "set initscript env ${name}":
     line   => $override_line,
     path   => $::cinder::params::ceph_init_override,
-    notify => Service['cinder-volume'],
+    notify => Anchor['cinder::service::begin'],
   }
 
 }

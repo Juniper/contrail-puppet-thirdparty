@@ -4,21 +4,6 @@
 #
 # === Parameters
 #
-# [*keystone_password*]
-#   The password to use for authentication (keystone)
-#
-# [*keystone_enabled*]
-#   (optional) Use keystone for authentification
-#   Defaults to true
-#
-# [*keystone_tenant*]
-#   (optional) The tenant of the auth user
-#   Defaults to services
-#
-# [*keystone_user*]
-#   (optional) The name of the auth user
-#   Defaults to cinder
-#
 # [*privileged_user*]
 #   (optional) Enables OpenStack privileged account.
 #   Defaults to false.
@@ -41,6 +26,16 @@
 #   (optional) Auth URL associated with the OpenStack privileged account.
 #   Defaults to $::os_service_default.
 #
+# [*keymgr_api_class*]
+#   (optional) Key Manager service class.
+#   Example of valid value: castellan.key_manager.barbican_key_manager.BarbicanKeyManager
+#   Defaults to $::os_service_default
+#
+# [*keymgr_encryption_api_url*]
+#   (optional) Key Manager service URL
+#   Example of valid value: https://localhost:9311/v1
+#   Defaults to $::os_service_default
+#
 # [*keymgr_encryption_auth_url*]
 #   (optional) Auth URL for keymgr authentication. Should be in format
 #   http://auth_url:5000/v3
@@ -61,14 +56,6 @@
 #   (optional) Same as nova_catalog_info, but for admin endpoint.
 #   Defaults to 'compute:Compute Service:adminURL'
 #
-# [*auth_uri*]
-#   (optional) Public Identity API endpoint.
-#   Defaults to 'http://localhost:5000/'.
-#
-# [*identity_uri*]
-#   (optional) Complete admin Identity API endpoint.
-#   Defaults to: 'http://localhost:35357/'.
-#
 # [*service_workers*]
 #   (optional) Number of cinder-api workers
 #   Defaults to $::processorcount
@@ -82,11 +69,11 @@
 #   Defaults to 0.0.0.0
 #
 # [*enabled*]
-#   (optional) The state of the service
+#   (optional) The state of the service (boolean value)
 #   Defaults to true
 #
 # [*manage_service*]
-#   (optional) Whether to start/stop the service
+#   (optional) Whether to start/stop the service (boolean value)
 #   Defaults to true
 #
 # [*ratelimits*]
@@ -108,22 +95,6 @@
 #   (optional) Whether to validate the service is working after any service refreshes
 #   Defaults to false
 #
-# [*validation_options*]
-#   (optional) Service validation options
-#   Should be a hash of options defined in openstacklib::service_validation
-#   If empty, defaults values are taken from openstacklib function.
-#   Default command list volumes.
-#   Require validate set at True.
-#   Example:
-#   glance::api::validation_options:
-#     glance-api:
-#       command: check_cinder-api.py
-#       path: /usr/bin:/bin:/usr/sbin:/sbin
-#       provider: shell
-#       tries: 5
-#       try_sleep: 10
-#   Defaults to {}
-#
 # [*sync_db*]
 #   (Optional) Run db sync on the node.
 #   Defaults to true
@@ -141,51 +112,185 @@
 #   returns in a single response (integer value)
 #   Defaults to $::os_service_default
 #
+# [*service_name*]
+#   (optional) Name of the service that will be providing the
+#   server functionality of cinder-api.
+#   If the value is 'httpd', this means cinder-api will be a web
+#   service, and you must use another class to configure that
+#   web service. For example, use class { 'cinder::wsgi::apache'...}
+#   to make cinder-api be a web app using apache mod_wsgi.
+#   Defaults to '$::cinder::params::api_service'
+#
+# [*enable_proxy_headers_parsing*]
+#   (optional) This determines if the HTTPProxyToWSGI
+#   middleware should parse the proxy headers or not.(boolean value)
+#   Defaults to $::os_service_default
+#
+# [*use_ssl*]
+#   (optional) Enable SSL on the API server
+#   Defaults to false
+#
+# [*cert_file*]
+#   (optional) Certificate file to use when starting API server securely
+#   Defaults to $::os_service_default
+#
+# [*key_file*]
+#   (optional) Private key file to use when starting API server securely
+#   Defaults to $::os_service_default
+#
+# [*ca_file*]
+#   (optional) CA certificate file to use to verify connecting clients
+#   Defaults to $::os_service_default
+#
+# [*auth_strategy*]
+#   (optional) Type of authentication to be used.
+#   Defaults to 'keystone'
+#
+# DEPRECATED PARAMETERS
+#
+# [*keystone_enabled*]
+#   (optional) Deprecated. Use auth_strategy instead.
+#   Defaults to undef
+#
+# [*keystone_tenant*]
+#   (optional) Deprecated. Use cinder::keystone::authtoken::project_name instead.
+#   Defaults to undef.
+#
+# [*keystone_user*]
+#   (optional) Deprecated. Use cinder::keystone::authtoken::username instead.
+#   Defaults to undef.
+#
+# [*keystone_password*]
+#   (optional) Deprecated. Use cinder::keystone::authtoken::password instead.
+#   Defaults to undef.
+#
+# [*identity_uri*]
+#   (optional) Deprecated. Use cinder::keystone::authtoken::auth_url instead.
+#   Defaults to undef.
+#
+# [*auth_uri*]
+#  (optional) Deprecated. Use cinder::keystone::authtoken::auth_uri instead.
+#  Defaults to undef.
+#
+# [*memcached_servers*]
+#  (Optional) Deprecated. Use cinder::keystone::authtoken::memcached_servers.
+#  Defaults to undef.
+#
+# [*validation_options*]
+#   (optional) Service validation options
+#   Should be a hash of options defined in openstacklib::service_validation
+#   If empty, defaults values are taken from openstacklib function.
+#   Default command list volumes.
+#   Require validate set at True.
+#   Example:
+#   glance::api::validation_options:
+#     glance-api:
+#       command: check_cinder-api.py
+#       path: /usr/bin:/bin:/usr/sbin:/sbin
+#       provider: shell
+#       tries: 5
+#       try_sleep: 10
+#   Defaults to {}
+#
+# [*osapi_volume_listen_port*]
+#   (optional) What port the API listens on. Defaults to $::os_service_default
+#   If this value is modified the catalog URLs in the keystone::auth class
+#   will also need to be changed to match.
+#
 class cinder::api (
-  $keystone_password,
-  $keystone_enabled            = true,
-  $keystone_tenant             = 'services',
-  $keystone_user               = 'cinder',
-  $auth_uri                    = 'http://localhost:5000/',
-  $identity_uri                = 'http://localhost:35357/',
-  $nova_catalog_info           = 'compute:Compute Service:publicURL',
-  $nova_catalog_admin_info     = 'compute:Compute Service:adminURL',
-  $os_region_name              = $::os_service_default,
-  $privileged_user             = false,
-  $os_privileged_user_name     = $::os_service_default,
-  $os_privileged_user_password = $::os_service_default,
-  $os_privileged_user_tenant   = $::os_service_default,
-  $os_privileged_user_auth_url = $::os_service_default,
-  $keymgr_encryption_auth_url  = $::os_service_default,
-  $service_workers             = $::processorcount,
-  $package_ensure              = 'present',
-  $bind_host                   = '0.0.0.0',
-  $enabled                     = true,
-  $manage_service              = true,
-  $ratelimits                  = $::os_service_default,
-  $default_volume_type         = $::os_service_default,
+  $keystone_enabled               = true,
+  $nova_catalog_info              = 'compute:Compute Service:publicURL',
+  $nova_catalog_admin_info        = 'compute:Compute Service:adminURL',
+  $os_region_name                 = $::os_service_default,
+  $privileged_user                = false,
+  $os_privileged_user_name        = $::os_service_default,
+  $os_privileged_user_password    = $::os_service_default,
+  $os_privileged_user_tenant      = $::os_service_default,
+  $os_privileged_user_auth_url    = $::os_service_default,
+  $keymgr_api_class               = $::os_service_default,
+  $keymgr_encryption_api_url      = $::os_service_default,
+  $keymgr_encryption_auth_url     = $::os_service_default,
+  $service_workers                = $::processorcount,
+  $package_ensure                 = 'present',
+  $bind_host                      = '0.0.0.0',
+  $enabled                        = true,
+  $manage_service                 = true,
+  $ratelimits                     = $::os_service_default,
+  $default_volume_type            = $::os_service_default,
   $ratelimits_factory =
     'cinder.api.v1.limits:RateLimitingMiddleware.factory',
-  $validate                   = false,
-  $sync_db                    = true,
-  $public_endpoint            = $::os_service_default,
-  $osapi_volume_base_url      = $::os_service_default,
-  $osapi_max_limit            = $::os_service_default,
+  $validate                       = false,
+  $sync_db                        = true,
+  $public_endpoint                = $::os_service_default,
+  $osapi_volume_base_url          = $::os_service_default,
+  $osapi_max_limit                = $::os_service_default,
+  $service_name                   = $::cinder::params::api_service,
+  $enable_proxy_headers_parsing   = $::os_service_default,
+  $use_ssl                        = false,
+  $cert_file                      = $::os_service_default,
+  $key_file                       = $::os_service_default,
+  $ca_file                        = $::os_service_default,
+  $auth_strategy                  = 'keystone',
+  $osapi_volume_listen_port       = $::os_service_default,
   # DEPRECATED PARAMETERS
-  $validation_options         = {},
-) {
+  $validation_options             = {},
+  $keystone_tenant                = undef,
+  $keystone_user                  = undef,
+  $keystone_password              = undef,
+  $identity_uri                   = undef,
+  $auth_uri                       = undef,
+  $memcached_servers              = undef,
+) inherits cinder::params {
 
+  include ::cinder::deps
   include ::cinder::params
   include ::cinder::policy
 
-  Cinder_config<||> ~> Service['cinder-api']
-  Cinder_api_paste_ini<||> ~> Service['cinder-api']
-  Class['cinder::policy'] ~> Service['cinder-api']
+  validate_bool($manage_service)
+  validate_bool($enabled)
+
+  # Keep backwards compatibility with SSL values being set in init.pp
+  $use_ssl_real = pick($::cinder::use_ssl, $use_ssl)
+  $cert_file_real = pick($::cinder::cert_file, $cert_file)
+  $key_file_real = pick($::cinder::key_file, $key_file)
+  $ca_file_real = pick($::cinder::ca_file, $ca_file)
+
+  if $identity_uri {
+    warning('cinder::api::identity_uri is deprecated, use cinder::keystone::authtoken::auth_url instead.')
+  }
+  if $auth_uri {
+    warning('cinder::api::auth_uri is deprecated, use cinder::keystone::authtoken::auth_uri instead.')
+  }
+  if $keystone_tenant {
+    warning('cinder::api::keystone_tenant is deprecated, use cinder::keystone::authtoken::project_name instead.')
+  }
+  if $keystone_user {
+    warning('cinder::api::keystone_user is deprecated, use cinder::keystone::authtoken::username instead.')
+  }
+  if $keystone_password {
+    warning('cinder::api::keystone_password is deprecated, use cinder::keystone::authtoken::password instead.')
+  }
+  if $memcached_servers {
+    warning('cinder::api::memcached_servers is deprecated, use cinder::keystone::authtoken::memcached_servers instead.')
+  }
+
+  if $keystone_enabled {
+    warning('keystone_enabled is deprecated, use auth_strategy instead.')
+    $auth_strategy_real = $keystone_enabled
+  } else {
+    $auth_strategy_real = $auth_strategy
+  }
+
+  if $use_ssl_real {
+    if is_service_default($cert_file_real) {
+      fail('The cert_file parameter is required when use_ssl is set to true')
+    }
+    if is_service_default($key_file_real) {
+      fail('The key_file parameter is required when use_ssl is set to true')
+    }
+  }
 
   if $::cinder::params::api_package {
-    Package['cinder-api'] -> Class['cinder::policy']
-    Package['cinder-api'] -> Service['cinder-api']
-    Package['cinder-api'] ~> Exec<| title == 'cinder-manage db_sync' |>
     package { 'cinder-api':
       ensure => $package_ensure,
       name   => $::cinder::params::api_package,
@@ -207,28 +312,49 @@ class cinder::api (
     }
   }
 
-  service { 'cinder-api':
-    ensure    => $ensure,
-    name      => $::cinder::params::api_service,
-    enable    => $enabled,
-    hasstatus => true,
-    require   => Package['cinder'],
-    tag       => 'cinder-service',
+  if $service_name == $::cinder::params::api_service {
+    service { 'cinder-api':
+      ensure    => $ensure,
+      name      => $::cinder::params::api_service,
+      enable    => $enabled,
+      hasstatus => true,
+      tag       => 'cinder-service',
+    }
+
+  } elsif $service_name == 'httpd' {
+    include ::apache::params
+    service { 'cinder-api':
+      ensure => 'stopped',
+      name   => $::cinder::params::api_service,
+      enable => false,
+      tag    => ['cinder-service'],
+    }
+
+    # we need to make sure cinder-api/eventlet is stopped before trying to start apache
+    Service['cinder-api'] -> Service[$service_name]
+  } else {
+    fail("Invalid service_name. Either cinder-api/openstack-cinder-api for \
+running as a standalone service, or httpd for being run by a httpd server")
   }
 
   cinder_config {
-    'DEFAULT/osapi_volume_listen':   value => $bind_host;
-    'DEFAULT/osapi_volume_workers':  value => $service_workers;
-    'DEFAULT/os_region_name':        value => $os_region_name;
-    'DEFAULT/default_volume_type':   value => $default_volume_type;
-    'DEFAULT/public_endpoint':       value => $public_endpoint;
-    'DEFAULT/osapi_volume_base_URL': value => $osapi_volume_base_url;
-    'DEFAULT/osapi_max_limit':       value => $osapi_max_limit;
+    'DEFAULT/osapi_volume_listen':      value => $bind_host;
+    'DEFAULT/osapi_volume_workers':     value => $service_workers;
+    'DEFAULT/os_region_name':           value => $os_region_name;
+    'DEFAULT/default_volume_type':      value => $default_volume_type;
+    'DEFAULT/public_endpoint':          value => $public_endpoint;
+    'DEFAULT/osapi_volume_base_URL':    value => $osapi_volume_base_url;
+    'DEFAULT/osapi_max_limit':          value => $osapi_max_limit;
+    'DEFAULT/osapi_volume_listen_port': value => $osapi_volume_listen_port;
   }
 
   cinder_config {
     'DEFAULT/nova_catalog_info':       value => $nova_catalog_info;
     'DEFAULT/nova_catalog_admin_info': value => $nova_catalog_admin_info;
+  }
+
+  oslo::middleware {'cinder_config':
+    enable_proxy_headers_parsing => $enable_proxy_headers_parsing,
   }
 
   if $privileged_user {
@@ -251,17 +377,21 @@ class cinder::api (
   }
 
   cinder_config {
-    'keystone_authtoken/auth_uri'     : value => $auth_uri;
-    'keystone_authtoken/identity_uri' : value => $identity_uri;
-    'keymgr/encryption_auth_url'      : value => $keymgr_encryption_auth_url;
+    'key_manager/api_class':      value => $keymgr_api_class;
+    'barbican/barbican_endpoint': value => $keymgr_encryption_api_url;
+    'barbican/auth_endpoint':     value => $keymgr_encryption_auth_url;
   }
 
-  if $keystone_enabled {
+  if $auth_strategy_real {
+    include ::cinder::keystone::authtoken
+  }
+
+  # SSL Options
+  if $use_ssl_real {
     cinder_config {
-      'DEFAULT/auth_strategy':                value => 'keystone' ;
-      'keystone_authtoken/admin_tenant_name': value => $keystone_tenant;
-      'keystone_authtoken/admin_user':        value => $keystone_user;
-      'keystone_authtoken/admin_password':    value => $keystone_password, secret => true;
+      'ssl/cert_file' : value => $cert_file_real;
+      'ssl/key_file' :  value => $key_file_real;
+      'ssl/ca_file' :   value => $ca_file_real;
     }
   }
 
@@ -273,9 +403,15 @@ class cinder::api (
   }
 
   if $validate {
+    $keystone_tenant_real = pick($keystone_tenant, $::cinder::keystone::authtoken::project_name)
+    $keystone_username_real = pick($keystone_user, $::cinder::keystone::authtoken::username)
+    $keystone_password_real = pick($keystone_password, $::cinder::keystone::authtoken::password)
+
     $defaults = {
       'cinder-api' => {
-        'command'  => "cinder --os-auth-url ${auth_uri} --os-tenant-name ${keystone_tenant} --os-username ${keystone_user} --os-password ${keystone_password} list",
+        # lint:ignore:140chars
+        'command'  => "cinder --os-auth-url ${::cinder::keystone::authtoken::auth_uri} --os-project-name ${keystone_tenant_real} --os-username ${keystone_username_real} --os-password ${keystone_password_real} list",
+        # lint:endignore
       }
     }
     $validation_options_hash = merge ($defaults, $validation_options)

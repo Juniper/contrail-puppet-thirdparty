@@ -7,12 +7,12 @@
 #   Defaults to 'present'.
 #
 # [*enabled*]
-#   (Optional) The state of the service
-#   Defaults to 'true'.
+#   (Optional) The state of the service (boolean value)
+#   Defaults to true.
 #
 # [*manage_service*]
-#   (Optional) Whether to start/stop the service.
-#   Defaults to 'true'.
+#   (Optional) Whether to start/stop the service (boolean value)
+#   Defaults to true.
 #
 # [*volume_clear*]
 #   (Optional) Method used to wipe old volumes.
@@ -38,15 +38,13 @@ class cinder::volume (
   $volume_clear_ionice = $::os_service_default,
 ) {
 
+  include ::cinder::deps
   include ::cinder::params
 
-  Cinder_config<||> ~> Service['cinder-volume']
-  Cinder_api_paste_ini<||> ~> Service['cinder-volume']
-  Exec<| title == 'cinder-manage db_sync' |> ~> Service['cinder-volume']
+  validate_bool($manage_service)
+  validate_bool($enabled)
 
   if $::cinder::params::volume_package {
-    Package['cinder']        -> Package['cinder-volume']
-    Package['cinder-volume'] -> Service['cinder-volume']
     package { 'cinder-volume':
       ensure => $package_ensure,
       name   => $::cinder::params::volume_package,
@@ -67,7 +65,6 @@ class cinder::volume (
     name      => $::cinder::params::volume_service,
     enable    => $enabled,
     hasstatus => true,
-    require   => Package['cinder'],
     tag       => 'cinder-service',
   }
 

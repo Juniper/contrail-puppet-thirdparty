@@ -24,11 +24,15 @@ describe 'nova::compute' do
         })
       end
 
-      it { is_expected.to contain_nova_config('DEFAULT/network_device_mtu').with(:ensure => 'absent') }
       it { is_expected.to contain_nova_config('DEFAULT/allow_resize_to_same_host').with(:value => 'false') }
       it { is_expected.to contain_nova_config('DEFAULT/vcpu_pin_set').with(:value => '<SERVICE DEFAULT>') }
       it { is_expected.to_not contain_nova_config('vnc/novncproxy_base_url') }
+      it { is_expected.to contain_nova_config('key_manager/api_class').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_nova_config('barbican/barbican_endpoint').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_nova_config('barbican/barbican_api_version').with_value('<SERVICE DEFAULT>') }
+      it { is_expected.to contain_nova_config('barbican/auth_endpoint').with_value('<SERVICE DEFAULT>') }
 
+      it { is_expected.to_not contain_package('cryptsetup').with( :ensure => 'present' )}
 
       it { is_expected.to_not contain_package('bridge-utils').with(
         :ensure => 'present',
@@ -59,7 +63,6 @@ describe 'nova::compute' do
         { :enabled                            => false,
           :ensure_package                     => '2012.1-2',
           :vncproxy_host                      => '127.0.0.1',
-          :network_device_mtu                 => 9999,
           :force_raw_images                   => false,
           :reserved_host_memory               => '0',
           :compute_manager                    => 'ironic.nova.compute.manager.ClusteredComputeManager',
@@ -70,6 +73,10 @@ describe 'nova::compute' do
           :pci_passthrough                    => "[{\"vendor_id\":\"8086\",\"product_id\":\"0126\"},{\"vendor_id\":\"9096\",\"product_id\":\"1520\",\"physical_network\":\"physnet1\"}]",
           :config_drive_format                => 'vfat',
           :vcpu_pin_set                       => ['4-12','^8','15'],
+          :keymgr_api_class                   => 'castellan.key_manager.barbican_key_manager.BarbicanKeyManager',
+          :barbican_endpoint                  => 'http://localhost',
+          :barbican_api_version               => 'v1',
+          :barbican_auth_endpoint             => 'http://127.0.0.1:5000/v3',
         }
       end
 
@@ -93,8 +100,12 @@ describe 'nova::compute' do
         is_expected.to contain_nova_config('DEFAULT/compute_manager').with_value('ironic.nova.compute.manager.ClusteredComputeManager')
       end
 
-      it 'configures network_device_mtu' do
-        is_expected.to contain_nova_config('DEFAULT/network_device_mtu').with_value('9999')
+      it 'configures barbican service' do
+        is_expected.to contain_nova_config('key_manager/api_class').with_value('castellan.key_manager.barbican_key_manager.BarbicanKeyManager')
+        is_expected.to contain_nova_config('barbican/barbican_endpoint').with_value('http://localhost')
+        is_expected.to contain_nova_config('barbican/barbican_api_version').with_value('v1')
+        is_expected.to contain_nova_config('barbican/auth_endpoint').with_value('http://127.0.0.1:5000/v3')
+        is_expected.to contain_package('cryptsetup').with( :ensure => 'present' )
       end
 
       it 'configures vnc in nova.conf' do
@@ -128,6 +139,21 @@ describe 'nova::compute' do
         is_expected.to_not contain_package('genisoimage').with(
           :ensure => 'present',
         )
+      end
+    end
+
+
+    context 'when vcpu_pin_set and pci_passthrough are empty' do
+      let :params do
+        { :vcpu_pin_set    => "",
+          :pci_passthrough => "" }
+      end
+
+      it 'clears vcpu_pin_set configuration' do
+        is_expected.to contain_nova_config('DEFAULT/vcpu_pin_set').with(:value => '<SERVICE DEFAULT>')
+      end
+      it 'clears pci_passthrough configuration' do
+        is_expected.to contain_nova_config('DEFAULT/pci_passthrough_whitelist').with(:value => '<SERVICE DEFAULT>')
       end
     end
 
@@ -227,30 +253,26 @@ describe 'nova::compute' do
     end
   end
 
+  on_supported_os({
+    :supported_os => OSDefaults.get_supported_os
+  }).each do |os,facts|
+    context "on #{os}" do
+      let (:facts) do
+        facts.merge!(OSDefaults.get_facts())
+      end
 
-  context 'on Debian platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'Debian' })
+      let (:platform_params) do
+        case facts[:osfamily]
+        when 'Debian'
+          { :nova_compute_package => 'nova-compute',
+            :nova_compute_service => 'nova-compute' }
+        when 'RedHat'
+          { :nova_compute_package => 'openstack-nova-compute',
+            :nova_compute_service => 'openstack-nova-compute' }
+        end
+      end
+      it_behaves_like 'nova-compute'
     end
-
-    let :platform_params do
-      { :nova_compute_package => 'nova-compute',
-        :nova_compute_service => 'nova-compute' }
-    end
-
-    it_behaves_like 'nova-compute'
   end
 
-  context 'on RedHat platforms' do
-    let :facts do
-      @default_facts.merge({ :osfamily => 'RedHat' })
-    end
-
-    let :platform_params do
-      { :nova_compute_package => 'openstack-nova-compute',
-        :nova_compute_service => 'openstack-nova-compute' }
-    end
-
-    it_behaves_like 'nova-compute'
-  end
 end

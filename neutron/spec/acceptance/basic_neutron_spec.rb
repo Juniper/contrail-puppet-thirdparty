@@ -26,6 +26,7 @@ describe 'basic neutron' do
         provider             => 'rabbitmqctl',
         require              => Class['rabbitmq'],
       }
+      Rabbitmq_user_permissions['neutron@/'] -> Service<| tag == 'neutron-service' |>
 
       # Neutron resources
       class { '::neutron':
@@ -35,12 +36,7 @@ describe 'basic neutron' do
         allow_overlapping_ips => true,
         core_plugin           => 'ml2',
         debug                 => true,
-        verbose               => true,
-        service_plugins => [
-          'neutron.services.l3_router.l3_router_plugin.L3RouterPlugin',
-          'neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPlugin',
-          'neutron.services.metering.metering_plugin.MeteringPlugin',
-        ],
+        service_plugins       => ['router', 'metering'],
       }
       class { '::neutron::db::mysql':
         password => 'a_big_secret',
@@ -48,13 +44,18 @@ describe 'basic neutron' do
       class { '::neutron::keystone::auth':
         password => 'a_big_secret',
       }
+      class { '::neutron::plugins::ml2':
+        type_drivers         => ['vxlan'],
+        tenant_network_types => ['vxlan'],
+        mechanism_drivers    => ['openvswitch'],
+      }
       class { '::neutron::server':
         database_connection => 'mysql+pymysql://neutron:a_big_secret@127.0.0.1/neutron?charset=utf8',
-        auth_password       => 'a_big_secret',
-        identity_uri        => 'http://127.0.0.1:35357/',
+        password            => 'a_big_secret',
+        auth_url            => 'http://127.0.0.1:35357/',
         sync_db             => true,
         service_providers   => [
-          'LOADBALANCER:Haproxy:neutron_lbaas.services.loadbalancer.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default',
+          'LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver'
         ],
       }
       class { '::neutron::client': }
@@ -66,16 +67,16 @@ describe 'basic neutron' do
       }
       class { '::neutron::agents::metering': debug => true }
       class { '::neutron::agents::ml2::ovs':
-        enable_tunneling => true,
         local_ip         => '127.0.0.1',
-        tunnel_types => ['vxlan'],
+        tunnel_types     => ['vxlan'],
+        # Prior to Newton, the neutron-openvswitch-agent used 'ovs-ofctl' of_interface driver by default.
+        # In Newton, 'of_interface' defaults to 'native'.
+        # This mostly eliminates spawning ovs-ofctl and improves performance a little.
+        # Current openstack-selinux does not allow the Ryu controller to listen on 6633 port.
+        # So in the meantime, let's use old interface:
+        of_interface     => 'ovs-ofctl',
+        ovsdb_interface  => 'vsctl',
       }
-      class { '::neutron::plugins::ml2':
-        type_drivers         => ['vxlan'],
-        tenant_network_types => ['vxlan'],
-        mechanism_drivers    => ['openvswitch', 'sriovnicswitch']
-      }
-      class { '::neutron::agents::ml2::sriov': }
       class { '::neutron::services::lbaas::haproxy': }
       class { '::neutron::services::lbaas::octavia': }
       EOS

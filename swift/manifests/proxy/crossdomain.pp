@@ -15,10 +15,12 @@ class swift::proxy::crossdomain (
   $cross_domain_policy = '<allow-access-from domain="*" secure="false" />',
 ) {
 
+  include ::swift::deps
+
   concat::fragment { 'swift_crossdomain':
     target  => '/etc/swift/proxy-server.conf',
     content => template('swift/proxy/crossdomain.conf.erb'),
-    order   => '35',
+    order   => '100',
   }
 
 }

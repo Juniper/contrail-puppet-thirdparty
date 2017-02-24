@@ -15,12 +15,14 @@ define sysctl::value (
   $target = undef,
 ) {
   require sysctl::base
-  $val1 = inline_template("<%= @value.split(/[\s\t]/).reject(&:empty?).flatten.join(\"\t\") %>")
+  $val1 = inline_template("<%= String(@value).split(/[\s\t]/).reject(&:empty?).flatten.join(\"\t\") %>")
 
   sysctl { $key :
-    val     => $val1,
-    target  => $target,
-  } -> sysctl_runtime { $key:
+    val    => $val1,
+    target => $target,
+    before => Sysctl_runtime[$key],
+  }
+  sysctl_runtime { $key:
     val => $val1,
   }
 }

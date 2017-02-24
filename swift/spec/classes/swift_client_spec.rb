@@ -21,7 +21,7 @@ describe 'swift::client' do
       is_expected.to contain_package('swiftclient').with(
         :name   => 'python-swiftclient',
         :ensure => p[:package_ensure],
-        :tag    => 'openstack'
+        :tag    => ['openstack','swift-support-package'],
       )
     end
 
@@ -29,7 +29,7 @@ describe 'swift::client' do
 
   context 'on Debian platform' do
     let :facts do
-      { :osfamily => 'Debian' }
+      OSDefaults.get_facts({ :osfamily => 'Debian' })
     end
 
     it_configures 'swift client'
@@ -37,7 +37,7 @@ describe 'swift::client' do
 
   context 'on RedHat platform' do
     let :facts do
-      { :osfamily => 'RedHat' }
+      OSDefaults.get_facts({ :osfamily => 'RedHat' })
     end
 
     it_configures 'swift client'

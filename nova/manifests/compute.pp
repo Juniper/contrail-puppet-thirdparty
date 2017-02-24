@@ -65,10 +65,6 @@
 #   Applicable only for cases when Neutron was disabled
 #   Defaults to true
 #
-# [*network_device_mtu*]
-#   (optional) The MTU size for the interfaces managed by nova
-#   Defaults to undef
-#
 # [*instance_usage_audit*]
 #   (optional) Generate periodic compute.instance.exists notifications.
 #   Defaults to false
@@ -87,15 +83,10 @@
 #   The amount of memory in MB reserved for the host.
 #   Defaults to '512'
 #
-#  [*compute_manager*]
-#   Compute manager
-#   The driver that will manage the running instances.
-#   Defaults to nova.compute.manager.ComputeManager
-#
 #  [*pci_passthrough*]
-#   (optional) Pci passthrough hash in format of:
-#   Defaults to undef
-#   Example
+#   (optional) Pci passthrough list of hash.
+#   Defaults to $::os_service_default
+#   Example of format:
 #  "[ { 'vendor_id':'1234','product_id':'5678' },
 #     { 'vendor_id':'4321','product_id':'8765','physical_network':'default' } ] "
 #
@@ -113,6 +104,24 @@
 #    for virtual machine processes
 #    Defaults to $::os_service_default
 #
+# [*keymgr_api_class*]
+#   (optional) Key Manager service.
+#   Example of valid value: castellan.key_manager.barbican_key_manager.BarbicanKeyManager
+#   Defaults to $::os_service_default
+#
+# [*barbican_auth_endpoint*]
+#   (optional) Keystone v3 API URL.
+#   Example: http://localhost:5000/v3
+#   Defaults to $::os_service_default
+#
+# [*barbican_endpoint*]
+#   (optional) Barbican URL.
+#   Defaults to $::os_service_default
+#
+# [*barbican_api_version*]
+#   (optional) Barbican API version.
+#   Defaults to $::os_service_default
+#
 # DEPRECATED PARAMETERS
 #
 #  [*default_availability_zone*]
@@ -126,6 +135,15 @@
 #  [*internal_service_availability_zone*]
 #   (optional) The availability zone to show internal services under.
 #   Defaults to undef
+#
+#  [*network_device_mtu*]
+#   (optional) Deprecated. The MTU size for the interfaces managed by nova
+#   Defaults to undef
+#
+#  [*compute_manager*]
+#   Deprecated. Compute manager
+#   The driver that will manage the running instances.
+#   Defaults to $::os_service_default
 #
 class nova::compute (
   $enabled                            = true,
@@ -142,36 +160,71 @@ class nova::compute (
   $virtio_nic                         = false,
   $neutron_enabled                    = true,
   $install_bridge_utils               = true,
-  $network_device_mtu                 = undef,
   $instance_usage_audit               = false,
   $instance_usage_audit_period        = 'month',
   $force_raw_images                   = true,
   $reserved_host_memory               = '512',
-  $compute_manager                    = 'nova.compute.manager.ComputeManager',
   $heal_instance_info_cache_interval  = '60',
-  $pci_passthrough                    = undef,
+  $pci_passthrough                    = $::os_service_default,
   $config_drive_format                = $::os_service_default,
   $allow_resize_to_same_host          = false,
   $vcpu_pin_set                       = $::os_service_default,
+  $keymgr_api_class                   = $::os_service_default,
+  $barbican_auth_endpoint             = $::os_service_default,
+  $barbican_endpoint                  = $::os_service_default,
+  $barbican_api_version               = $::os_service_default,
   # DEPRECATED PARAMETERS
   $default_availability_zone          = undef,
   $default_schedule_zone              = undef,
   $internal_service_availability_zone = undef,
+  $network_device_mtu                 = undef,
+  $compute_manager                    = $::os_service_default,
 ) {
 
   include ::nova::deps
   include ::nova::params
 
   if $default_availability_zone {
-    warning('The default_availability_zone parameter is deprecated and will be removed in a future release. Use default_availability_zone parameter of nova class instead.')
+    warning("The default_availability_zone parameter is deprecated and will be removed in a \
+future release. Use default_availability_zone parameter of nova class instead.")
   }
 
   if $default_schedule_zone {
-    warning('The default_schedule_zone parameter is deprecated and will be removed in a future release. Use default_schedule_zone parameter of nova class instead.')
+    warning("The default_schedule_zone parameter is deprecated and will be removed in a \
+future release. Use default_schedule_zone parameter of nova class instead.")
   }
 
   if $internal_service_availability_zone {
-    warning('The internal_service_availability_zone parameter is deprecated and will be removed in a future release. Use internal_service_availability_zone parameter of nova class instead.')
+    warning("The internal_service_availability_zone parameter is deprecated and will be \
+removed in a future release. Use internal_service_availability_zone parameter of nova class instead.")
+  }
+
+  if $network_device_mtu {
+    warning('network_device_mtu parameter is deprecated, has no effect and will be removed in a future release.')
+  }
+
+  if $compute_manager {
+    warning("compute_manager is marked as deprecated in Nova but still needed when Ironic \
+is used. It will be removed once Nova removes it.")
+  }
+
+  $vcpu_pin_set_real = pick(join(any2array($vcpu_pin_set), ','), $::os_service_default)
+
+  # in the case of pci_passthrough, we can't use the same mechanism as vcpu_pin_set because
+  # the value is computed in a function and it makes things more complex. Let's just check if
+  # a value is set or if it's empty.
+  if !is_service_default($pci_passthrough) and !empty($pci_passthrough) {
+    $pci_passthrough_real = check_array_of_hash($pci_passthrough)
+  } else {
+    $pci_passthrough_real = $::os_service_default
+  }
+
+  # cryptsetup is required when Barbican is encrypting volumes
+  if $keymgr_api_class =~ /barbican/ {
+    ensure_packages('cryptsetup', {
+      ensure => present,
+      tag    => 'openstack',
+    })
   }
 
   include ::nova::availability_zone
@@ -181,7 +234,12 @@ class nova::compute (
     'DEFAULT/compute_manager':                   value => $compute_manager;
     'DEFAULT/heal_instance_info_cache_interval': value => $heal_instance_info_cache_interval;
     'DEFAULT/allow_resize_to_same_host':         value => $allow_resize_to_same_host;
-    'DEFAULT/vcpu_pin_set':                      value => join(any2array($vcpu_pin_set), ',');
+    'DEFAULT/pci_passthrough_whitelist':         value => $pci_passthrough_real;
+    'DEFAULT/vcpu_pin_set':                      value => $vcpu_pin_set_real;
+    'key_manager/api_class':                     value => $keymgr_api_class;
+    'barbican/auth_endpoint':                    value => $barbican_auth_endpoint;
+    'barbican/barbican_endpoint':                value => $barbican_endpoint;
+    'barbican/barbican_api_version':             value => $barbican_api_version;
   }
 
   if ($vnc_enabled) {
@@ -230,16 +288,6 @@ class nova::compute (
     nova_config { 'DEFAULT/libvirt_use_virtio_for_bridges': value => true }
   }
 
-  if $network_device_mtu {
-    nova_config {
-      'DEFAULT/network_device_mtu':   value => $network_device_mtu;
-    }
-  } else {
-    nova_config {
-      'DEFAULT/network_device_mtu':   ensure => absent;
-    }
-  }
-
   if $instance_usage_audit and $instance_usage_audit_period in ['hour', 'day', 'month', 'year'] {
     nova_config {
       'DEFAULT/instance_usage_audit':        value => $instance_usage_audit;
@@ -254,12 +302,6 @@ class nova::compute (
 
   nova_config {
     'DEFAULT/force_raw_images': value => $force_raw_images;
-  }
-
-  if ($pci_passthrough) {
-    nova_config {
-      'DEFAULT/pci_passthrough_whitelist': value => check_array_of_hash($pci_passthrough);
-    }
   }
 
   if is_service_default($config_drive_format) or $config_drive_format == 'iso9660' {

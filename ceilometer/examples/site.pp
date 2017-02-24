@@ -12,9 +12,9 @@ node default {
 
   # Add the base ceilometer class & parameters
   # This class is required by ceilometer agents & api classes
-  # The metering_secret parameter is mandatory
+  # The telemetry_secret parameter is mandatory
   class { '::ceilometer':
-    metering_secret => 'darksecret'
+    telemetry_secret => 'darksecret'
   }
 
   # Configure the ceilometer database
@@ -29,11 +29,12 @@ node default {
   #   require             => Class['mongodb'],
   # }
 
-  # Install the ceilometer-api service
-  # The keystone_password parameter is mandatory
-  class { '::ceilometer::api':
-    keystone_password => 'tralalayouyou'
+  # Configure keystonemiddleware for ceilometer
+  class { '::ceilometer::keystone::authtoken':
+    password => 'tralalayouyou'
   }
+  # Install the ceilometer-api service
+  class { '::ceilometer::api': }
 
   # Set common auth parameters used by all agents (compute/central)
   class { '::ceilometer::agent::auth':

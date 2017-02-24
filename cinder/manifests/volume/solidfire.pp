@@ -65,6 +65,11 @@ class cinder::volume::solidfire(
   $extra_options             = {},
 ) {
 
+  include ::cinder::deps
+
+  warning('Usage of cinder::volume::solidfire is deprecated, please use
+cinder::backend::solidfire instead.')
+
   cinder::backend::solidfire { 'DEFAULT':
     san_ip                    => $san_ip,
     san_login                 => $san_login,

@@ -13,12 +13,12 @@
 #   Defaults to 'present'.
 #
 # [*enabled*]
-#   (Optional) The state of the service
-#   Defaults to 'true'.
+#   (Optional) The state of the service (boolean value)
+#   Defaults to true.
 #
 # [*manage_service*]
-#   (Optional) Whether to start/stop the service
-#   Defaults to 'true'.
+#   (Optional) Whether to start/stop the service (boolean value)
+#   Defaults to true.
 #
 #
 class cinder::scheduler (
@@ -28,16 +28,15 @@ class cinder::scheduler (
   $manage_service   = true
 ) {
 
+  include ::cinder::deps
   include ::cinder::params
 
-  Cinder_config<||> ~> Service['cinder-scheduler']
-  Cinder_api_paste_ini<||> ~> Service['cinder-scheduler']
-  Exec<| title == 'cinder-manage db_sync' |> ~> Service['cinder-scheduler']
+  validate_bool($manage_service)
+  validate_bool($enabled)
 
   cinder_config { 'DEFAULT/scheduler_driver': value => $scheduler_driver; }
 
   if $::cinder::params::scheduler_package {
-    Package['cinder-scheduler'] -> Service['cinder-scheduler']
     package { 'cinder-scheduler':
       ensure => $package_ensure,
       name   => $::cinder::params::scheduler_package,
@@ -58,7 +57,6 @@ class cinder::scheduler (
     name      => $::cinder::params::scheduler_service,
     enable    => $enabled,
     hasstatus => true,
-    require   => Package['cinder'],
     tag       => 'cinder-service',
   }
 }

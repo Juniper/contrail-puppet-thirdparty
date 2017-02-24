@@ -1,17 +1,16 @@
 require 'spec_helper'
 
 describe 'swift::storage::all' do
-  # TODO I am not testing the upstart code b/c it should be temporary
 
   let :facts do
-    {
+    OSDefaults.get_facts({
       :operatingsystem => 'Ubuntu',
-      :osfamily        => 'Debian'
-    }
+      :osfamily        => 'Debian',
+    })
   end
 
   let :pre_condition do
-    "class { 'swift': swift_hash_suffix => 'changeme' }"
+    "class { 'swift': swift_hash_path_suffix => 'changeme' }"
   end
 
   let :default_params do
@@ -65,13 +64,13 @@ describe 'swift::storage::all' do
       ['object', 'container', 'account'].each do |type|
         it { is_expected.to contain_package("swift-#{type}").with_ensure('present') }
         it { is_expected.to contain_service("swift-#{type}-server").with(
-          {:provider  => 'upstart',
+          {:provider  => nil,
            :ensure    => 'running',
            :enable    => true,
            :hasstatus => true
           })}
         it { is_expected.to contain_service("swift-#{type}-replicator").with(
-          {:provider  => 'upstart',
+          {:provider  => nil,
            :ensure    => 'running',
            :enable    => true,
            :hasstatus => true
@@ -124,12 +123,42 @@ describe 'swift::storage::all' do
     end
   end
 
+  describe "when specifying statsd enabled" do
+    let :params do
+      {
+        :storage_local_net_ip           => '127.0.0.1',
+        :statsd_enabled                 => true,
+        :log_statsd_host                => 'statsd.example.com',
+        :log_statsd_port                => '9999',
+        :log_statsd_default_sample_rate => '2.0',
+        :log_statsd_sample_rate_factor  => '1.5',
+        :log_statsd_metric_prefix       => 'foo',
+      }
+    end
+
+    {'object' => '6000', 'container' => '6001', 'account' => '6002'}.each do |type,name|
+      it "should configure statsd in the #{type} config file" do
+       is_expected.to contain_concat_fragment("swift-#{type}-#{name}").with_content(
+         /log_statsd_host = statsd.example.com/
+       ).with_content(
+         /log_statsd_port = 9999/
+       ).with_content(
+         /log_statsd_default_sample_rate = 2.0/
+       ).with_content(
+         /log_statsd_sample_rate_factor = 1.5/
+       ).with_content(
+         /log_statsd_metric_prefix = foo/
+       )
+      end
+    end
+  end
+
   describe "when installed on Debian" do
     let :facts do
-      {
+      OSDefaults.get_facts({
         :operatingsystem => 'Debian',
-        :osfamily        => 'Debian'
-      }
+        :osfamily        => 'Debian',
+      })
     end
 
     [{  :storage_local_net_ip => '127.0.0.1' },
