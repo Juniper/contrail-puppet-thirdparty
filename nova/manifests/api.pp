@@ -460,6 +460,7 @@ as a standalone service, or httpd for being run by a httpd server")
     'DEFAULT/enable_network_quota':               value => $enable_network_quota;
     'DEFAULT/enable_instance_password':           value => $enable_instance_password;
     'DEFAULT/password_length':                    value => $password_length;
+    'neutron/service_metadata_proxy':             value => true;
   }
 
   oslo::middleware {'nova_config':
