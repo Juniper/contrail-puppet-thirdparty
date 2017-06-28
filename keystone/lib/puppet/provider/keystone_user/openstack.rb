@@ -116,6 +116,7 @@ Puppet::Type.type(:keystone_user).provide(
       end
       credentials.password = resource[:password]
       credentials.user_id = id
+      credentials.cacert = '/etc/keystone/ssl/certs/ca.pem'
 
       # NOTE: The only reason we use username is so that the openstack provider
       # will know we are doing v3password auth - otherwise, it is not used.  The
