@@ -467,18 +467,13 @@ as a standalone service, or httpd for being run by a httpd server")
     enable_proxy_headers_parsing => $enable_proxy_headers_parsing,
   }
 
-  #if ($neutron_metadata_proxy_shared_secret){
-    #nova_config {
-      #'neutron/service_metadata_proxy': value => true;
-      #'neutron/metadata_proxy_shared_secret':
-        #value => $neutron_metadata_proxy_shared_secret;
-    #}
-  #} else {
-    #nova_config {
-      #'neutron/service_metadata_proxy':       value  => false;
-      #'neutron/metadata_proxy_shared_secret': ensure => absent;
-    #}
-  #}
+  if ($neutron_metadata_proxy_shared_secret){
+    nova_config {
+      'neutron/service_metadata_proxy': value => true;
+      'neutron/metadata_proxy_shared_secret':
+        value => $neutron_metadata_proxy_shared_secret;
+    }
+  }
 
   if ($ratelimits != undef) {
     nova_paste_api_ini {
