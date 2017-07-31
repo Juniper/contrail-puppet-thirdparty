@@ -322,18 +322,13 @@ class nova::api(
     'neutron/service_metadata_proxy':    value => true;
   }
 
-  #if ($neutron_metadata_proxy_shared_secret){
-    #nova_config {
-      #'neutron/service_metadata_proxy': value => true;
-      #'neutron/metadata_proxy_shared_secret':
-        #value => $neutron_metadata_proxy_shared_secret;
-    #}
-  #} else {
-    #nova_config {
-      #'neutron/service_metadata_proxy':       value  => false;
-      #'neutron/metadata_proxy_shared_secret': ensure => absent;
-    #}
-  #}
+  if ($neutron_metadata_proxy_shared_secret){
+    nova_config {
+      'neutron/service_metadata_proxy': value => true;
+      'neutron/metadata_proxy_shared_secret':
+        value => $neutron_metadata_proxy_shared_secret;
+    }
+  }
 
   if $auth_version {
     warning('auth_version parameter is deprecated and has no effect during Mitaka and will be dropped during N cycle.')
