@@ -56,6 +56,20 @@
 #   (optional) Use HA queues in RabbitMQ (x-ha-policy: all).
 #   Defaults to $::os_service_default
 #
+# [*rabbit_retry_interval*]
+#   (Optional) How frequently to retry connecting with RabbitMQ.
+#   (integer value)
+#   Defaults to $::os_service_default
+#
+# [*rabbit_retry_backoff*]
+#   (Optional) How long to backoff for between retries when connecting
+#   to RabbitMQ. (integer value)
+#   Defaults to $::os_service_default
+#
+# [*rabbit_max_retries*]
+#   (Optional) Maximum number of RabbitMQ connection retries. (integer value)
+#   Defaults to $::os_service_default
+#
 # [*rabbit_heartbeat_timeout_threshold*]
 #   (optional) Number of seconds after which the RabbitMQ broker is considered
 #   down if the heartbeat keepalive fails.  Any value >0 enables heartbeats.
@@ -324,6 +338,9 @@ class cinder (
   $rabbit_ha_queues                   = $::os_service_default,
   $rabbit_heartbeat_timeout_threshold = $::os_service_default,
   $rabbit_heartbeat_rate              = $::os_service_default,
+  $rabbit_retry_interval              = $::os_service_default,
+  $rabbit_retry_backoff               = $::os_service_default,
+  $rabbit_max_retries                 = $::os_service_default,
   $rabbit_userid                      = $::os_service_default,
   $rabbit_password                    = $::os_service_default,
   $rabbit_use_ssl                     = $::os_service_default,
@@ -417,6 +434,9 @@ class cinder (
       rabbit_port                 => $rabbit_port,
       rabbit_hosts                => $rabbit_hosts,
       rabbit_ha_queues            => $rabbit_ha_queues,
+      rabbit_retry_interval       => $rabbit_retry_interval,
+      rabbit_retry_backoff        => $rabbit_retry_backoff,
+      rabbit_max_retries          => $rabbit_max_retries,
       heartbeat_timeout_threshold => $rabbit_heartbeat_timeout_threshold,
       heartbeat_rate              => $rabbit_heartbeat_rate,
       rabbit_use_ssl              => $rabbit_use_ssl,
