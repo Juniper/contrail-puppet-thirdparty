@@ -53,8 +53,6 @@ class nova::vncproxy(
     'DEFAULT/novncproxy_port': value => $port;
   }
 
-  include ::nova::vncproxy::common
-
   if ! defined(Package['python-numpy']) {
     package { 'python-numpy':
       ensure => present,
