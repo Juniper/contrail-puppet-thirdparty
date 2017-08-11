@@ -185,8 +185,6 @@ class nova::compute (
   }
 
   if ($vnc_enabled) {
-    include ::nova::vncproxy::common
-
     nova_config {
       'vnc/vncserver_proxyclient_address': value =>
         $vncserver_proxyclient_address;
