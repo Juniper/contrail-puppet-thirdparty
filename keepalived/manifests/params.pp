@@ -8,7 +8,7 @@ class keepalived::params {
 
   # for contrail HA, use correct keepalived version for centos
   if ($lsbdistrelease == "16.04") {
-      $pkg_ensure = '1:1.2.23~ubuntu16.04.1'
+      $pkg_ensure = '1:1.2.23~ubuntu14.04.1'
   } elsif ($lsbdistrelease == "14.04") {
       $pkg_ensure = '1:1.2.23~ubuntu14.04.1'
   } elsif ($::operatingsystem == 'Centos' or $::operatingsystem == 'Fedora') {
